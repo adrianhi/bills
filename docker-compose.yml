@@ -1,0 +1,59 @@
+services:
+  # 1. Base de Datos PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: bills_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bills_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - bills_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bills_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Banco BHD Transaction Tracker API & Dashboard
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bills_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - API_KEY=bhd_secret_token_123456
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/bills_db?schema=public
+      - CORS_ORIGIN=*
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # 3. n8n Workflow Automation Engine
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: bills_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=America/Santo_Domingo
+      - TZ=America/Santo_Domingo
+    volumes:
+      - bills_n8n_data:/home/node/.n8n
+    depends_on:
+      - api
+
+volumes:
+  bills_postgres_data:
+  bills_n8n_data:

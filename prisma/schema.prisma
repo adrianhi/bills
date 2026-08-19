@@ -1,0 +1,47 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Transaction {
+  id              String   @id @default(uuid())
+  externalId      String   @unique @map("external_id")
+  cardLast4       String?  @map("card_last_4")
+  cardType        String?  @map("card_type")
+  rawMerchant     String   @map("raw_merchant")
+  merchant        String
+  category        String
+  amount          Float
+  currency        String   @default("DOP")
+  status          String   @default("Aprobada")
+  transactionType String   @default("Compra") @map("transaction_type")
+  transactionDate DateTime @map("transaction_date")
+  source          String   @default("BHD_EMAIL")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([transactionDate])
+  @@index([category])
+  @@index([currency])
+  @@index([merchant])
+  @@map("transactions")
+}
+
+model CategoryRule {
+  id                 String   @id @default(uuid())
+  pattern            String   @unique
+  normalizedMerchant String   @map("normalized_merchant")
+  category           String
+  priority           Int      @default(0)
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("category_rules")
+}

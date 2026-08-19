@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Banco BHD - Expense Tracker & API</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar / Brand Header -->
+    <header class="top-nav">
+      <div class="brand-section">
+        <div class="logo-badge">
+          <span class="logo-bhd">BHD</span>
+          <span class="logo-sub">Tracker</span>
+        </div>
+        <div class="system-status">
+          <span class="status-dot"></span>
+          <span class="status-text">API Online</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <button class="btn btn-secondary" id="btnOpenRules">
+          <i data-lucide="sliders"></i> Reglas de Categoría
+        </button>
+        <button class="btn btn-primary" id="btnOpenSimulator">
+          <i data-lucide="zap"></i> Simulador / Webhook
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- KPI Metrics Cards -->
+      <section class="kpi-grid">
+        <div class="kpi-card card-dop">
+          <div class="kpi-icon-wrap">
+            <i data-lucide="wallet"></i>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Gastos del Período (DOP)</span>
+            <h2 class="kpi-value" id="kpiTotalDop">RD$ 0.00</h2>
+            <span class="kpi-subtext" id="kpiDopCount">0 transacciones</span>
+          </div>
+        </div>
+
+        <div class="kpi-card card-usd">
+          <div class="kpi-icon-wrap">
+            <i data-lucide="dollar-sign"></i>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Gastos del Período (USD)</span>
+            <h2 class="kpi-value" id="kpiTotalUsd">US$ 0.00</h2>
+            <span class="kpi-subtext" id="kpiUsdCount">0 transacciones</span>
+          </div>
+        </div>
+
+        <div class="kpi-card card-count">
+          <div class="kpi-icon-wrap">
+            <i data-lucide="receipt"></i>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Total Transacciones</span>
+            <h2 class="kpi-value" id="kpiTotalCount">0</h2>
+            <span class="kpi-subtext">Registradas en DB</span>
+          </div>
+        </div>
+
+        <div class="kpi-card card-top">
+          <div class="kpi-icon-wrap">
+            <i data-lucide="pie-chart"></i>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Categoría Principal</span>
+            <h2 class="kpi-value" id="kpiTopCategory">-</h2>
+            <span class="kpi-subtext" id="kpiTopCategoryAmount">RD$ 0.00</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Category Distribution Bar -->
+      <section class="category-breakdown-card">
+        <div class="section-header">
+          <h3>Distribución de Gastos por Categoría</h3>
+          <span class="period-badge" id="currentPeriodLabel">Mes Actual</span>
+        </div>
+        <div class="category-bars-container" id="categoryBarsContainer">
+          <div class="empty-state-mini">Cargando métricas...</div>
+        </div>
+      </section>
+
+      <!-- Filter and Data Controls Bar -->
+      <section class="table-section">
+        <div class="controls-toolbar">
+          <div class="search-box">
+            <i data-lucide="search"></i>
+            <input type="text" id="searchInput" placeholder="Buscar comercio, notas o tarjeta..." />
+          </div>
+
+          <div class="filter-group">
+            <div class="select-wrap">
+              <label for="monthFilter">Mes:</label>
+              <input type="month" id="monthFilter" class="input-control" />
+            </div>
+
+            <div class="select-wrap">
+              <label for="categoryFilter">Categoría:</label>
+              <select id="categoryFilter" class="input-control">
+                <option value="">Todas</option>
+                <option value="Supermercado">Supermercado</option>
+                <option value="Restaurantes & Delivery">Restaurantes & Delivery</option>
+                <option value="Transporte">Transporte</option>
+                <option value="Combustible">Combustible</option>
+                <option value="Salud & Farmacia">Salud & Farmacia</option>
+                <option value="Servicios">Servicios</option>
+                <option value="Suscripciones">Suscripciones</option>
+                <option value="Tecnología">Tecnología</option>
+                <option value="Compras Online">Compras Online</option>
+                <option value="Hogar">Hogar</option>
+                <option value="Ropa & Moda">Ropa & Moda</option>
+                <option value="Entretenimiento">Entretenimiento</option>
+                <option value="Otros">Otros</option>
+              </select>
+            </div>
+
+            <div class="select-wrap">
+              <label for="currencyFilter">Moneda:</label>
+              <select id="currencyFilter" class="input-control">
+                <option value="">Todas</option>
+                <option value="DOP">DOP (RD$)</option>
+                <option value="USD">USD ($)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-secondary" id="btnResetFilters" title="Limpiar Filtros">
+              <i data-lucide="rotate-ccw"></i>
+            </button>
+          </div>
+
+          <div class="export-group">
+            <button class="btn btn-export btn-csv" id="btnExportCsv">
+              <i data-lucide="file-spreadsheet"></i> Exportar CSV
+            </button>
+            <button class="btn btn-export btn-json" id="btnExportJson">
+              <i data-lucide="code"></i> Exportar JSON
+            </button>
+          </div>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="table-container">
+          <table class="data-table" id="transactionsTable">
+            <thead>
+              <tr>
+                <th>Fecha / Hora</th>
+                <th>Comercio Normalizado</th>
+                <th>Comercio Original (BHD)</th>
+                <th>Categoría</th>
+                <th>Tarjeta</th>
+                <th>Monto</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="transactionsTbody">
+              <tr>
+                <td colspan="8" class="text-center py-6">Cargando transacciones...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Bar -->
+        <div class="pagination-bar">
+          <span class="pagination-info" id="paginationInfo">Mostrando 0 de 0</span>
+          <div class="pagination-controls">
+            <button class="btn btn-sm" id="btnPrevPage" disabled><i data-lucide="chevron-left"></i> Anterior</button>
+            <span class="page-current" id="pageCurrent">1</span>
+            <button class="btn btn-sm" id="btnNextPage" disabled>Siguiente <i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modal: Simulator / Ingestion Tester -->
+    <div class="modal-overlay" id="simulatorModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title">
+            <i data-lucide="zap"></i>
+            <h3>Simulador de Notificación Banco BHD</h3>
+          </div>
+          <button class="modal-close" id="btnCloseSimulator">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            Prueba cómo la API ingesta, normaliza comercios y categoriza notificaciones automáticamente.
+          </p>
+
+          <div class="template-selector">
+            <label>Plantillas Rápidas BHD:</label>
+            <div class="template-buttons">
+              <button class="btn btn-xs btn-outline" onclick="loadTemplate('bravo')">Supermercado Bravo</button>
+              <button class="btn btn-xs btn-outline" onclick="loadTemplate('pedidosya')">PedidosYa Delivery</button>
+              <button class="btn btn-xs btn-outline" onclick="loadTemplate('uber')">Uber Trip</button>
+              <button class="btn btn-xs btn-outline" onclick="loadTemplate('netflix')">Netflix (USD)</button>
+              <button class="btn btn-xs btn-outline" onclick="loadTemplate('gas')">Total Gasolinera</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="simPayload">Payload JSON (Contrato n8n -> API):</label>
+            <textarea id="simPayload" class="code-editor" rows="12"></textarea>
+          </div>
+
+          <div id="simulatorResult" class="sim-result-box hidden"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnGenerateId">Nuevo External ID</button>
+          <button class="btn btn-primary" id="btnSendSimulation">
+            <i data-lucide="send"></i> Enviar a POST /api/v1/transactions
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Category Rules Manager -->
+    <div class="modal-overlay" id="rulesModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title">
+            <i data-lucide="sliders"></i>
+            <h3>Reglas de Categorización</h3>
+          </div>
+          <button class="modal-close" id="btnCloseRules">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            Agrega reglas personalizadas para normalizar nombres de comercios y asignarles categorías automáticamente al recibirlas de n8n.
+          </p>
+
+          <form id="addRuleForm" class="rule-form">
+            <div class="form-row">
+              <input type="text" id="rulePattern" placeholder="Patrón / Regex (ej: OLE CHURCHILL)" required />
+              <input type="text" id="ruleMerchant" placeholder="Nombre Limpio (ej: Hipermercados Olé)" required />
+              <select id="ruleCategory" required>
+                <option value="Supermercado">Supermercado</option>
+                <option value="Restaurantes & Delivery">Restaurantes & Delivery</option>
+                <option value="Transporte">Transporte</option>
+                <option value="Combustible">Combustible</option>
+                <option value="Salud & Farmacia">Salud & Farmacia</option>
+                <option value="Servicios">Servicios</option>
+                <option value="Suscripciones">Suscripciones</option>
+                <option value="Tecnología">Tecnología</option>
+                <option value="Compras Online">Compras Online</option>
+                <option value="Hogar">Hogar</option>
+                <option value="Ropa & Moda">Ropa & Moda</option>
+                <option value="Entretenimiento">Entretenimiento</option>
+                <option value="Otros">Otros</option>
+              </select>
+              <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="plus"></i> Agregar</button>
+            </div>
+          </form>
+
+          <div class="rules-list-container">
+            <h4>Reglas Personalizadas en Base de Datos</h4>
+            <div id="rulesList" class="rules-list">Cargando reglas...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
