@@ -33,6 +33,7 @@ services:
       - API_KEY=bhd_secret_token_123456
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/bills_db?schema=public
       - DIRECT_URL=postgresql://postgres:postgres@postgres:5432/bills_db?schema=public
+      - DASHBOARD_PIN=${DASHBOARD_PIN:-0819}
       - CORS_ORIGIN=*
     depends_on:
       postgres:

@@ -6,7 +6,8 @@ import {
   Download, 
   Calendar, 
   RefreshCw,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Lock
 } from 'lucide-react';
 import { Button } from './ui/button';
 
@@ -20,6 +21,7 @@ interface NavbarProps {
   onRefresh: () => void;
   onOpenRules: () => void;
   onExport: () => void;
+  onLock: () => void;
   loading: boolean;
 }
 
@@ -33,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onRefresh,
   onOpenRules,
   onExport,
+  onLock,
   loading,
 }) => {
   // Generate list of recent 12 months for selector
@@ -82,11 +85,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              onClick={onRefresh}
-              disabled={loading}
-              className="h-9 w-9"
+              onClick={onLock}
+              className="h-9 w-9 text-muted-foreground"
+              title="Bloquear sesión"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <Lock className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -156,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden sm:inline">Exportar</span>
           </Button>
 
-          {/* Desktop Refresh & Theme */}
+          {/* Desktop Refresh & Theme & Lock */}
           <div className="hidden md:flex items-center gap-1.5 border-l pl-2.5 ml-1">
             <Button
               variant="ghost"
@@ -176,6 +179,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               title={darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
             >
               {darkMode ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onLock}
+              className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
+              title="Bloquear sesión"
+            >
+              <Lock className="h-4 w-4" />
             </Button>
           </div>
 

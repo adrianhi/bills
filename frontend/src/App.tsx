@@ -6,9 +6,19 @@ import { DailySpendingChart } from './components/DailySpendingChart';
 import { TransactionTable } from './components/TransactionTable';
 import { EditTransactionModal } from './components/EditTransactionModal';
 import { RulesManagerModal } from './components/RulesManagerModal';
+import { PinLockScreen } from './components/PinLockScreen';
 import type { Transaction, StatsSummary } from './types';
 
 export function App() {
+  // Auth State
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    return (
+      localStorage.getItem('bills_device_token') ||
+      sessionStorage.getItem('bills_session_token') ||
+      null
+    );
+  });
+
   // Theme State
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('bills_theme');
@@ -34,7 +44,7 @@ export function App() {
   const [stats, setStats] = useState<StatsSummary | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [totalTransactions, setTotalTransactions] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Modals State
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -52,25 +62,48 @@ export function App() {
     }
   }, [darkMode]);
 
+  // Handle Unlock
+  const handleUnlock = (token: string, remember: boolean) => {
+    setAuthToken(token);
+    if (remember) {
+      localStorage.setItem('bills_device_token', token);
+    } else {
+      sessionStorage.setItem('bills_session_token', token);
+    }
+  };
+
+  // Handle Lock
+  const handleLock = () => {
+    setAuthToken(null);
+    localStorage.removeItem('bills_device_token');
+    sessionStorage.removeItem('bills_session_token');
+  };
+
   // Fetch Stats
   const fetchStats = useCallback(async () => {
+    if (!authToken) return;
     try {
       const params = new URLSearchParams({
         month: selectedMonth,
         currency,
       });
-      const res = await fetch(`/api/v1/stats/summary?${params.toString()}`);
+      const res = await fetch(`/api/v1/stats/summary?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
       if (res.ok) {
         const json = await res.json();
         setStats(json.data);
+      } else if (res.status === 401) {
+        handleLock();
       }
     } catch (err) {
       console.error('Error fetching stats:', err);
     }
-  }, [selectedMonth, currency]);
+  }, [selectedMonth, currency, authToken]);
 
   // Fetch Transactions
   const fetchTransactions = useCallback(async () => {
+    if (!authToken) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -83,24 +116,30 @@ export function App() {
       if (categoryFilter) params.append('category', categoryFilter);
       if (statusFilter) params.append('status', statusFilter);
 
-      const res = await fetch(`/api/v1/transactions?${params.toString()}`);
+      const res = await fetch(`/api/v1/transactions?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
       if (res.ok) {
         const json = await res.json();
         setTransactions(json.data || []);
         setTotalTransactions(json.pagination?.total || 0);
+      } else if (res.status === 401) {
+        handleLock();
       }
     } catch (err) {
       console.error('Error fetching transactions:', err);
     } finally {
       setLoading(false);
     }
-  }, [page, limit, selectedMonth, currency, search, categoryFilter, statusFilter]);
+  }, [page, limit, selectedMonth, currency, search, categoryFilter, statusFilter, authToken]);
 
   // Refresh All
   const refreshAll = useCallback(() => {
-    fetchStats();
-    fetchTransactions();
-  }, [fetchStats, fetchTransactions]);
+    if (authToken) {
+      fetchStats();
+      fetchTransactions();
+    }
+  }, [authToken, fetchStats, fetchTransactions]);
 
   useEffect(() => {
     refreshAll();
@@ -115,7 +154,10 @@ export function App() {
   ) => {
     const res = await fetch(`/api/v1/transactions/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
       body: JSON.stringify({ merchant, category, notes }),
     });
     if (res.ok) {
@@ -136,6 +178,11 @@ export function App() {
     window.open(`/api/v1/transactions/export?${params.toString()}`, '_blank');
   };
 
+  // If not authenticated, render PIN lock screen
+  if (!authToken) {
+    return <PinLockScreen onUnlock={handleUnlock} />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col antialiased">
       
@@ -150,6 +197,7 @@ export function App() {
         onRefresh={refreshAll}
         onOpenRules={() => setIsRulesModalOpen(true)}
         onExport={handleExport}
+        onLock={handleLock}
         loading={loading}
       />
 
