@@ -1,52 +1,34 @@
 {
-  "name": "bills-transaction-tracker",
+  "name": "bills-monorepo",
   "version": "1.0.0",
-  "description": "Banco BHD Transaction Ingestion API & Expense Tracker with n8n workflow",
-  "main": "dist/server.js",
+  "private": true,
+  "description": "Banco BHD & Multi-Bank Expense Tracker Monorepo",
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "npm run build --prefix frontend && prisma generate && tsc",
-    "start": "node dist/server.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:push": "prisma db push",
-    "prisma:studio": "prisma studio",
-    "db:push": "prisma db push",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "dev": "npm run dev --prefix apps/api",
+    "dev:web": "npm run dev --prefix apps/web",
+    "dev:api": "npm run dev --prefix apps/api",
+    "build:web": "npm run build --prefix apps/web",
+    "build:api": "npm run build --prefix apps/api",
+    "build": "npm run build:web && npm run build:api",
+    "start": "node apps/api/dist/server.js",
+    "test": "npm run test --prefix apps/api",
+    "prisma:generate": "npm run prisma:generate --prefix apps/api",
+    "prisma:push": "npm run prisma:push --prefix apps/api",
+    "prisma:studio": "npm run prisma:studio --prefix apps/api"
   },
   "keywords": [
     "bhd",
     "n8n",
     "transactions",
     "finance",
-    "expense-tracker",
-    "express",
-    "prisma",
-    "typescript"
+    "monorepo",
+    "fsd",
+    "react",
+    "express"
   ],
   "author": "Adrian Hidalgo",
-  "license": "MIT",
-  "dependencies": {
-    "@prisma/client": "^6.4.1",
-    "cors": "^2.8.5",
-    "csv-stringify": "^6.5.2",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "helmet": "^8.0.0",
-    "morgan": "^1.10.0",
-    "zod": "^3.24.2"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/morgan": "^1.9.9",
-    "@types/node": "^22.13.5",
-    "@types/supertest": "^6.0.2",
-    "prisma": "^6.4.1",
-    "supertest": "^7.0.0",
-    "tsx": "^4.19.3",
-    "typescript": "^5.7.3",
-    "vitest": "^3.0.6"
-  }
+  "license": "MIT"
 }
