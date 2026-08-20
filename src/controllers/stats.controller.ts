@@ -10,6 +10,7 @@ export class StatsController {
   public static async getSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const month = req.query.month as string | undefined;
+      const requestedCurrency = ((req.query.currency as string) || 'DOP').toUpperCase();
 
       let dateFilter = {};
       if (month && /^\d{4}-\d{2}$/.test(month)) {
@@ -30,7 +31,11 @@ export class StatsController {
             currency: true,
             category: true,
             merchant: true,
+            status: true,
             transactionDate: true,
+          },
+          orderBy: {
+            transactionDate: 'asc',
           },
         }),
         prisma.transaction.count({ where }),
@@ -38,54 +43,128 @@ export class StatsController {
 
       let totalDOP = 0;
       let totalUSD = 0;
-      const byCategory: Record<string, { totalDOP: number; totalUSD: number; count: number }> = {};
-      const byMerchant: Record<string, { totalDOP: number; totalUSD: number; count: number }> = {};
+      let approvedCount = 0;
+      let rejectedCount = 0;
+
+      const byCategoryMap: Record<string, { total: number; totalDOP: number; totalUSD: number; count: number }> = {};
+      const byMerchantMap: Record<string, { total: number; totalDOP: number; totalUSD: number; count: number }> = {};
+      const dailyTrendMap: Record<string, { total: number; count: number }> = {};
 
       for (const t of transactions) {
+        const isRejected = /rechazad|declinad|denegad/i.test(t.status || '');
+        if (isRejected) {
+          rejectedCount++;
+        } else {
+          approvedCount++;
+        }
+
         if (t.currency === 'USD') {
           totalUSD += t.amount;
         } else {
           totalDOP += t.amount;
         }
 
+        const isMatchingCurrency = t.currency.toUpperCase() === requestedCurrency;
+
         // Group by category
-        if (!byCategory[t.category]) {
-          byCategory[t.category] = { totalDOP: 0, totalUSD: 0, count: 0 };
+        if (!byCategoryMap[t.category]) {
+          byCategoryMap[t.category] = { total: 0, totalDOP: 0, totalUSD: 0, count: 0 };
         }
         if (t.currency === 'USD') {
-          byCategory[t.category].totalUSD += t.amount;
+          byCategoryMap[t.category].totalUSD += t.amount;
         } else {
-          byCategory[t.category].totalDOP += t.amount;
+          byCategoryMap[t.category].totalDOP += t.amount;
         }
-        byCategory[t.category].count++;
+        if (isMatchingCurrency && !isRejected) {
+          byCategoryMap[t.category].total += t.amount;
+        }
+        byCategoryMap[t.category].count++;
 
         // Group by merchant
-        if (!byMerchant[t.merchant]) {
-          byMerchant[t.merchant] = { totalDOP: 0, totalUSD: 0, count: 0 };
+        if (!byMerchantMap[t.merchant]) {
+          byMerchantMap[t.merchant] = { total: 0, totalDOP: 0, totalUSD: 0, count: 0 };
         }
         if (t.currency === 'USD') {
-          byMerchant[t.merchant].totalUSD += t.amount;
+          byMerchantMap[t.merchant].totalUSD += t.amount;
         } else {
-          byMerchant[t.merchant].totalDOP += t.amount;
+          byMerchantMap[t.merchant].totalDOP += t.amount;
         }
-        byMerchant[t.merchant].count++;
+        if (isMatchingCurrency && !isRejected) {
+          byMerchantMap[t.merchant].total += t.amount;
+        }
+        byMerchantMap[t.merchant].count++;
+
+        // Daily trend (Santo Domingo local time YYYY-MM-DD)
+        if (isMatchingCurrency && !isRejected) {
+          const dateKey = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Santo_Domingo',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(new Date(t.transactionDate));
+
+          if (!dailyTrendMap[dateKey]) {
+            dailyTrendMap[dateKey] = { total: 0, count: 0 };
+          }
+          dailyTrendMap[dateKey].total += t.amount;
+          dailyTrendMap[dateKey].count++;
+        }
       }
 
-      // Sort top merchants by DOP
-      const topMerchants = Object.entries(byMerchant)
-        .map(([name, data]) => ({ name, ...data }))
-        .sort((a, b) => b.totalDOP - a.totalDOP)
+      const totalAmount = requestedCurrency === 'USD' ? totalUSD : totalDOP;
+
+      // Calculate category array with percentages
+      const byCategory = Object.entries(byCategoryMap)
+        .map(([category, data]) => ({
+          category,
+          total: Math.round(data.total * 100) / 100,
+          count: data.count,
+          percentage: totalAmount > 0 ? Math.round((data.total / totalAmount) * 100) : 0,
+        }))
+        .sort((a, b) => b.total - a.total);
+
+      // Top merchants
+      const topMerchants = Object.entries(byMerchantMap)
+        .map(([name, data]) => ({
+          name,
+          merchant: name,
+          total: Math.round(data.total * 100) / 100,
+          totalDOP: Math.round(data.totalDOP * 100) / 100,
+          totalUSD: Math.round(data.totalUSD * 100) / 100,
+          count: data.count,
+        }))
+        .sort((a, b) => b.total - a.total)
         .slice(0, 10);
+
+      // Daily trend array
+      const dailyTrend = Object.entries(dailyTrendMap)
+        .map(([date, data]) => ({
+          date,
+          total: Math.round(data.total * 100) / 100,
+          count: data.count,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      const activeDays = Object.keys(dailyTrendMap).length || 1;
+      const dailyAverage = Math.round((totalAmount / activeDays) * 100) / 100;
 
       res.status(200).json({
         success: true,
         data: {
           period: month || 'all-time',
+          totalAmount: Math.round(totalAmount * 100) / 100,
           totalTransactions: totalCount,
+          approvedCount,
+          rejectedCount,
+          currency: requestedCurrency,
+          dailyAverage,
           totalSpentDOP: Math.round(totalDOP * 100) / 100,
           totalSpentUSD: Math.round(totalUSD * 100) / 100,
-          categoryBreakdown: byCategory,
+          byCategory,
+          byMerchant: topMerchants,
           topMerchants,
+          categoryBreakdown: byCategoryMap,
+          dailyTrend,
         },
       });
     } catch (error) {

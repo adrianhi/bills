@@ -3,16 +3,23 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# 1. Install root dependencies
 COPY package*.json tsconfig.json ./
 COPY prisma ./prisma/
-
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/bills_db"
+ENV DIRECT_URL="postgresql://postgres:postgres@localhost:5432/bills_db"
 RUN npm install
 RUN npx prisma generate
 
-COPY src ./src
-COPY public ./public
+# 2. Build React frontend
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm install
+COPY frontend ./frontend
+RUN cd frontend && npm run build
 
-RUN npm run build
+# 3. Build backend
+COPY src ./src
+RUN npx tsc
 
 # Stage 2: Production Runner
 FROM node:22-alpine AS runner
