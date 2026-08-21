@@ -82,6 +82,58 @@ describe('Banco BHD Multi-Type Parser Engine', () => {
     expect(d.getUTCMinutes()).toBe(15);
   });
 
+  it('should ignore interim "Notificación Pagos al Instante en Proceso" emails', () => {
+    const rawHtml = `
+      <table align="center" width="650"><tbody>
+        <tr><td><p>Producto origen: DO97BPDOXXXXXXXXXXXXXXXX0016</p></td></tr>
+        <tr><td><p>Producto destino: DO46BCBHXXXXXXXXXXXXXX1416</p></td></tr>
+        <tr><td><p>Monto: RD$1,500.00</p></td></tr>
+        <tr><td><p>Beneficiario: YEISALY COLLADO ROSARI</p></td></tr>
+        <tr><td><p>Fecha y hora de la transaccion: 13/08/2026 - 08:00 AM</p></td></tr>
+        <tr><td><p>Tipo de transaccion: Transacciones entre productos BHD y a otros bancos.</p></td></tr>
+      </tbody></table>
+    `;
+
+    const result = parseBhdNotification({
+      id: '1a00bhd_in_process',
+      subject: 'Notificación Pagos al Instante en Proceso - Beneficiario: YEISALY COLLADO ROSARI',
+      date: '2026-08-13T12:00:00.000Z',
+      html: rawHtml,
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it('should parse confirmed Sent Transfer email following an in-process notification', () => {
+    const rawHtml = `
+      <table align="center" width="650"><tbody>
+        <tr><td><p>A continuacion la informacion relacionada a tu transaccion:</p></td></tr>
+        <tr><td><p>Producto origen: DO60BCBH000000000XXXXXXX0016</p></td></tr>
+        <tr><td><p>Producto destino: DO90BPDO0000000000000XXXXX1416</p></td></tr>
+        <tr><td><p>Monto: RD$ 1,500.00</p></td></tr>
+        <tr><td><p>Beneficiario: YEISALY COLLADO ROSARIO</p></td></tr>
+        <tr><td><p>Numero de confirmacion: M11-1786-6224-5741-3</p></td></tr>
+        <tr><td><p>Fecha y hora de la transaccion: 13/08/2026 - 8:01 AM</p></td></tr>
+        <tr><td><p>Tipo de transaccion: Transacciones entre productos BHD y a otros bancos.</p></td></tr>
+      </tbody></table>
+    `;
+
+    const result = parseBhdNotification({
+      id: '1a00bhd_confirmed',
+      subject: 'Transacciones entre productos BHD y a otros Bancos - Beneficiario: YEISALY COLLADO ROSARIO',
+      date: '2026-08-13T12:01:00.000Z',
+      html: rawHtml,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result.merchant).toBe('Yeisaly Collado Rosario');
+    expect(result.amount).toBe(1500.0);
+    expect(result.currency).toBe('DOP');
+    expect(result.cardLast4).toBe('0016');
+    expect(result.externalId).toBe('bhd_conf_M111786622457413');
+    expect(result.status).toBe('Aprobada');
+  });
+
   it('should ignore promotional emails like EVA virtual assistant', () => {
     const rawHtml = `
       <html><body><p>Conoce a EVA, tu nueva agente virtual BHD</p></body></html>

@@ -104,9 +104,11 @@ function parseAmount(amountStr) {
 function parseBhdNotification(item) {
   const data = item.json || item;
   
+  const rawSubject = data.subject || data.headers?.subject || '';
   const rawHtml = data.html || data.textHtml || data.textAsHtml || data.body || '';
   const rawText = data.text || data.textPlain || data.snippet || '';
-  const fullContent = rawHtml ? stripHtml(rawHtml) : decodeHtmlEntities(rawText).replace(/\s+/g, ' ').trim();
+  const bodyText = rawHtml ? stripHtml(rawHtml) : decodeHtmlEntities(rawText);
+  const fullContent = `${rawSubject} ${bodyText}`.replace(/\s+/g, ' ').trim();
   const externalId = data.messageId || data.id || `bhd_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const emailDateFallback = data.date || data.internalDate || data.headers?.date || null;
 
@@ -116,6 +118,17 @@ function parseBhdNotification(item) {
 
   if (!isFinancialEmail && /EVA|promocion|actualiza/i.test(fullContent)) {
     return null; // Ignore promotional emails
+  }
+
+  // 0.1 Filtrar notificaciones temporales / intermedias en proceso (ej. "Notificación Pagos al Instante en Proceso")
+  // BHD siempre emite el comprobante definitivo con "Número de confirmación" segundos/minutos después.
+  const isInterimInProgress =
+    /Pagos?\s+al\s+Instante\s+en\s+Proceso/i.test(fullContent) ||
+    /en\s+proceso/i.test(rawSubject) ||
+    (/en\s+proceso/i.test(fullContent) && !/Numero\s+de\s+confirmacion/i.test(fullContent));
+
+  if (isInterimInProgress) {
+    return null; // Ignore interim notifications
   }
 
   // 1. TIPO: Transferencias Recibidas (Pago al Instante / Bancos Terceros)
