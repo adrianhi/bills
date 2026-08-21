@@ -20,9 +20,23 @@ export class TransactionService {
     });
 
     if (existing) {
+      const updated = await prisma.transaction.update({
+        where: { id: existing.id },
+        data: {
+          transactionDate: new Date(data.transactionDate),
+          amount: data.amount,
+          currency: data.currency,
+          merchant: data.merchant || existing.merchant,
+          category: data.category || existing.category,
+          cardLast4: data.cardLast4 || existing.cardLast4,
+          cardType: data.cardType || existing.cardType,
+          transactionType: data.transactionType || existing.transactionType,
+          notes: data.notes !== undefined ? data.notes : existing.notes,
+        },
+      });
       return {
         isDuplicate: true,
-        transaction: existing,
+        transaction: updated,
       };
     }
 

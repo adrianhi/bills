@@ -12,6 +12,7 @@
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "db:push": "prisma db push",
+    "db:truncate": "tsx src/scripts/truncate.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

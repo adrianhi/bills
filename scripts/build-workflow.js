@@ -29,7 +29,7 @@ const workflow = {
         operation: "getAll",
         limit: 100,
         filters: {
-          q: 'from:Alertas@bhd.com.do subject:"Notificación de Transacciones" is:unread'
+          q: '(from:Alertas@bhd.com.do OR from:bhd.com.do) is:unread'
         }
       },
       name: "1. Buscar Nuevos No Leídos (is:unread)",
@@ -49,7 +49,7 @@ const workflow = {
         operation: "getAll",
         limit: 500,
         filters: {
-          q: 'from:Alertas@bhd.com.do subject:"Notificación de Transacciones"'
+          q: '(from:Alertas@bhd.com.do OR from:bhd.com.do)'
         }
       },
       name: "📥 [Manual] Poblar Todo el Histórico",
