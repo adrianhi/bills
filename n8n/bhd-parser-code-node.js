@@ -7,7 +7,7 @@
  * 3. Transferencias Recibidas (Pago al Instante / Pagos de Terceros)
  * 4. Pagos de Servicios e Impuestos (Claro, EdeEste, etc.)
  * 5. Retiros de Efectivo en Cajero
- * (Ignores promotional emails like "Conoce a EVA")
+ * (Ignores promotional emails & duplicate debit alerts)
  */
 
 function decodeHtmlEntities(str) {
@@ -77,14 +77,12 @@ function parseBhdDate(dateStr, fallbackDate) {
       if (meridian === 'PM' && hours < 12) hours += 12;
       if (meridian === 'AM' && hours === 12) hours = 0;
       const pad = (n) => String(n).padStart(2, '0');
-      // Construct date in Dominican Republic timezone (AST / UTC-4)
       const iso = `${year}-${pad(month + 1)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:${pad(seconds)}-04:00`;
       const d = new Date(iso);
       if (!isNaN(d.getTime())) return d.toISOString();
     }
   }
 
-  // Fallback to email receive date (from Gmail node payload: `date` or `internalDate`)
   if (fallbackDate) {
     if (typeof fallbackDate === 'string' || typeof fallbackDate === 'number') {
       const d = new Date(fallbackDate);
@@ -112,23 +110,22 @@ function parseBhdNotification(item) {
   const externalId = data.messageId || data.id || `bhd_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const emailDateFallback = data.date || data.internalDate || data.headers?.date || null;
 
-  // 0. Filtrar correos puramente promocionales que no sean transacciones financieras
+  // 0. Filtrar correos promocionales
   const isFinancialEmail =
     /Notificacion\s+de\s+Transacciones|transaccion|transferencia|Pago\s+de\s+Servicio|Monto:|Producto\s*:/i.test(fullContent);
 
   if (!isFinancialEmail && /EVA|promocion|actualiza/i.test(fullContent)) {
-    return null; // Ignore promotional emails
+    return null;
   }
 
-  // 0.1 Filtrar notificaciones temporales / intermedias en proceso (ej. "Notificación Pagos al Instante en Proceso")
-  // BHD siempre emite el comprobante definitivo con "Número de confirmación" segundos/minutos después.
+  // 0.1 Filtrar notificaciones intermedias en proceso
   const isInterimInProgress =
     /Pagos?\s+al\s+Instante\s+en\s+Proceso/i.test(fullContent) ||
     /en\s+proceso/i.test(rawSubject) ||
     (/en\s+proceso/i.test(fullContent) && !/Numero\s+de\s+confirmacion/i.test(fullContent));
 
   if (isInterimInProgress) {
-    return null; // Ignore interim notifications
+    return null;
   }
 
   // 1. TIPO: Transferencias Recibidas (Pago al Instante / Bancos Terceros)
@@ -185,7 +182,7 @@ function parseBhdNotification(item) {
     };
   }
 
-  // 2. TIPO: Pagos de Servicios e Impuestos (Claro, Recargas, EdeEste, etc.)
+  // 2. TIPO: Pagos de Servicios e Impuestos
   if (/Pago\s+de\s+Servicio/i.test(fullContent) || /Proveedor\s+del\s+servicio:/i.test(fullContent)) {
     let provider = 'Servicio';
     const provMatch = fullContent.match(/Proveedor\s+del\s+servicio:\s*([A-Za-zÀ-ÿ0-9\s,.'-]+?)(?:\s+Servicio:|\s+Descripcion:|\s+Numero|$)/i);
@@ -242,7 +239,7 @@ function parseBhdNotification(item) {
     };
   }
 
-  // 3. TIPO: Transferencias Enviadas (Entre productos BHD, ACH, LBTR)
+  // 3. TIPO: Transferencias Enviadas (Comprobante Oficial)
   const isTransferSent =
     /Beneficiario:/i.test(fullContent) ||
     /Transacciones\s+entre\s+productos/i.test(fullContent);
@@ -388,6 +385,16 @@ function parseBhdNotification(item) {
 
   if (amount === 0) {
     return null;
+  }
+
+  // 4.1. FILTRAR DÉBITOS DUPLICADOS DE TRANSFERENCIAS
+  // Si la transacción en la tabla es una transferencia, se ignora porque el BHD siempre emite el comprobante oficial con el nombre completo y número de confirmación.
+  const isTransferDebit =
+    /transferencia|pagos?\s+al\s+instante|transfer/i.test(transactionType) ||
+    /transferencia/i.test(rawMerchant);
+
+  if (isTransferDebit) {
+    return null; // Ignorar alerta redundante de tabla
   }
 
   return {

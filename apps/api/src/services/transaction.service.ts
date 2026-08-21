@@ -14,24 +14,26 @@ export class TransactionService {
    * If externalId exists, returns existing record with isDuplicate = true.
    */
   public static async createTransaction(data: CreateTransactionInput) {
-    // 1. Check for existing transaction by externalId (Idempotency)
-    const existing = await prisma.transaction.findUnique({
+    const txDate = new Date(data.transactionDate);
+
+    // 1. Exact match by externalId (Idempotency)
+    const existingByExtId = await prisma.transaction.findUnique({
       where: { externalId: data.externalId },
     });
 
-    if (existing) {
+    if (existingByExtId) {
       const updated = await prisma.transaction.update({
-        where: { id: existing.id },
+        where: { id: existingByExtId.id },
         data: {
-          transactionDate: new Date(data.transactionDate),
+          transactionDate: txDate,
           amount: data.amount,
           currency: data.currency,
-          merchant: data.merchant || existing.merchant,
-          category: data.category || existing.category,
-          cardLast4: data.cardLast4 || existing.cardLast4,
-          cardType: data.cardType || existing.cardType,
-          transactionType: data.transactionType || existing.transactionType,
-          notes: data.notes !== undefined ? data.notes : existing.notes,
+          merchant: data.merchant || existingByExtId.merchant,
+          category: data.category || existingByExtId.category,
+          cardLast4: data.cardLast4 || existingByExtId.cardLast4,
+          cardType: data.cardType || existingByExtId.cardType,
+          transactionType: data.transactionType || existingByExtId.transactionType,
+          notes: data.notes !== undefined ? data.notes : existingByExtId.notes,
         },
       });
       return {
@@ -40,14 +42,74 @@ export class TransactionService {
       };
     }
 
-    // 2. Normalize merchant and categorize
+    // 2. Temporal & Financial Fuzzy Deduplication (Window of ±10 minutes)
+    // Prevents duplicate records when bank sends both a debit table alert AND a transfer confirmation receipt.
+    const windowStart = new Date(txDate.getTime() - 10 * 60 * 1000);
+    const windowEnd = new Date(txDate.getTime() + 10 * 60 * 1000);
+
+    const candidates = await prisma.transaction.findMany({
+      where: {
+        amount: data.amount,
+        currency: data.currency,
+        transactionDate: {
+          gte: windowStart,
+          lte: windowEnd,
+        },
+      },
+    });
+
+    for (const cand of candidates) {
+      const candRaw = (cand.rawMerchant || '').toLowerCase();
+      const newRaw = (data.rawMerchant || '').toLowerCase();
+      const candMerch = (cand.merchant || '').toLowerCase();
+      const newMerch = (data.merchant || '').toLowerCase();
+
+      const isSameCardOrAccount = !data.cardLast4 || !cand.cardLast4 || data.cardLast4 === cand.cardLast4;
+      const isSimilarMerchant =
+        candRaw.includes(newRaw.slice(0, 10)) ||
+        newRaw.includes(candRaw.slice(0, 10)) ||
+        candMerch.includes(newMerch.slice(0, 10)) ||
+        newMerch.includes(candMerch.slice(0, 10));
+
+      const isBothTransfers =
+        (/transferencia|recibida|enviada/i.test(cand.transactionType || '') || /transferencia|recibida|enviada/i.test(cand.category || '')) &&
+        (/transferencia|recibida|enviada/i.test(data.transactionType || '') || /transferencia|recibida|enviada/i.test(data.category || ''));
+
+      if (isSameCardOrAccount && (isSimilarMerchant || isBothTransfers)) {
+        // Choose the longer / more complete merchant name (e.g. "Yeisaly Collado Rosario" over truncated "Yeisaly Collado Rosari")
+        const betterMerchant =
+          (data.merchant && data.merchant.length > (cand.merchant?.length || 0))
+            ? data.merchant
+            : (data.rawMerchant && data.rawMerchant.length > (cand.rawMerchant?.length || 0))
+            ? data.rawMerchant
+            : cand.merchant;
+
+        const updated = await prisma.transaction.update({
+          where: { id: cand.id },
+          data: {
+            merchant: betterMerchant,
+            rawMerchant: data.rawMerchant.length > cand.rawMerchant.length ? data.rawMerchant : cand.rawMerchant,
+            notes: data.notes || cand.notes,
+            cardLast4: data.cardLast4 || cand.cardLast4,
+            transactionType: data.transactionType || cand.transactionType,
+          },
+        });
+
+        return {
+          isDuplicate: true,
+          transaction: updated,
+        };
+      }
+    }
+
+    // 3. Normalize merchant and categorize
     const { merchant, category } = await CategorizationService.categorize(
       data.rawMerchant,
       data.merchant,
       data.category
     );
 
-    // 3. Save to database
+    // 4. Save new transaction to database
     const transaction = await prisma.transaction.create({
       data: {
         externalId: data.externalId,
@@ -123,8 +185,18 @@ export class TransactionService {
   private static buildWhereClause(query: TransactionQueryInput | ExportQueryInput): Prisma.TransactionWhereInput {
     const where: Prisma.TransactionWhereInput = {};
 
-    // Month filter (YYYY-MM)
-    if (query.month) {
+    // Date filtering (startDate / endDate take precedence over month)
+    if (query.startDate || query.endDate) {
+      where.transactionDate = {};
+      if (query.startDate) {
+        const s = query.startDate.length === 10 ? new Date(`${query.startDate}T00:00:00.000Z`) : new Date(query.startDate);
+        where.transactionDate.gte = s;
+      }
+      if (query.endDate) {
+        const e = query.endDate.length === 10 ? new Date(`${query.endDate}T23:59:59.999Z`) : new Date(query.endDate);
+        where.transactionDate.lte = e;
+      }
+    } else if (query.month) {
       const [yearStr, monthStr] = query.month.split('-');
       const year = parseInt(yearStr, 10);
       const month = parseInt(monthStr, 10);
@@ -135,10 +207,6 @@ export class TransactionService {
         gte: startOfMonth,
         lte: endOfMonth,
       };
-    } else if (query.startDate || query.endDate) {
-      where.transactionDate = {};
-      if (query.startDate) where.transactionDate.gte = new Date(query.startDate);
-      if (query.endDate) where.transactionDate.lte = new Date(query.endDate);
     }
 
     if (query.category) {
@@ -279,6 +347,7 @@ export class TransactionService {
       pagination: {
         page: query.page,
         limit: query.limit,
+        total,
         totalItems: total,
         totalPages: Math.ceil(total / query.limit) || 1,
       },
