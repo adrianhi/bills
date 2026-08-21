@@ -10,11 +10,22 @@ export class StatsController {
   public static async getSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const month = req.query.month as string | undefined;
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
       const organization = (req.query.organization as string) || (req.query.source as string);
       const requestedCurrency = ((req.query.currency as string) || 'DOP').toUpperCase();
 
-      let dateFilter = {};
-      if (month && /^\d{4}-\d{2}$/.test(month)) {
+      let dateFilter: any = {};
+      if (startDate || endDate) {
+        if (startDate) {
+          const s = startDate.length === 10 ? new Date(`${startDate}T00:00:00.000Z`) : new Date(startDate);
+          dateFilter.gte = s;
+        }
+        if (endDate) {
+          const e = endDate.length === 10 ? new Date(`${endDate}T23:59:59.999Z`) : new Date(endDate);
+          dateFilter.lte = e;
+        }
+      } else if (month && /^\d{4}-\d{2}$/.test(month)) {
         const [year, m] = month.split('-').map(Number);
         dateFilter = {
           gte: new Date(Date.UTC(year, m - 1, 1)),
@@ -22,7 +33,7 @@ export class StatsController {
         };
       }
 
-      const where: any = month ? { transactionDate: dateFilter } : {};
+      const where: any = Object.keys(dateFilter).length > 0 ? { transactionDate: dateFilter } : {};
 
       if (organization && organization.toUpperCase() !== 'ALL') {
         const orgUpper = organization.toUpperCase();

@@ -32,8 +32,8 @@ export const TransactionQuerySchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}$/, 'Month must be in YYYY-MM format')
     .optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   category: z.string().optional(),
   currency: z.string().optional().transform((val) => val?.toUpperCase()),
   cardLast4: z.string().optional(),
@@ -54,8 +54,8 @@ export const ExportQuerySchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}$/, 'Month must be in YYYY-MM format')
     .optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   category: z.string().optional(),
   currency: z.string().optional().transform((val) => val?.toUpperCase()),
   status: z.string().optional(),
