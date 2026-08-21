@@ -1,8 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DashboardPage } from '@/pages/dashboard';
 import { PinLockScreen } from '@/features/auth-pin';
+import { type PeriodSelection } from '@/features/period-filter';
 import type { Transaction } from '@/entities/transaction';
 import type { StatsSummary } from '@/entities/stat';
+
+const formatReadableMonth = (monthStr: string) => {
+  if (!monthStr) return '';
+  const [y, m] = monthStr.split('-').map(Number);
+  const date = new Date(y, m - 1, 1);
+  const formatted = date.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' });
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+};
+
+const getCurrentMonthStr = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
 
 export function App() {
   // Auth State
@@ -21,10 +35,23 @@ export function App() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
-  // Current Month: 'YYYY-MM'
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  // Privacy Mode State (Hide / Show Balances)
+  const [hideBalances, setHideBalances] = useState(() => {
+    return localStorage.getItem('bills_privacy_mode') === 'true';
+  });
+
+  const handleSetHideBalances = (val: boolean) => {
+    setHideBalances(val);
+    localStorage.setItem('bills_privacy_mode', String(val));
+  };
+
+  // Period State (Day, Range, Month, Presets)
+  const [periodSelection, setPeriodSelection] = useState<PeriodSelection>(() => {
+    const curMonth = getCurrentMonthStr();
+    return {
+      month: curMonth,
+      label: formatReadableMonth(curMonth),
+    };
   });
 
   // Filters State
@@ -46,6 +73,7 @@ export function App() {
   // Modals State
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
 
   // Apply dark mode class
   useEffect(() => {
@@ -76,6 +104,12 @@ export function App() {
     sessionStorage.removeItem('bills_session_token');
   };
 
+  // Apply Period Selection
+  const handleApplyPeriod = useCallback((selection: PeriodSelection) => {
+    setPeriodSelection(selection);
+    setPage(1);
+  }, []);
+
   // Reset Filters Handler
   const handleResetFilters = useCallback(() => {
     setSearch('');
@@ -91,9 +125,11 @@ export function App() {
     if (!authToken) return;
     try {
       const params = new URLSearchParams({
-        month: selectedMonth,
         currency,
       });
+      if (periodSelection.startDate) params.append('startDate', periodSelection.startDate);
+      if (periodSelection.endDate) params.append('endDate', periodSelection.endDate);
+      if (periodSelection.month && !periodSelection.startDate) params.append('month', periodSelection.month);
       if (organizationFilter) params.append('organization', organizationFilter);
 
       const res = await fetch(`/api/v1/stats/summary?${params.toString()}`, {
@@ -108,7 +144,7 @@ export function App() {
     } catch (err) {
       console.error('Error fetching stats:', err);
     }
-  }, [selectedMonth, currency, organizationFilter, authToken]);
+  }, [periodSelection, currency, organizationFilter, authToken]);
 
   // Fetch Transactions
   const fetchTransactions = useCallback(async () => {
@@ -118,9 +154,11 @@ export function App() {
       const params = new URLSearchParams({
         page: String(page),
         limit: String(limit),
-        month: selectedMonth,
         currency,
       });
+      if (periodSelection.startDate) params.append('startDate', periodSelection.startDate);
+      if (periodSelection.endDate) params.append('endDate', periodSelection.endDate);
+      if (periodSelection.month && !periodSelection.startDate) params.append('month', periodSelection.month);
       if (search) params.append('search', search);
       if (categoryFilter) params.append('category', categoryFilter);
       if (statusFilter) params.append('status', statusFilter);
@@ -133,7 +171,13 @@ export function App() {
       if (res.ok) {
         const json = await res.json();
         setTransactions(json.data || []);
-        setTotalTransactions(json.pagination?.total || 0);
+        setTotalTransactions(
+          json.pagination?.totalItems ??
+          json.pagination?.total ??
+          json.summary?.totalTransactions ??
+          json.data?.length ??
+          0
+        );
       } else if (res.status === 401) {
         handleLock();
       }
@@ -142,7 +186,7 @@ export function App() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, selectedMonth, currency, search, categoryFilter, statusFilter, organizationFilter, typeFilter, authToken]);
+  }, [page, limit, periodSelection, currency, search, categoryFilter, statusFilter, organizationFilter, typeFilter, authToken]);
 
   // Refresh All
   const refreshAll = useCallback(() => {
@@ -179,10 +223,12 @@ export function App() {
   // Export to CSV
   const handleExport = () => {
     const params = new URLSearchParams({
-      month: selectedMonth,
       currency,
       format: 'csv',
     });
+    if (periodSelection.startDate) params.append('startDate', periodSelection.startDate);
+    if (periodSelection.endDate) params.append('endDate', periodSelection.endDate);
+    if (periodSelection.month && !periodSelection.startDate) params.append('month', periodSelection.month);
     if (search) params.append('search', search);
     if (categoryFilter) params.append('category', categoryFilter);
     if (organizationFilter) params.append('organization', organizationFilter);
@@ -199,8 +245,10 @@ export function App() {
     <DashboardPage
       darkMode={darkMode}
       setDarkMode={setDarkMode}
-      selectedMonth={selectedMonth}
-      setSelectedMonth={setSelectedMonth}
+      hideBalances={hideBalances}
+      setHideBalances={handleSetHideBalances}
+      currentPeriod={periodSelection}
+      onApplyPeriod={handleApplyPeriod}
       currency={currency}
       setCurrency={setCurrency}
       stats={stats}
@@ -229,8 +277,12 @@ export function App() {
       onSaveTransaction={handleSaveTransaction}
       isRulesModalOpen={isRulesModalOpen}
       setIsRulesModalOpen={setIsRulesModalOpen}
+      isQuickAddOpen={isQuickAddOpen}
+      setIsQuickAddOpen={setIsQuickAddOpen}
+      authToken={authToken}
     />
   );
 }
 
 export default App;
+

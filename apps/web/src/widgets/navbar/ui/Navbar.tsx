@@ -1,24 +1,30 @@
-import React from 'react';
 import { 
   Moon, 
   Sun, 
   Download, 
-  Calendar, 
   RefreshCw, 
   SlidersHorizontal,
-  Lock
+  Lock,
+  Plus,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Button } from '@/shared/ui';
+
+import { PeriodFilter, type PeriodSelection } from '@/features/period-filter';
 
 interface NavbarProps {
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
-  selectedMonth: string;
-  setSelectedMonth: (month: string) => void;
+  hideBalances: boolean;
+  setHideBalances: (val: boolean) => void;
+  currentPeriod: PeriodSelection;
+  onApplyPeriod: (selection: PeriodSelection) => void;
   currency: string;
   setCurrency: (curr: string) => void;
   onRefresh: () => void;
   onOpenRules: () => void;
+  onQuickAdd: () => void;
   onExport: () => void;
   onLock: () => void;
   loading: boolean;
@@ -27,33 +33,24 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   darkMode,
   setDarkMode,
-  selectedMonth,
-  setSelectedMonth,
+  hideBalances,
+  setHideBalances,
+  currentPeriod,
+  onApplyPeriod,
   currency,
   setCurrency,
   onRefresh,
   onOpenRules,
+  onQuickAdd,
   onExport,
   onLock,
   loading,
 }) => {
-  const months = React.useMemo(() => {
-    const list: Array<{ value: string; label: string }> = [];
-    const now = new Date();
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' });
-      list.push({ value: val, label: label.charAt(0).toUpperCase() + label.slice(1) });
-    }
-    return list;
-  }, []);
-
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4 px-4 py-3 sm:px-6 max-w-7xl">
+      <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 py-2.5 sm:px-6 max-w-7xl">
         
-        {/* Brand */}
+        {/* Brand & Mobile Actions */}
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 text-white shadow-md shadow-emerald-500/20 font-bold text-lg tracking-tighter">
@@ -66,17 +63,27 @@ export const Navbar: React.FC<NavbarProps> = ({
                   Multi-Bank
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">Control de Gastos & Automatización</p>
+              <p className="text-[11px] text-muted-foreground hidden sm:block">Control de Gastos & Automatización</p>
             </div>
           </div>
 
           {/* Mobile Actions */}
           <div className="flex items-center gap-1 md:hidden">
+            {/* Privacy Mode Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setHideBalances(!hideBalances)}
+              className="h-8 w-8 text-muted-foreground"
+              title={hideBalances ? 'Mostrar balances' : 'Ocultar balances'}
+            >
+              {hideBalances ? <EyeOff className="h-4 w-4 text-emerald-500" /> : <Eye className="h-4 w-4" />}
+            </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setDarkMode(!darkMode)}
-              className="h-9 w-9"
+              className="h-8 w-8"
             >
               {darkMode ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
             </Button>
@@ -84,7 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               variant="ghost"
               size="icon"
               onClick={onLock}
-              className="h-9 w-9 text-muted-foreground"
+              className="h-8 w-8 text-muted-foreground"
               title="Bloquear sesión"
             >
               <Lock className="h-4 w-4" />
@@ -93,23 +100,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Filters & Actions */}
-        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between md:justify-end">
           
-          {/* Month Selector */}
-          <div className="flex items-center rounded-lg border bg-card px-2.5 py-1 text-sm shadow-sm">
-            <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent font-medium focus:outline-none cursor-pointer"
-            >
-              {months.map((m) => (
-                <option key={m.value} value={m.value} className="bg-popover text-popover-foreground">
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Mobile-First Period Filter (Day, Range, Presets) */}
+          <PeriodFilter currentSelection={currentPeriod} onApply={onApplyPeriod} />
 
           {/* Currency Switcher */}
           <div className="flex rounded-lg border bg-muted p-0.5 text-xs font-semibold">
@@ -135,6 +129,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
+          {/* Quick Add Button (Desktop) */}
+          <Button
+            size="sm"
+            onClick={onQuickAdd}
+            className="hidden sm:inline-flex gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-500/20 font-semibold"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Nuevo Movimiento</span>
+          </Button>
+
           {/* Rules Manager Button */}
           <Button
             variant="outline"
@@ -146,19 +150,28 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Reglas</span>
           </Button>
 
-          {/* Export Button */}
+          {/* Export Button (Desktop only, mobile has it in Filter Drawer / Actions) */}
           <Button
             variant="outline"
             size="sm"
             onClick={onExport}
-            className="gap-1.5 h-9"
+            className="hidden md:inline-flex gap-1.5 h-9"
           >
             <Download className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="hidden sm:inline">Exportar</span>
+            <span>Exportar</span>
           </Button>
 
-          {/* Desktop Refresh & Theme & Lock */}
+          {/* Desktop Refresh & Theme & Privacy & Lock */}
           <div className="hidden md:flex items-center gap-1.5 border-l pl-2.5 ml-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setHideBalances(!hideBalances)}
+              className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
+              title={hideBalances ? 'Mostrar balances' : 'Ocultar balances (Modo Privacidad)'}
+            >
+              {hideBalances ? <EyeOff className="h-4 w-4 text-emerald-500" /> : <Eye className="h-4 w-4" />}
+            </Button>
             <Button
               variant="ghost"
               size="icon"

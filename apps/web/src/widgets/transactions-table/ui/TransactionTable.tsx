@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Search, 
   ShoppingCart, 
@@ -20,10 +20,12 @@ import {
   Layers, 
   CheckCircle2, 
   XCircle,
-  X
+  X,
+  SlidersHorizontal
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Badge } from '@/shared/ui';
 import { formatCurrency, formatDate, getOrganizationMeta } from '@/shared/lib';
+import { FilterDrawer } from '@/features/filter-drawer';
 import type { Transaction } from '@/entities/transaction';
 
 interface TransactionTableProps {
@@ -44,14 +46,18 @@ interface TransactionTableProps {
   setTypeFilter: (type: string) => void;
   onResetFilters: () => void;
   onEdit: (tx: Transaction) => void;
+  onExport?: () => void;
   loading: boolean;
+  hideBalances?: boolean;
 }
 
 const isReceivedTransfer = (tx: Transaction) => {
   return (
+    tx.source === 'BHD_TRANSFER_INCOME' ||
     /recibida/i.test(tx.transactionType) ||
-    /ingreso/i.test(tx.category) ||
-    tx.source === 'BHD_TRANSFER_INCOME'
+    /recibida/i.test(tx.category) ||
+    /ordenante/i.test(tx.notes || '') ||
+    (tx.amount > 0 && /transferencia/i.test(tx.transactionType) && /ingreso/i.test(tx.category))
   );
 };
 
@@ -169,13 +175,15 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   setTypeFilter,
   onResetFilters,
   onEdit,
+  onExport,
   loading,
+  hideBalances = false,
 }) => {
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const totalPages = Math.ceil(total / limit) || 1;
 
-  // Active filters count
+  // Active filters count (excluding search)
   const activeFiltersCount = [
-    search ? 1 : 0,
     categoryFilter ? 1 : 0,
     statusFilter ? 1 : 0,
     organizationFilter ? 1 : 0,
@@ -195,8 +203,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
 
   return (
     <Card className="border-border/60 shadow-sm overflow-hidden">
-      <CardHeader className="p-4 sm:p-6 pb-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <CardHeader className="p-4 sm:p-5 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          
+          {/* Title & Count */}
           <div>
             <div className="flex items-center gap-2">
               <CardTitle className="text-lg font-bold text-foreground">Historial de Transacciones</CardTitle>
@@ -205,15 +215,14 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Consulta, filtra y clasifica movimientos financieros de todas tus organizaciones
+              Consulta, filtra y clasifica movimientos financieros
             </p>
           </div>
 
-          {/* Filters Bar */}
-          <div className="flex flex-wrap items-center gap-2">
-            
-            {/* Search */}
-            <div className="relative w-full sm:w-52">
+          {/* Search & Drawer Trigger Bar */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* Search Input */}
+            <div className="relative flex-1 sm:w-60">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 placeholder="Buscar comercio, nota..."
@@ -234,98 +243,240 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               )}
             </div>
 
-            {/* Organization Filter */}
-            <div className="relative">
-              <select
-                value={organizationFilter}
-                onChange={(e) => {
-                  setOrganizationFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none font-medium cursor-pointer"
-              >
-                <option value="">🏛️ Todas las Entidades</option>
-                <option value="BHD">🟢 Banco BHD</option>
-                <option value="POPULAR">🔵 Banco Popular</option>
-                <option value="BANRESERVAS">🔷 Banreservas</option>
-                <option value="QIK">🟣 Qik Banco Digital</option>
-                <option value="APAP">🟠 APAP</option>
-                <option value="SCOTIABANK">🔴 Scotiabank</option>
-              </select>
-            </div>
-
-            {/* Type Filter */}
-            <select
-              value={typeFilter}
-              onChange={(e) => {
-                setTypeFilter(e.target.value);
-                setPage(1);
-              }}
-              className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none font-medium cursor-pointer"
+            {/* Filter Drawer Trigger Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFilterDrawerOpen(true)}
+              className={`h-9 px-3 gap-1.5 text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                activeFiltersCount > 0
+                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  : 'text-foreground hover:bg-muted'
+              }`}
             >
-              <option value="">Todos los Tipos</option>
-              <option value="recibida">📥 Transferencias Recibidas</option>
-              <option value="enviada">↗️ Transferencias Enviadas</option>
-              <option value="compra">💳 Compras con Tarjeta</option>
-              <option value="servicio">🧾 Pagos de Servicios</option>
-              <option value="retiro">🏧 Retiros de Cajero</option>
-            </select>
-
-            {/* Category Filter */}
-            <select
-              value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                setPage(1);
-              }}
-              className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none cursor-pointer"
-            >
-              <option value="">Todas las Categorías</option>
-              <option value="Supermercado">Supermercado</option>
-              <option value="Servicios Financieros">Servicios Financieros</option>
-              <option value="Transferencias">Transferencias</option>
-              <option value="Ingresos / Transferencias">Ingresos / Recibidas</option>
-              <option value="Restaurantes & Delivery">Restaurantes & Delivery</option>
-              <option value="Transporte">Transporte</option>
-              <option value="Combustible">Combustible</option>
-              <option value="Servicios">Servicios</option>
-              <option value="Suscripciones">Suscripciones</option>
-              <option value="Salud & Farmacia">Salud & Farmacia</option>
-              <option value="Compras Online">Compras Online</option>
-              <option value="Otros">Otros</option>
-            </select>
-
-            {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(1);
-              }}
-              className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none cursor-pointer"
-            >
-              <option value="">Todos los Estados</option>
-              <option value="Aprobada">Aprobadas</option>
-              <option value="Rechazada">Rechazadas</option>
-            </select>
-
-            {/* Reset Filters Button */}
-            {activeFiltersCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onResetFilters}
-                className="h-9 gap-1 text-xs text-muted-foreground hover:text-foreground"
-                title="Restablecer todos los filtros"
-              >
-                <X className="h-3.5 w-3.5" />
-                <span>Limpiar ({activeFiltersCount})</span>
-              </Button>
-            )}
-
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>Filtros</span>
+              {activeFiltersCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white ml-0.5">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </Button>
           </div>
         </div>
+
+        {/* Horizontal Quick Touch Chips (Mobile Carousel) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2.5 mt-1 border-t border-border/40">
+          {/* Chip: Todos */}
+          <button
+            onClick={() => {
+              onResetFilters();
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+              activeFiltersCount === 0 && !search
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Todos
+          </button>
+
+          {/* Quick Bank Chips */}
+          <button
+            onClick={() => {
+              setOrganizationFilter(organizationFilter === 'BHD' ? '' : 'BHD');
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+              organizationFilter === 'BHD'
+                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
+                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+            }`}
+          >
+            🟢 BHD
+          </button>
+
+          <button
+            onClick={() => {
+              setOrganizationFilter(organizationFilter === 'POPULAR' ? '' : 'POPULAR');
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+              organizationFilter === 'POPULAR'
+                ? 'bg-sky-500/20 border-sky-500 text-sky-600 dark:text-sky-400 font-bold'
+                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+            }`}
+          >
+            🔵 Popular
+          </button>
+
+          {/* Quick Type Chips */}
+          <button
+            onClick={() => {
+              setTypeFilter(typeFilter === 'recibida' ? '' : 'recibida');
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+              typeFilter === 'recibida'
+                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
+                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+            }`}
+          >
+            📥 Ingresos
+          </button>
+
+          <button
+            onClick={() => {
+              setTypeFilter(typeFilter === 'compra' ? '' : 'compra');
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+              typeFilter === 'compra'
+                ? 'bg-slate-500/20 border-slate-400 text-foreground font-bold'
+                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+            }`}
+          >
+            💳 Compras
+          </button>
+
+          <button
+            onClick={() => {
+              setTypeFilter(typeFilter === 'enviada' ? '' : 'enviada');
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+              typeFilter === 'enviada'
+                ? 'bg-sky-500/20 border-sky-500 text-sky-600 dark:text-sky-400 font-bold'
+                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+            }`}
+          >
+            ↗️ Enviadas
+          </button>
+
+          <button
+            onClick={() => {
+              setTypeFilter(typeFilter === 'servicio' ? '' : 'servicio');
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+              typeFilter === 'servicio'
+                ? 'bg-amber-500/20 border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
+                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+            }`}
+          >
+            🧾 Servicios
+          </button>
+
+          {/* Quick Category Chips */}
+          <button
+            onClick={() => {
+              setCategoryFilter(categoryFilter === 'Supermercado' ? '' : 'Supermercado');
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+              categoryFilter === 'Supermercado'
+                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
+                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+            }`}
+          >
+            🛒 Supermercado
+          </button>
+
+          <button
+            onClick={() => {
+              setCategoryFilter(categoryFilter === 'Restaurantes & Delivery' ? '' : 'Restaurantes & Delivery');
+              setPage(1);
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+              categoryFilter === 'Restaurantes & Delivery'
+                ? 'bg-amber-500/20 border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
+                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+            }`}
+          >
+            🍔 Restaurantes
+          </button>
+        </div>
+
+        {/* Active Filter Badges Bar */}
+        {(activeFiltersCount > 0 || search) && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40 text-xs">
+            <span className="text-[11px] font-semibold text-muted-foreground">Filtros activos:</span>
+            
+            {organizationFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold">
+                Banco: {organizationFilter}
+                <button onClick={() => setOrganizationFilter('')} className="hover:opacity-75">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+
+            {typeFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/30 text-[11px] font-semibold">
+                Tipo: {typeFilter}
+                <button onClick={() => setTypeFilter('')} className="hover:opacity-75">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+
+            {categoryFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 text-[11px] font-semibold">
+                Cat: {categoryFilter}
+                <button onClick={() => setCategoryFilter('')} className="hover:opacity-75">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+
+            {statusFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/10 text-foreground border border-border text-[11px] font-semibold">
+                Estado: {statusFilter}
+                <button onClick={() => setStatusFilter('')} className="hover:opacity-75">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+
+            <button
+              onClick={onResetFilters}
+              className="text-[11px] font-semibold text-muted-foreground hover:text-destructive underline ml-1 cursor-pointer"
+            >
+              Limpiar todo
+            </button>
+          </div>
+        )}
       </CardHeader>
+
+      {/* Filter Drawer Component */}
+      <FilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        organizationFilter={organizationFilter}
+        setOrganizationFilter={(org) => {
+          setOrganizationFilter(org);
+          setPage(1);
+        }}
+        typeFilter={typeFilter}
+        setTypeFilter={(t) => {
+          setTypeFilter(t);
+          setPage(1);
+        }}
+        categoryFilter={categoryFilter}
+        setCategoryFilter={(c) => {
+          setCategoryFilter(c);
+          setPage(1);
+        }}
+        statusFilter={statusFilter}
+        setStatusFilter={(s) => {
+          setStatusFilter(s);
+          setPage(1);
+        }}
+        onResetFilters={onResetFilters}
+        totalResults={total}
+        onExport={onExport}
+      />
 
       <CardContent className="p-0">
         {loading ? (
@@ -339,139 +490,196 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             <p className="text-xs mt-1">Prueba cambiando el mes o los filtros de búsqueda.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-y">
-                <tr>
-                  <th className="py-3 px-4 sm:px-6">Comercio / Beneficiario</th>
-                  <th className="py-3 px-4">Tipo de Movimiento</th>
-                  <th className="py-3 px-4">Categoría</th>
-                  <th className="py-3 px-4">Fecha & Hora</th>
-                  <th className="py-3 px-4">Cuenta / Tarjeta</th>
-                  <th className="py-3 px-4">Estado</th>
-                  <th className="py-3 px-4 text-right">Monto</th>
-                  <th className="py-3 px-4 text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {filteredTransactions.map((tx) => {
-                  const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
-                  const isIncome = isReceivedTransfer(tx);
-                  const isSent = isSentTransfer(tx);
-                  const orgMeta = getOrganizationMeta(tx.source, tx.merchant);
+          <>
+            {/* 1. Mobile Touch Card Items */}
+            <div className="block lg:hidden divide-y divide-border/40">
+              {filteredTransactions.map((tx) => {
+                const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
+                const isIncome = isReceivedTransfer(tx);
+                const isSent = isSentTransfer(tx);
+                const orgMeta = getOrganizationMeta(tx.source, tx.merchant);
 
-                  return (
-                    <tr 
-                      key={tx.id} 
-                      className={`hover:bg-muted/30 transition-colors group ${
-                        isIncome ? 'bg-emerald-500/[0.02]' : ''
-                      }`}
-                    >
-                      {/* Merchant */}
-                      <td className="py-3.5 px-4 sm:px-6">
-                        <div className="flex items-center gap-3">
-                          <div className={`flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0 ${
-                            isIncome 
-                              ? 'bg-emerald-500/15' 
-                              : isSent 
-                              ? 'bg-sky-500/15' 
-                              : 'bg-muted/60'
-                          }`}>
-                            {getTransactionIcon(tx)}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-foreground truncate max-w-[180px] sm:max-w-[240px]" title={tx.merchant}>
-                              {tx.merchant}
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold border ${orgMeta.badgeClass}`}>
-                                {orgMeta.shortName}
-                              </span>
-                              <span className="text-[11px] text-muted-foreground font-mono truncate max-w-[140px]" title={tx.notes || tx.rawMerchant}>
-                                {tx.notes || tx.rawMerchant}
-                              </span>
-                            </div>
-                          </div>
+                return (
+                  <div
+                    key={tx.id}
+                    onClick={() => onEdit(tx)}
+                    className="p-3.5 sm:p-4 hover:bg-muted/30 active:bg-muted/50 transition-colors flex items-center justify-between gap-3 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-2xl flex-shrink-0 ${
+                        isIncome ? 'bg-emerald-500/15' : isSent ? 'bg-sky-500/15' : 'bg-muted/70'
+                      }`}>
+                        {getTransactionIcon(tx)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-sm text-foreground truncate">
+                          {tx.merchant}
                         </div>
-                      </td>
-
-                      {/* Tipo de Movimiento (Enviada vs Recibida vs Compra) */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {renderTypeBadge(tx)}
-                      </td>
-
-                      {/* Category */}
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                          {tx.category || 'Otros'}
-                        </span>
-                      </td>
-
-                      {/* Date */}
-                      <td className="py-3.5 px-4 text-xs text-muted-foreground whitespace-nowrap">
-                        {formatDate(tx.transactionDate)}
-                      </td>
-
-                      {/* Card or Account */}
-                      <td className="py-3.5 px-4 text-xs whitespace-nowrap">
-                        {tx.cardLast4 ? (
-                          <span className="font-mono bg-muted/70 px-1.5 py-0.5 rounded text-[11px]">
-                            •••• {tx.cardLast4}
+                        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                          <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold border ${orgMeta.badgeClass}`}>
+                            {orgMeta.shortName}
                           </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {isRejected ? (
-                          <Badge variant="destructive" className="gap-1">
-                            <XCircle className="h-3 w-3" />
-                            Rechazada
-                          </Badge>
-                        ) : (
-                          <Badge variant="success" className="gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Aprobada
-                          </Badge>
-                        )}
-                      </td>
-
-                      {/* Amount */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className={`font-bold text-sm ${
-                          isRejected 
-                            ? 'line-through text-muted-foreground' 
-                            : isIncome
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-foreground'
-                        }`}>
-                          {isIncome ? `+ ` : ''}{formatCurrency(tx.amount, tx.currency)}
+                          <span className="truncate">{tx.category || 'Otros'}</span>
+                          <span>•</span>
+                          <span className="truncate">{formatDate(tx.transactionDate)}</span>
                         </div>
-                        <div className="text-[10px] text-muted-foreground font-semibold">
-                          {tx.currency}
-                        </div>
-                      </td>
+                      </div>
+                    </div>
 
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-center">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onEdit(tx)}
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-80 group-hover:opacity-100"
-                          title="Editar comercio o categoría"
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    <div className="text-right shrink-0">
+                      <div className={`font-black text-sm ${
+                        isRejected
+                          ? 'line-through text-muted-foreground'
+                          : isIncome
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-foreground'
+                      }`}>
+                        {hideBalances ? '••••••' : `${isIncome ? '+ ' : ''}${formatCurrency(tx.amount, tx.currency)}`}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground font-semibold">
+                        {tx.currency} {tx.cardLast4 ? `•••• ${tx.cardLast4}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 2. Desktop Full Table */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-y">
+                  <tr>
+                    <th className="py-3 px-4 sm:px-6">Comercio / Beneficiario</th>
+                    <th className="py-3 px-4">Tipo de Movimiento</th>
+                    <th className="py-3 px-4">Categoría</th>
+                    <th className="py-3 px-4">Fecha & Hora</th>
+                    <th className="py-3 px-4">Cuenta / Tarjeta</th>
+                    <th className="py-3 px-4">Estado</th>
+                    <th className="py-3 px-4 text-right">Monto</th>
+                    <th className="py-3 px-4 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40">
+                  {filteredTransactions.map((tx) => {
+                    const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
+                    const isIncome = isReceivedTransfer(tx);
+                    const isSent = isSentTransfer(tx);
+                    const orgMeta = getOrganizationMeta(tx.source, tx.merchant);
+
+                    return (
+                      <tr 
+                        key={tx.id} 
+                        className={`hover:bg-muted/30 transition-colors group ${
+                          isIncome ? 'bg-emerald-500/[0.02]' : ''
+                        }`}
+                      >
+                        {/* Merchant */}
+                        <td className="py-3.5 px-4 sm:px-6">
+                          <div className="flex items-center gap-3">
+                            <div className={`flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0 ${
+                              isIncome 
+                                ? 'bg-emerald-500/15' 
+                                : isSent 
+                                ? 'bg-sky-500/15' 
+                                : 'bg-muted/60'
+                            }`}>
+                              {getTransactionIcon(tx)}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-foreground truncate max-w-[180px] sm:max-w-[240px]" title={tx.merchant}>
+                                {tx.merchant}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold border ${orgMeta.badgeClass}`}>
+                                  {orgMeta.shortName}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground font-mono truncate max-w-[140px]" title={tx.notes || tx.rawMerchant}>
+                                  {tx.notes || tx.rawMerchant}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Tipo de Movimiento (Enviada vs Recibida vs Compra) */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {renderTypeBadge(tx)}
+                        </td>
+
+                        {/* Category */}
+                        <td className="py-3.5 px-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                            {tx.category || 'Otros'}
+                          </span>
+                        </td>
+
+                        {/* Date */}
+                        <td className="py-3.5 px-4 text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDate(tx.transactionDate)}
+                        </td>
+
+                        {/* Card or Account */}
+                        <td className="py-3.5 px-4 text-xs whitespace-nowrap">
+                          {tx.cardLast4 ? (
+                            <span className="font-mono bg-muted/70 px-1.5 py-0.5 rounded text-[11px]">
+                              •••• {tx.cardLast4}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {isRejected ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <XCircle className="h-3 w-3" />
+                              Rechazada
+                            </Badge>
+                          ) : (
+                            <Badge variant="success" className="gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Aprobada
+                            </Badge>
+                          )}
+                        </td>
+
+                        {/* Amount */}
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className={`font-bold text-sm ${
+                            isRejected 
+                              ? 'line-through text-muted-foreground' 
+                              : isIncome
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-foreground'
+                          }`}>
+                            {hideBalances ? '••••••' : `${isIncome ? '+ ' : ''}${formatCurrency(tx.amount, tx.currency)}`}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground font-semibold">
+                            {tx.currency}
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onEdit(tx)}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-80 group-hover:opacity-100"
+                            title="Editar comercio o categoría"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {/* Pagination Controls */}
