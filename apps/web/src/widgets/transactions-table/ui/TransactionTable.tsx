@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Search, 
   ShoppingCart, 
@@ -10,11 +10,16 @@ import {
   HeartPulse, 
   ShoppingBag, 
   Zap, 
-  ArrowLeftRight,
+  ArrowDownLeft,
+  ArrowUpRight,
+  CreditCard,
+  Receipt,
   Edit3, 
   ChevronLeft, 
   ChevronRight,
-  Layers
+  Layers,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Badge } from '@/shared/ui';
 import { formatCurrency, formatDate } from '@/shared/lib';
@@ -36,16 +41,50 @@ interface TransactionTableProps {
   loading: boolean;
 }
 
-const getCategoryIcon = (category: string, type: string) => {
-  if (/transferencia/i.test(type) || /transferencia/i.test(category)) {
-    return <ArrowLeftRight className="h-4 w-4 text-sky-500" />;
+const isReceivedTransfer = (tx: Transaction) => {
+  return (
+    /recibida/i.test(tx.transactionType) ||
+    /ingreso/i.test(tx.category) ||
+    tx.source === 'BHD_TRANSFER_INCOME'
+  );
+};
+
+const isSentTransfer = (tx: Transaction) => {
+  return (
+    !isReceivedTransfer(tx) &&
+    (/transferencia/i.test(tx.transactionType) || /transferencia/i.test(tx.category) || tx.source === 'BHD_TRANSFER_EMAIL')
+  );
+};
+
+const isServicePayment = (tx: Transaction) => {
+  return (
+    /servicio/i.test(tx.transactionType) ||
+    tx.category === 'Servicios' ||
+    tx.source === 'BHD_SERVICE_PAYMENT'
+  );
+};
+
+const isAtmWithdrawal = (tx: Transaction) => {
+  return /retiro/i.test(tx.transactionType) || /retiro/i.test(tx.rawMerchant);
+};
+
+const getTransactionIcon = (tx: Transaction) => {
+  if (isReceivedTransfer(tx)) {
+    return <ArrowDownLeft className="h-4 w-4 text-emerald-500" />;
   }
-  const lower = (category || '').toLowerCase();
+  if (isSentTransfer(tx)) {
+    return <ArrowUpRight className="h-4 w-4 text-sky-500" />;
+  }
+  if (isServicePayment(tx)) {
+    return <Zap className="h-4 w-4 text-amber-500" />;
+  }
+  if (isAtmWithdrawal(tx)) {
+    return <Landmark className="h-4 w-4 text-blue-500" />;
+  }
+
+  const lower = (tx.category || '').toLowerCase();
   if (lower.includes('supermercado') || lower.includes('bravo') || lower.includes('nacional')) {
     return <ShoppingCart className="h-4 w-4 text-emerald-500" />;
-  }
-  if (lower.includes('financiero') || lower.includes('banco') || lower.includes('retiro')) {
-    return <Landmark className="h-4 w-4 text-blue-500" />;
   }
   if (lower.includes('restaurante') || lower.includes('delivery') || lower.includes('comida')) {
     return <Utensils className="h-4 w-4 text-amber-500" />;
@@ -62,10 +101,48 @@ const getCategoryIcon = (category: string, type: string) => {
   if (lower.includes('salud') || lower.includes('farmacia') || lower.includes('médico')) {
     return <HeartPulse className="h-4 w-4 text-rose-500" />;
   }
-  if (lower.includes('servicio') || lower.includes('luz') || lower.includes('claro')) {
-    return <Zap className="h-4 w-4 text-yellow-500" />;
-  }
   return <ShoppingBag className="h-4 w-4 text-slate-400" />;
+};
+
+const renderTypeBadge = (tx: Transaction) => {
+  if (isReceivedTransfer(tx)) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+        <ArrowDownLeft className="h-3 w-3" />
+        Recibida
+      </span>
+    );
+  }
+  if (isSentTransfer(tx)) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+        <ArrowUpRight className="h-3 w-3" />
+        Enviada
+      </span>
+    );
+  }
+  if (isServicePayment(tx)) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+        <Receipt className="h-3 w-3" />
+        Servicio
+      </span>
+    );
+  }
+  if (isAtmWithdrawal(tx)) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+        <Landmark className="h-3 w-3" />
+        Retiro
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-muted-foreground border border-border">
+      <CreditCard className="h-3 w-3" />
+      Compra
+    </span>
+  );
 };
 
 export const TransactionTable: React.FC<TransactionTableProps> = ({
@@ -83,7 +160,19 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   onEdit,
   loading,
 }) => {
+  const [typeFilter, setTypeFilter] = useState<string>('');
   const totalPages = Math.ceil(total / limit) || 1;
+
+  // Filtrado local por tipo si se selecciona
+  const filteredTransactions = transactions.filter((tx) => {
+    if (!typeFilter) return true;
+    if (typeFilter === 'recibida') return isReceivedTransfer(tx);
+    if (typeFilter === 'enviada') return isSentTransfer(tx);
+    if (typeFilter === 'servicio') return isServicePayment(tx);
+    if (typeFilter === 'retiro') return isAtmWithdrawal(tx);
+    if (typeFilter === 'compra') return !isReceivedTransfer(tx) && !isSentTransfer(tx) && !isServicePayment(tx) && !isAtmWithdrawal(tx);
+    return true;
+  });
 
   return (
     <Card className="border-border/60 shadow-sm">
@@ -92,7 +181,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
           <div>
             <CardTitle className="text-lg font-bold">Historial de Transacciones</CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {total} transacciones encontradas
+              {total} transacciones registradas
             </p>
           </div>
 
@@ -100,7 +189,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             
             {/* Search */}
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-56">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar comercio, beneficiario..."
@@ -112,6 +201,20 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                 className="pl-8 h-9 text-xs"
               />
             </div>
+
+            {/* Type Filter (Enviadas vs Recibidas vs Compras) */}
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none font-medium"
+            >
+              <option value="">Todos los Tipos</option>
+              <option value="recibida">📥 Transferencias Recibidas</option>
+              <option value="enviada">↗️ Transferencias Enviadas</option>
+              <option value="compra">💳 Compras con Tarjeta</option>
+              <option value="servicio">🧾 Pagos de Servicios</option>
+              <option value="retiro">🏧 Retiros de Cajero</option>
+            </select>
 
             {/* Status Filter */}
             <select
@@ -140,6 +243,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               <option value="Supermercado">Supermercado</option>
               <option value="Servicios Financieros">Servicios Financieros</option>
               <option value="Transferencias">Transferencias</option>
+              <option value="Ingresos / Transferencias">Ingresos / Recibidas</option>
               <option value="Restaurantes & Delivery">Restaurantes & Delivery</option>
               <option value="Transporte">Transporte</option>
               <option value="Combustible">Combustible</option>
@@ -159,7 +263,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
           <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
             Cargando transacciones...
           </div>
-        ) : transactions.length === 0 ? (
+        ) : filteredTransactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center p-6 text-muted-foreground">
             <Layers className="h-10 w-10 mb-2 opacity-30" />
             <p className="font-semibold text-sm">No se encontraron transacciones</p>
@@ -171,6 +275,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               <thead className="bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-y">
                 <tr>
                   <th className="py-3 px-4 sm:px-6">Comercio / Beneficiario</th>
+                  <th className="py-3 px-4">Tipo de Movimiento</th>
                   <th className="py-3 px-4">Categoría</th>
                   <th className="py-3 px-4">Fecha & Hora</th>
                   <th className="py-3 px-4">Cuenta / Tarjeta</th>
@@ -180,28 +285,44 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {transactions.map((tx) => {
+                {filteredTransactions.map((tx) => {
                   const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
+                  const isIncome = isReceivedTransfer(tx);
+                  const isSent = isSentTransfer(tx);
+
                   return (
                     <tr 
                       key={tx.id} 
-                      className="hover:bg-muted/30 transition-colors group"
+                      className={`hover:bg-muted/30 transition-colors group ${
+                        isIncome ? 'bg-emerald-500/[0.02]' : ''
+                      }`}
                     >
                       {/* Merchant */}
                       <td className="py-3.5 px-4 sm:px-6">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/60 flex-shrink-0">
-                            {getCategoryIcon(tx.category, tx.transactionType)}
+                          <div className={`flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0 ${
+                            isIncome 
+                              ? 'bg-emerald-500/15' 
+                              : isSent 
+                              ? 'bg-sky-500/15' 
+                              : 'bg-muted/60'
+                          }`}>
+                            {getTransactionIcon(tx)}
                           </div>
                           <div>
                             <div className="font-semibold text-foreground truncate max-w-[180px] sm:max-w-[240px]" title={tx.merchant}>
                               {tx.merchant}
                             </div>
-                            <div className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px]" title={tx.rawMerchant}>
-                              {tx.rawMerchant}
+                            <div className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px]" title={tx.notes || tx.rawMerchant}>
+                              {tx.notes || tx.rawMerchant}
                             </div>
                           </div>
                         </div>
+                      </td>
+
+                      {/* Tipo de Movimiento (Enviada vs Recibida vs Compra) */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {renderTypeBadge(tx)}
                       </td>
 
                       {/* Category */}
@@ -229,15 +350,29 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
 
                       {/* Status */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <Badge variant={isRejected ? 'destructive' : 'success'}>
-                          {tx.status || 'Aprobada'}
-                        </Badge>
+                        {isRejected ? (
+                          <Badge variant="destructive" className="gap-1">
+                            <XCircle className="h-3 w-3" />
+                            Rechazada
+                          </Badge>
+                        ) : (
+                          <Badge variant="success" className="gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Aprobada
+                          </Badge>
+                        )}
                       </td>
 
                       {/* Amount */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className={`font-bold text-sm ${isRejected ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                          {formatCurrency(tx.amount, tx.currency)}
+                        <div className={`font-bold text-sm ${
+                          isRejected 
+                            ? 'line-through text-muted-foreground' 
+                            : isIncome
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-foreground'
+                        }`}>
+                          {isIncome ? `+ ` : ''}{formatCurrency(tx.amount, tx.currency)}
                         </div>
                         <div className="text-[10px] text-muted-foreground font-semibold">
                           {tx.currency}

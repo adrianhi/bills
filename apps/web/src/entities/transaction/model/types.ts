@@ -11,6 +11,7 @@ export interface Transaction {
   transactionType: string;
   category: string;
   notes?: string | null;
+  source?: string;
   transactionDate: string;
   createdAt: string;
 }
