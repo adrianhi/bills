@@ -28,6 +28,12 @@ export interface StatsSummary {
   currency: string;
   dailyAverage: number;
   averageTicket?: number;
+  comparison?: {
+    previousTotalAmount: number;
+    previousTotalIncome: number;
+    expenseChangePercent: number | null;
+    incomeChangePercent: number | null;
+  };
   byCategory: CategoryBreakdown[];
   byOrganization?: OrganizationBreakdown[];
   dailyTrend: DailyTrendItem[];

@@ -21,7 +21,8 @@ import {
   CheckCircle2, 
   XCircle,
   X,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Calendar
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Badge } from '@/shared/ui';
 import { formatCurrency, formatDate, getOrganizationMeta } from '@/shared/lib';
@@ -51,6 +52,17 @@ interface TransactionTableProps {
   hideBalances?: boolean;
 }
 
+interface TransactionGroup {
+  dateKey: string;
+  title: string;
+  subtitle: string;
+  totalExpenseDOP: number;
+  totalIncomeDOP: number;
+  totalExpenseUSD: number;
+  totalIncomeUSD: number;
+  transactions: Transaction[];
+}
+
 const isReceivedTransfer = (tx: Transaction) => {
   return (
     tx.source === 'BHD_TRANSFER_INCOME' ||
@@ -63,16 +75,19 @@ const isReceivedTransfer = (tx: Transaction) => {
 
 const isSentTransfer = (tx: Transaction) => {
   return (
-    !isReceivedTransfer(tx) &&
-    (/transferencia/i.test(tx.transactionType) || /transferencia/i.test(tx.category) || tx.source === 'BHD_TRANSFER_EMAIL')
+    tx.source === 'BHD_TRANSFER_SENT' ||
+    /enviada/i.test(tx.transactionType) ||
+    /beneficiario/i.test(tx.notes || '') ||
+    (/transferencia/i.test(tx.transactionType) && !isReceivedTransfer(tx))
   );
 };
 
 const isServicePayment = (tx: Transaction) => {
   return (
-    /servicio/i.test(tx.transactionType) ||
-    tx.category === 'Servicios' ||
-    tx.source === 'BHD_SERVICE_PAYMENT'
+    tx.source === 'BHD_SERVICE_PAYMENT' ||
+    /pago de servicio/i.test(tx.transactionType) ||
+    /impuesto/i.test(tx.transactionType) ||
+    /pago/i.test(tx.transactionType)
   );
 };
 
@@ -157,6 +172,86 @@ const renderTypeBadge = (tx: Transaction) => {
   );
 };
 
+const formatGroupDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  const now = new Date();
+  
+  const isSameDay = (d1: Date, d2: Date) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
+
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+
+  if (isSameDay(d, now)) {
+    return {
+      title: 'Hoy',
+      subtitle: d.toLocaleDateString('es-DO', { day: 'numeric', month: 'short' }),
+    };
+  }
+  if (isSameDay(d, yesterday)) {
+    return {
+      title: 'Ayer',
+      subtitle: d.toLocaleDateString('es-DO', { day: 'numeric', month: 'short' }),
+    };
+  }
+
+  const weekday = d.toLocaleDateString('es-DO', { weekday: 'long' });
+  const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  const dateFormatted = d.toLocaleDateString('es-DO', { 
+    day: 'numeric', 
+    month: 'short', 
+    year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined 
+  });
+
+  return {
+    title: capitalizedWeekday,
+    subtitle: dateFormatted,
+  };
+};
+
+const groupTransactionsByDate = (txs: Transaction[]): TransactionGroup[] => {
+  const groupsMap = new Map<string, TransactionGroup>();
+
+  for (const tx of txs) {
+    const d = new Date(tx.transactionDate);
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    if (!groupsMap.has(dateKey)) {
+      const { title, subtitle } = formatGroupDate(tx.transactionDate);
+      groupsMap.set(dateKey, {
+        dateKey,
+        title,
+        subtitle,
+        totalExpenseDOP: 0,
+        totalIncomeDOP: 0,
+        totalExpenseUSD: 0,
+        totalIncomeUSD: 0,
+        transactions: [],
+      });
+    }
+
+    const group = groupsMap.get(dateKey)!;
+    group.transactions.push(tx);
+
+    const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
+    if (!isRejected) {
+      const isIncome = isReceivedTransfer(tx);
+      const amount = Number(tx.amount) || 0;
+      if (tx.currency === 'USD') {
+        if (isIncome) group.totalIncomeUSD += amount;
+        else group.totalExpenseUSD += amount;
+      } else {
+        if (isIncome) group.totalIncomeDOP += amount;
+        else group.totalExpenseDOP += amount;
+      }
+    }
+  }
+
+  return Array.from(groupsMap.values());
+};
+
 export const TransactionTable: React.FC<TransactionTableProps> = ({
   transactions,
   total,
@@ -201,6 +296,8 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
     return true;
   });
 
+  const groupedTransactions = groupTransactionsByDate(filteredTransactions);
+
   return (
     <Card className="border-border/60 shadow-sm overflow-hidden">
       <CardHeader className="p-4 sm:p-5 pb-3">
@@ -236,7 +333,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                  className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -248,16 +345,12 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               variant="outline"
               size="sm"
               onClick={() => setIsFilterDrawerOpen(true)}
-              className={`h-9 px-3 gap-1.5 text-xs font-semibold shrink-0 transition-all cursor-pointer ${
-                activeFiltersCount > 0
-                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                  : 'text-foreground hover:bg-muted'
-              }`}
+              className="gap-2 h-9 px-3 border-border/80 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all cursor-pointer shrink-0"
             >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span>Filtros</span>
+              <SlidersHorizontal className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="font-semibold text-xs">Filtros</span>
               {activeFiltersCount > 0 && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white ml-0.5">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
                   {activeFiltersCount}
                 </span>
               )}
@@ -265,36 +358,36 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
           </div>
         </div>
 
-        {/* Horizontal Quick Touch Chips (Mobile Carousel) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2.5 mt-1 border-t border-border/40">
-          {/* Chip: Todos */}
+        {/* Quick Horizontal Carousel Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto py-2 scrollbar-none no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+          {/* Quick Bank Chips */}
           <button
             onClick={() => {
-              onResetFilters();
+              setOrganizationFilter('');
               setPage(1);
             }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer ${
-              activeFiltersCount === 0 && !search
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground'
+            className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              !organizationFilter && !typeFilter && !categoryFilter
+                ? 'bg-foreground text-background shadow-xs'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
             }`}
           >
             Todos
           </button>
-
-          {/* Quick Bank Chips */}
+          
           <button
             onClick={() => {
               setOrganizationFilter(organizationFilter === 'BHD' ? '' : 'BHD');
               setPage(1);
             }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               organizationFilter === 'BHD'
-                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
-                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/40'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
             }`}
           >
-            🟢 BHD
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            BHD
           </button>
 
           <button
@@ -302,28 +395,44 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               setOrganizationFilter(organizationFilter === 'POPULAR' ? '' : 'POPULAR');
               setPage(1);
             }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               organizationFilter === 'POPULAR'
-                ? 'bg-sky-500/20 border-sky-500 text-sky-600 dark:text-sky-400 font-bold'
-                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+                ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/40'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
             }`}
           >
-            🔵 Popular
+            <span className="h-2 w-2 rounded-full bg-blue-500" />
+            Popular
           </button>
 
-          {/* Quick Type Chips */}
+          <button
+            onClick={() => {
+              setOrganizationFilter(organizationFilter === 'BANRESERVAS' ? '' : 'BANRESERVAS');
+              setPage(1);
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              organizationFilter === 'BANRESERVAS'
+                ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 ring-1 ring-sky-500/40'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <span className="h-2 w-2 rounded-full bg-sky-600" />
+            Banreservas
+          </button>
+
           <button
             onClick={() => {
               setTypeFilter(typeFilter === 'recibida' ? '' : 'recibida');
               setPage(1);
             }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               typeFilter === 'recibida'
-                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
-                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/40'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
             }`}
           >
-            📥 Ingresos
+            <ArrowDownLeft className="h-3 w-3 text-emerald-500" />
+            Ingresos
           </button>
 
           <button
@@ -331,13 +440,14 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               setTypeFilter(typeFilter === 'compra' ? '' : 'compra');
               setPage(1);
             }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               typeFilter === 'compra'
-                ? 'bg-slate-500/20 border-slate-400 text-foreground font-bold'
-                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+                ? 'bg-muted text-foreground ring-1 ring-foreground/30 font-bold'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
             }`}
           >
-            💳 Compras
+            <CreditCard className="h-3 w-3 text-slate-400" />
+            Compras
           </button>
 
           <button
@@ -345,42 +455,29 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               setTypeFilter(typeFilter === 'enviada' ? '' : 'enviada');
               setPage(1);
             }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               typeFilter === 'enviada'
-                ? 'bg-sky-500/20 border-sky-500 text-sky-600 dark:text-sky-400 font-bold'
-                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+                ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 ring-1 ring-sky-500/40'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
             }`}
           >
-            ↗️ Enviadas
+            <ArrowUpRight className="h-3 w-3 text-sky-500" />
+            Transf. Enviadas
           </button>
 
-          <button
-            onClick={() => {
-              setTypeFilter(typeFilter === 'servicio' ? '' : 'servicio');
-              setPage(1);
-            }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
-              typeFilter === 'servicio'
-                ? 'bg-amber-500/20 border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
-                : 'border-border/60 bg-card hover:bg-muted text-foreground'
-            }`}
-          >
-            🧾 Servicios
-          </button>
-
-          {/* Quick Category Chips */}
           <button
             onClick={() => {
               setCategoryFilter(categoryFilter === 'Supermercado' ? '' : 'Supermercado');
               setPage(1);
             }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               categoryFilter === 'Supermercado'
-                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
-                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/40'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
             }`}
           >
-            🛒 Supermercado
+            <ShoppingCart className="h-3 w-3 text-emerald-500" />
+            Supermercado
           </button>
 
           <button
@@ -388,55 +485,56 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               setCategoryFilter(categoryFilter === 'Restaurantes & Delivery' ? '' : 'Restaurantes & Delivery');
               setPage(1);
             }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 border transition-all cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               categoryFilter === 'Restaurantes & Delivery'
-                ? 'bg-amber-500/20 border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
-                : 'border-border/60 bg-card hover:bg-muted text-foreground'
+                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/40'
+                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
             }`}
           >
-            🍔 Restaurantes
+            <Utensils className="h-3 w-3 text-amber-500" />
+            Restaurantes
           </button>
         </div>
 
         {/* Active Filter Badges Bar */}
-        {(activeFiltersCount > 0 || search) && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40 text-xs">
-            <span className="text-[11px] font-semibold text-muted-foreground">Filtros activos:</span>
+        {activeFiltersCount > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40">
+            <span className="text-[11px] font-semibold text-muted-foreground mr-1">Filtros activos:</span>
             
             {organizationFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold">
+              <Badge variant="secondary" className="gap-1 text-[11px] font-medium h-6">
                 Banco: {organizationFilter}
-                <button onClick={() => setOrganizationFilter('')} className="hover:opacity-75">
+                <button onClick={() => setOrganizationFilter('')} className="ml-1 hover:text-destructive">
                   <X className="h-3 w-3" />
                 </button>
-              </span>
+              </Badge>
             )}
 
             {typeFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/30 text-[11px] font-semibold">
+              <Badge variant="secondary" className="gap-1 text-[11px] font-medium h-6">
                 Tipo: {typeFilter}
-                <button onClick={() => setTypeFilter('')} className="hover:opacity-75">
+                <button onClick={() => setTypeFilter('')} className="ml-1 hover:text-destructive">
                   <X className="h-3 w-3" />
                 </button>
-              </span>
+              </Badge>
             )}
 
             {categoryFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 text-[11px] font-semibold">
-                Cat: {categoryFilter}
-                <button onClick={() => setCategoryFilter('')} className="hover:opacity-75">
+              <Badge variant="secondary" className="gap-1 text-[11px] font-medium h-6">
+                Categoría: {categoryFilter}
+                <button onClick={() => setCategoryFilter('')} className="ml-1 hover:text-destructive">
                   <X className="h-3 w-3" />
                 </button>
-              </span>
+              </Badge>
             )}
 
             {statusFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/10 text-foreground border border-border text-[11px] font-semibold">
+              <Badge variant="secondary" className="gap-1 text-[11px] font-medium h-6">
                 Estado: {statusFilter}
-                <button onClick={() => setStatusFilter('')} className="hover:opacity-75">
+                <button onClick={() => setStatusFilter('')} className="ml-1 hover:text-destructive">
                   <X className="h-3 w-3" />
                 </button>
-              </span>
+              </Badge>
             )}
 
             <button
@@ -491,61 +589,101 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
           </div>
         ) : (
           <>
-            {/* 1. Mobile Touch Card Items */}
-            <div className="block lg:hidden divide-y divide-border/40">
-              {filteredTransactions.map((tx) => {
-                const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
-                const isIncome = isReceivedTransfer(tx);
-                const isSent = isSentTransfer(tx);
-                const orgMeta = getOrganizationMeta(tx.source, tx.merchant);
-
-                return (
-                  <div
-                    key={tx.id}
-                    onClick={() => onEdit(tx)}
-                    className="p-3.5 sm:p-4 hover:bg-muted/30 active:bg-muted/50 transition-colors flex items-center justify-between gap-3 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-2xl flex-shrink-0 ${
-                        isIncome ? 'bg-emerald-500/15' : isSent ? 'bg-sky-500/15' : 'bg-muted/70'
-                      }`}>
-                        {getTransactionIcon(tx)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-bold text-sm text-foreground truncate">
-                          {tx.merchant}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
-                          <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold border ${orgMeta.badgeClass}`}>
-                            {orgMeta.shortName}
-                          </span>
-                          <span className="truncate">{tx.category || 'Otros'}</span>
-                          <span>•</span>
-                          <span className="truncate">{formatDate(tx.transactionDate)}</span>
-                        </div>
-                      </div>
+            {/* 1. Mobile Date-Grouped Touch Cards */}
+            <div className="block lg:hidden">
+              {groupedTransactions.map((group) => (
+                <div key={group.dateKey} className="border-b border-border/40 last:border-b-0">
+                  {/* Sticky Date Header with Daily Total */}
+                  <div className="sticky top-0 z-10 bg-muted/95 dark:bg-muted/90 backdrop-blur-md px-4 py-2 border-y border-border/50 flex items-center justify-between shadow-xs">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-emerald-500" />
+                      <span className="text-xs font-extrabold text-foreground">{group.title}</span>
+                      <span className="text-[11px] text-muted-foreground font-medium">• {group.subtitle}</span>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <div className={`font-black text-sm ${
-                        isRejected
-                          ? 'line-through text-muted-foreground'
-                          : isIncome
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-foreground'
-                      }`}>
-                        {hideBalances ? '••••••' : `${isIncome ? '+ ' : ''}${formatCurrency(tx.amount, tx.currency)}`}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground font-semibold">
-                        {tx.currency} {tx.cardLast4 ? `•••• ${tx.cardLast4}` : ''}
-                      </div>
+                    <div className="text-right">
+                      {hideBalances ? (
+                        <span className="text-xs font-bold text-muted-foreground">••••••</span>
+                      ) : (
+                        <div className="text-xs font-bold flex items-center gap-1.5">
+                          {group.totalExpenseDOP > 0 && (
+                            <span className="text-foreground">
+                              -{formatCurrency(group.totalExpenseDOP, 'DOP')}
+                            </span>
+                          )}
+                          {group.totalIncomeDOP > 0 && (
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                              +{formatCurrency(group.totalIncomeDOP, 'DOP')}
+                            </span>
+                          )}
+                          {group.totalExpenseDOP === 0 && group.totalIncomeDOP === 0 && group.totalExpenseUSD > 0 && (
+                            <span className="text-foreground">
+                              -${group.totalExpenseUSD.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
-                );
-              })}
+
+                  {/* Group Items */}
+                  <div className="divide-y divide-border/30">
+                    {group.transactions.map((tx) => {
+                      const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
+                      const isIncome = isReceivedTransfer(tx);
+                      const isSent = isSentTransfer(tx);
+                      const orgMeta = getOrganizationMeta(tx.source, tx.merchant);
+
+                      return (
+                        <div
+                          key={tx.id}
+                          onClick={() => onEdit(tx)}
+                          className="p-3.5 sm:p-4 hover:bg-muted/30 active:bg-muted/50 transition-colors flex items-center justify-between gap-3 cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl flex-shrink-0 ${
+                              isIncome ? 'bg-emerald-500/15' : isSent ? 'bg-sky-500/15' : 'bg-muted/70'
+                            }`}>
+                              {getTransactionIcon(tx)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-sm text-foreground truncate">
+                                {tx.merchant}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                                <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold border ${orgMeta.badgeClass}`}>
+                                  {orgMeta.shortName}
+                                </span>
+                                <span className="truncate">{tx.category || 'Otros'}</span>
+                                <span>•</span>
+                                <span className="truncate">{formatDate(tx.transactionDate)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <div className={`font-black text-sm ${
+                              isRejected
+                                ? 'line-through text-muted-foreground'
+                                : isIncome
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-foreground'
+                            }`}>
+                              {hideBalances ? '••••••' : `${isIncome ? '+ ' : ''}${formatCurrency(tx.amount, tx.currency)}`}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground font-semibold">
+                              {tx.currency} {tx.cardLast4 ? `•••• ${tx.cardLast4}` : ''}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {/* 2. Desktop Full Table */}
+            {/* 2. Desktop Full Table with Date Section Rows */}
             <div className="hidden lg:block overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-y">
@@ -561,158 +699,188 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
-                  {filteredTransactions.map((tx) => {
-                    const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
-                    const isIncome = isReceivedTransfer(tx);
-                    const isSent = isSentTransfer(tx);
-                    const orgMeta = getOrganizationMeta(tx.source, tx.merchant);
-
-                    return (
-                      <tr 
-                        key={tx.id} 
-                        className={`hover:bg-muted/30 transition-colors group ${
-                          isIncome ? 'bg-emerald-500/[0.02]' : ''
-                        }`}
-                      >
-                        {/* Merchant */}
-                        <td className="py-3.5 px-4 sm:px-6">
-                          <div className="flex items-center gap-3">
-                            <div className={`flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0 ${
-                              isIncome 
-                                ? 'bg-emerald-500/15' 
-                                : isSent 
-                                ? 'bg-sky-500/15' 
-                                : 'bg-muted/60'
-                            }`}>
-                              {getTransactionIcon(tx)}
+                  {groupedTransactions.map((group) => (
+                    <React.Fragment key={group.dateKey}>
+                      {/* Date Group Section Header */}
+                      <tr className="bg-muted/40 border-y border-border/60">
+                        <td colSpan={8} className="py-2 px-6">
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-3.5 w-3.5 text-emerald-500" />
+                              <span className="text-foreground">{group.title}</span>
+                              <span className="text-muted-foreground font-normal">
+                                • {group.subtitle} ({group.transactions.length} {group.transactions.length === 1 ? 'movimiento' : 'movimientos'})
+                              </span>
                             </div>
-                            <div>
-                              <div className="font-semibold text-foreground truncate max-w-[180px] sm:max-w-[240px]" title={tx.merchant}>
-                                {tx.merchant}
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold border ${orgMeta.badgeClass}`}>
-                                  {orgMeta.shortName}
-                                </span>
-                                <span className="text-[11px] text-muted-foreground font-mono truncate max-w-[140px]" title={tx.notes || tx.rawMerchant}>
-                                  {tx.notes || tx.rawMerchant}
-                                </span>
-                              </div>
+                            <div className="flex items-center gap-3 font-bold">
+                              {hideBalances ? (
+                                <span className="text-muted-foreground">••••••</span>
+                              ) : (
+                                <>
+                                  {group.totalExpenseDOP > 0 && (
+                                    <span className="text-foreground">
+                                      Gasto: -{formatCurrency(group.totalExpenseDOP, 'DOP')}
+                                    </span>
+                                  )}
+                                  {group.totalIncomeDOP > 0 && (
+                                    <span className="text-emerald-600 dark:text-emerald-400">
+                                      Ingreso: +{formatCurrency(group.totalIncomeDOP, 'DOP')}
+                                    </span>
+                                  )}
+                                </>
+                              )}
                             </div>
                           </div>
-                        </td>
-
-                        {/* Tipo de Movimiento (Enviada vs Recibida vs Compra) */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          {renderTypeBadge(tx)}
-                        </td>
-
-                        {/* Category */}
-                        <td className="py-3.5 px-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                            {tx.category || 'Otros'}
-                          </span>
-                        </td>
-
-                        {/* Date */}
-                        <td className="py-3.5 px-4 text-xs text-muted-foreground whitespace-nowrap">
-                          {formatDate(tx.transactionDate)}
-                        </td>
-
-                        {/* Card or Account */}
-                        <td className="py-3.5 px-4 text-xs whitespace-nowrap">
-                          {tx.cardLast4 ? (
-                            <span className="font-mono bg-muted/70 px-1.5 py-0.5 rounded text-[11px]">
-                              •••• {tx.cardLast4}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </td>
-
-                        {/* Status */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          {isRejected ? (
-                            <Badge variant="destructive" className="gap-1">
-                              <XCircle className="h-3 w-3" />
-                              Rechazada
-                            </Badge>
-                          ) : (
-                            <Badge variant="success" className="gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Aprobada
-                            </Badge>
-                          )}
-                        </td>
-
-                        {/* Amount */}
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <div className={`font-bold text-sm ${
-                            isRejected 
-                              ? 'line-through text-muted-foreground' 
-                              : isIncome
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-foreground'
-                          }`}>
-                            {hideBalances ? '••••••' : `${isIncome ? '+ ' : ''}${formatCurrency(tx.amount, tx.currency)}`}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground font-semibold">
-                            {tx.currency}
-                          </div>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3.5 px-4 text-center">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onEdit(tx)}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-80 group-hover:opacity-100"
-                            title="Editar comercio o categoría"
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                          </Button>
                         </td>
                       </tr>
-                    );
-                  })}
+
+                      {/* Group Transactions */}
+                      {group.transactions.map((tx) => {
+                        const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
+                        const isIncome = isReceivedTransfer(tx);
+                        const isSent = isSentTransfer(tx);
+                        const orgMeta = getOrganizationMeta(tx.source, tx.merchant);
+
+                        return (
+                          <tr 
+                            key={tx.id} 
+                            className={`hover:bg-muted/30 transition-colors group ${
+                              isIncome ? 'bg-emerald-500/[0.02]' : ''
+                            }`}
+                          >
+                            {/* Merchant */}
+                            <td className="py-3.5 px-4 sm:px-6">
+                              <div className="flex items-center gap-3">
+                                <div className={`flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0 ${
+                                  isIncome 
+                                    ? 'bg-emerald-500/15' 
+                                    : isSent 
+                                    ? 'bg-sky-500/15' 
+                                    : 'bg-muted/60'
+                                }`}>
+                                  {getTransactionIcon(tx)}
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-foreground truncate max-w-[180px] sm:max-w-[240px]" title={tx.merchant}>
+                                    {tx.merchant}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold border ${orgMeta.badgeClass}`}>
+                                      {orgMeta.shortName}
+                                    </span>
+                                    <span className="text-[11px] text-muted-foreground font-mono truncate max-w-[140px]" title={tx.notes || tx.rawMerchant}>
+                                      {tx.notes || tx.rawMerchant}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Movement Type */}
+                            <td className="py-3.5 px-4">
+                              {renderTypeBadge(tx)}
+                            </td>
+
+                            {/* Category */}
+                            <td className="py-3.5 px-4">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/60 text-foreground border border-border/50">
+                                {tx.category || 'Otros'}
+                              </span>
+                            </td>
+
+                            {/* Date */}
+                            <td className="py-3.5 px-4 text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDate(tx.transactionDate)}
+                            </td>
+
+                            {/* Account / Card */}
+                            <td className="py-3.5 px-4 text-xs font-mono text-muted-foreground">
+                              {tx.cardLast4 ? `•••• ${tx.cardLast4}` : 'N/A'}
+                            </td>
+
+                            {/* Status */}
+                            <td className="py-3.5 px-4">
+                              {isRejected ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-destructive">
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  Rechazada
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Aprobada
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Amount */}
+                            <td className="py-3.5 px-4 text-right">
+                              <div className={`font-bold font-mono text-sm ${
+                                isRejected
+                                  ? 'line-through text-muted-foreground'
+                                  : isIncome
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : 'text-foreground'
+                              }`}>
+                                {hideBalances ? '••••••' : `${isIncome ? '+ ' : ''}${formatCurrency(tx.amount, tx.currency)}`}
+                              </div>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-3.5 px-4 text-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => onEdit(tx)}
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
+                                title="Editar clasificación"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
                 </tbody>
               </table>
             </div>
           </>
         )}
-
-        {/* Pagination Controls */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 sm:px-6 border-t text-xs text-muted-foreground">
-          <div>
-            Mostrando página <span className="font-semibold text-foreground">{page}</span> de{' '}
-            <span className="font-semibold text-foreground">{totalPages}</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(Math.max(1, page - 1))}
-              disabled={page <= 1 || loading}
-              className="h-8 gap-1"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              <span>Anterior</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(Math.min(totalPages, page + 1))}
-              disabled={page >= totalPages || loading}
-              className="h-8 gap-1"
-            >
-              <span>Siguiente</span>
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
       </CardContent>
+
+      {/* Pagination Footer */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 border-t text-xs text-muted-foreground">
+        <div>
+          Mostrando página <span className="font-bold text-foreground">{page}</span> de{' '}
+          <span className="font-bold text-foreground">{totalPages}</span> ({total} registros)
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(Math.max(1, page - 1))}
+            disabled={page <= 1}
+            className="h-8 gap-1 text-xs cursor-pointer"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            <span>Anterior</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
+            disabled={page >= totalPages}
+            className="h-8 gap-1 text-xs cursor-pointer"
+          >
+            <span>Siguiente</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
     </Card>
   );
 };

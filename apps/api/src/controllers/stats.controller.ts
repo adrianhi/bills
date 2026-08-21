@@ -218,6 +218,56 @@ export class StatsController {
       const dailyAverage = Math.round((totalAmount / activeDays) * 100) / 100;
       const averageTicket = approvedCount > 0 ? Math.round((totalAmount / approvedCount) * 100) / 100 : 0;
 
+      // Calculate previous period comparison (MoM / previous interval)
+      let previousTotalAmount = 0;
+      let previousTotalIncome = 0;
+
+      if (dateFilter.gte && dateFilter.lte) {
+        const currentStart = new Date(dateFilter.gte);
+        const currentEnd = new Date(dateFilter.lte);
+        const durationMs = currentEnd.getTime() - currentStart.getTime();
+
+        const prevStart = new Date(currentStart.getTime() - durationMs - 1);
+        const prevEnd = new Date(currentStart.getTime() - 1);
+
+        const prevWhere = { ...where, transactionDate: { gte: prevStart, lte: prevEnd } };
+        const prevTransactions = await prisma.transaction.findMany({
+          where: prevWhere,
+          select: {
+            amount: true,
+            currency: true,
+            status: true,
+            transactionType: true,
+            source: true,
+            category: true,
+          },
+        });
+
+        for (const pt of prevTransactions) {
+          const isRejected = /rechazad|declinad|denegad/i.test(pt.status);
+          if (isRejected) continue;
+          const isIncome =
+            pt.source === 'BHD_TRANSFER_INCOME' ||
+            /recibida/i.test(pt.transactionType) ||
+            /recibida/i.test(pt.category);
+          const isMatching = pt.currency === requestedCurrency;
+          if (isMatching) {
+            if (isIncome) previousTotalIncome += pt.amount;
+            else previousTotalAmount += pt.amount;
+          }
+        }
+      }
+
+      let expenseChangePercent: number | null = null;
+      if (previousTotalAmount > 0) {
+        expenseChangePercent = Math.round(((totalAmount - previousTotalAmount) / previousTotalAmount) * 1000) / 10;
+      }
+
+      let incomeChangePercent: number | null = null;
+      if (previousTotalIncome > 0) {
+        incomeChangePercent = Math.round(((totalIncome - previousTotalIncome) / previousTotalIncome) * 1000) / 10;
+      }
+
       res.status(200).json({
         success: true,
         data: {
@@ -234,6 +284,12 @@ export class StatsController {
           totalSpentUSD: Math.round(totalSpentUSD * 100) / 100,
           totalIncomeDOP: Math.round(totalIncomeDOP * 100) / 100,
           totalIncomeUSD: Math.round(totalIncomeUSD * 100) / 100,
+          comparison: {
+            previousTotalAmount: Math.round(previousTotalAmount * 100) / 100,
+            previousTotalIncome: Math.round(previousTotalIncome * 100) / 100,
+            expenseChangePercent,
+            incomeChangePercent,
+          },
           byCategory,
           byMerchant: topMerchants,
           byOrganization,

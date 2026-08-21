@@ -5,7 +5,9 @@ import {
   XCircle, 
   ShoppingBag, 
   CalendarDays, 
-  Wallet
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/ui';
 import { formatCurrency } from '@/shared/lib';
@@ -23,6 +25,8 @@ export const MetricCards: React.FC<MetricCardsProps> = ({ stats, currency, hideB
     : null;
 
   const hasIncome = (stats?.totalIncome || 0) > 0;
+  const expenseChange = stats?.comparison?.expenseChangePercent;
+  const incomeChange = stats?.comparison?.incomeChangePercent;
 
   const renderAmount = (amount: number) => {
     if (hideBalances) return '••••••';
@@ -50,9 +54,26 @@ export const MetricCards: React.FC<MetricCardsProps> = ({ stats, currency, hideB
             </div>
             <div className="mt-1 flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground">
               <span>{stats?.totalTransactions || 0} movs</span>
-              <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                {currency}
-              </span>
+              
+              {/* MoM Comparison Badge or Currency */}
+              {expenseChange !== null && expenseChange !== undefined ? (
+                <span className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                  expenseChange > 0
+                    ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20'
+                    : 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                }`}>
+                  {expenseChange > 0 ? (
+                    <ArrowUpRight className="h-3 w-3" />
+                  ) : (
+                    <ArrowDownRight className="h-3 w-3" />
+                  )}
+                  {Math.abs(expenseChange)}% vs ant.
+                </span>
+              ) : (
+                <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                  {currency}
+                </span>
+              )}
             </div>
           </div>
         </CardContent>
@@ -76,8 +97,18 @@ export const MetricCards: React.FC<MetricCardsProps> = ({ stats, currency, hideB
                 <div className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 truncate">
                   {hideBalances ? '••••••' : `+ ${renderAmount(stats?.totalIncome || 0)}`}
                 </div>
-                <div className="mt-1 text-[11px] sm:text-xs text-muted-foreground flex items-center gap-1">
+                <div className="mt-1 text-[11px] sm:text-xs text-muted-foreground flex items-center justify-between">
                   <span className="text-emerald-500 font-semibold">{stats?.approvedCount || 0} exitosas</span>
+                  {incomeChange !== null && incomeChange !== undefined && (
+                    <span className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                      incomeChange >= 0
+                        ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                        : 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                    }`}>
+                      {incomeChange >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                      {Math.abs(incomeChange)}%
+                    </span>
+                  )}
                 </div>
               </>
             ) : (
