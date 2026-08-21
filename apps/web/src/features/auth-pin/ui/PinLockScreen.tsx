@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
 import { Button, Card, CardContent } from '@/shared/ui';
 
 interface PinLockScreenProps {
@@ -62,21 +62,26 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({ onUnlock }) => {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
         
-        {/* Header Icon */}
+        {/* Header Icon & Brand */}
         <div className="text-center space-y-2">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-xl shadow-emerald-500/20">
-            <Lock className="h-8 w-8" />
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 text-white shadow-xl shadow-emerald-500/25">
+            <span className="font-extrabold text-2xl tracking-tighter">b.</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Banco BHD Tracker
-          </h1>
+          <div className="flex items-center justify-center gap-1.5 pt-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              bills<span className="text-emerald-500">.</span>
+            </h1>
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              Multi-Bank
+            </span>
+          </div>
           <p className="text-xs text-muted-foreground">
             Ingresa tu PIN de seguridad para acceder a tus finanzas
           </p>
         </div>
 
         {/* Card */}
-        <Card className="border-border/60 shadow-lg">
+        <Card className="border-border/60 shadow-xl bg-card/90 backdrop-blur-md">
           <CardContent className="p-6 space-y-5">
             
             {/* Hidden native input for mobile virtual keyboard */}

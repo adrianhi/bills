@@ -10,6 +10,7 @@ export class StatsController {
   public static async getSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const month = req.query.month as string | undefined;
+      const organization = (req.query.organization as string) || (req.query.source as string);
       const requestedCurrency = ((req.query.currency as string) || 'DOP').toUpperCase();
 
       let dateFilter = {};
@@ -21,7 +22,22 @@ export class StatsController {
         };
       }
 
-      const where = month ? { transactionDate: dateFilter } : {};
+      const where: any = month ? { transactionDate: dateFilter } : {};
+
+      if (organization && organization.toUpperCase() !== 'ALL') {
+        const orgUpper = organization.toUpperCase();
+        if (orgUpper === 'BHD' || orgUpper === 'BANCO BHD') {
+          where.source = { startsWith: 'BHD' };
+        } else if (orgUpper === 'POPULAR' || orgUpper === 'BANCO POPULAR') {
+          where.OR = [{ source: { contains: 'POPULAR' } }, { source: { contains: 'BPD' } }];
+        } else if (orgUpper === 'BANRESERVAS') {
+          where.source = { contains: 'BANRESERVAS' };
+        } else if (orgUpper === 'QIK') {
+          where.source = { contains: 'QIK' };
+        } else {
+          where.source = { contains: organization };
+        }
+      }
 
       const [transactions, totalCount] = await Promise.all([
         prisma.transaction.findMany({
@@ -32,6 +48,8 @@ export class StatsController {
             category: true,
             merchant: true,
             status: true,
+            transactionType: true,
+            source: true,
             transactionDate: true,
           },
           orderBy: {
@@ -41,32 +59,61 @@ export class StatsController {
         prisma.transaction.count({ where }),
       ]);
 
-      let totalDOP = 0;
-      let totalUSD = 0;
+      let totalSpentDOP = 0;
+      let totalSpentUSD = 0;
+      let totalIncomeDOP = 0;
+      let totalIncomeUSD = 0;
       let approvedCount = 0;
       let rejectedCount = 0;
 
       const byCategoryMap: Record<string, { total: number; totalDOP: number; totalUSD: number; count: number }> = {};
       const byMerchantMap: Record<string, { total: number; totalDOP: number; totalUSD: number; count: number }> = {};
+      const byOrgMap: Record<string, { total: number; totalDOP: number; totalUSD: number; count: number }> = {};
       const dailyTrendMap: Record<string, { total: number; count: number }> = {};
 
       for (const t of transactions) {
         const isRejected = /rechazad|declinad|denegad/i.test(t.status || '');
+        const isIncome =
+          /recibida/i.test(t.transactionType || '') ||
+          /ingreso/i.test(t.category || '') ||
+          t.source === 'BHD_TRANSFER_INCOME';
+
         if (isRejected) {
           rejectedCount++;
         } else {
           approvedCount++;
         }
 
-        if (t.currency === 'USD') {
-          totalUSD += t.amount;
-        } else {
-          totalDOP += t.amount;
-        }
-
         const isMatchingCurrency = t.currency.toUpperCase() === requestedCurrency;
 
-        // Group by category
+        // Organization detection
+        const srcUpper = (t.source || '').toUpperCase();
+        let orgName = 'Banco BHD';
+        if (srcUpper.includes('POPULAR') || srcUpper.includes('BPD')) orgName = 'Banco Popular';
+        else if (srcUpper.includes('BANRESERVAS') || srcUpper.includes('RESERVAS')) orgName = 'Banreservas';
+        else if (srcUpper.includes('QIK')) orgName = 'Qik Banco Digital';
+        else if (srcUpper.includes('APAP')) orgName = 'APAP';
+        else if (srcUpper.includes('SCOTIA')) orgName = 'Scotiabank';
+
+        if (!byOrgMap[orgName]) {
+          byOrgMap[orgName] = { total: 0, totalDOP: 0, totalUSD: 0, count: 0 };
+        }
+        if (t.currency === 'USD') byOrgMap[orgName].totalUSD += t.amount;
+        else byOrgMap[orgName].totalDOP += t.amount;
+        if (isMatchingCurrency && !isRejected && !isIncome) {
+          byOrgMap[orgName].total += t.amount;
+        }
+        byOrgMap[orgName].count++;
+
+        if (isIncome) {
+          if (t.currency === 'USD') totalIncomeUSD += t.amount;
+          else totalIncomeDOP += t.amount;
+        } else {
+          if (t.currency === 'USD') totalSpentUSD += t.amount;
+          else totalSpentDOP += t.amount;
+        }
+
+        // Group by category (only for spending or all active)
         if (!byCategoryMap[t.category]) {
           byCategoryMap[t.category] = { total: 0, totalDOP: 0, totalUSD: 0, count: 0 };
         }
@@ -94,8 +141,8 @@ export class StatsController {
         }
         byMerchantMap[t.merchant].count++;
 
-        // Daily trend (Santo Domingo local time YYYY-MM-DD)
-        if (isMatchingCurrency && !isRejected) {
+        // Daily trend for expenses
+        if (isMatchingCurrency && !isRejected && !isIncome) {
           const dateKey = new Intl.DateTimeFormat('en-CA', {
             timeZone: 'America/Santo_Domingo',
             year: 'numeric',
@@ -111,7 +158,8 @@ export class StatsController {
         }
       }
 
-      const totalAmount = requestedCurrency === 'USD' ? totalUSD : totalDOP;
+      const totalAmount = requestedCurrency === 'USD' ? totalSpentUSD : totalSpentDOP;
+      const totalIncome = requestedCurrency === 'USD' ? totalIncomeUSD : totalIncomeDOP;
 
       // Calculate category array with percentages
       const byCategory = Object.entries(byCategoryMap)
@@ -136,6 +184,16 @@ export class StatsController {
         .sort((a, b) => b.total - a.total)
         .slice(0, 10);
 
+      // By organization array
+      const byOrganization = Object.entries(byOrgMap)
+        .map(([org, data]) => ({
+          organization: org,
+          total: Math.round(data.total * 100) / 100,
+          count: data.count,
+          percentage: totalAmount > 0 ? Math.round((data.total / totalAmount) * 100) : 0,
+        }))
+        .sort((a, b) => b.total - a.total);
+
       // Daily trend array
       const dailyTrend = Object.entries(dailyTrendMap)
         .map(([date, data]) => ({
@@ -147,21 +205,27 @@ export class StatsController {
 
       const activeDays = Object.keys(dailyTrendMap).length || 1;
       const dailyAverage = Math.round((totalAmount / activeDays) * 100) / 100;
+      const averageTicket = approvedCount > 0 ? Math.round((totalAmount / approvedCount) * 100) / 100 : 0;
 
       res.status(200).json({
         success: true,
         data: {
           period: month || 'all-time',
           totalAmount: Math.round(totalAmount * 100) / 100,
+          totalIncome: Math.round(totalIncome * 100) / 100,
           totalTransactions: totalCount,
           approvedCount,
           rejectedCount,
           currency: requestedCurrency,
           dailyAverage,
-          totalSpentDOP: Math.round(totalDOP * 100) / 100,
-          totalSpentUSD: Math.round(totalUSD * 100) / 100,
+          averageTicket,
+          totalSpentDOP: Math.round(totalSpentDOP * 100) / 100,
+          totalSpentUSD: Math.round(totalSpentUSD * 100) / 100,
+          totalIncomeDOP: Math.round(totalIncomeDOP * 100) / 100,
+          totalIncomeUSD: Math.round(totalIncomeUSD * 100) / 100,
           byCategory,
           byMerchant: topMerchants,
+          byOrganization,
           topMerchants,
           categoryBreakdown: byCategoryMap,
           dailyTrend,

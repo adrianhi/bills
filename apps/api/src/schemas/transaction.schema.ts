@@ -38,6 +38,9 @@ export const TransactionQuerySchema = z.object({
   currency: z.string().optional().transform((val) => val?.toUpperCase()),
   cardLast4: z.string().optional(),
   status: z.string().optional(),
+  transactionType: z.string().optional(),
+  source: z.string().optional(),
+  organization: z.string().optional(),
   search: z.string().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(500).default(50),
@@ -55,6 +58,10 @@ export const ExportQuerySchema = z.object({
   endDate: z.string().datetime().optional(),
   category: z.string().optional(),
   currency: z.string().optional().transform((val) => val?.toUpperCase()),
+  status: z.string().optional(),
+  transactionType: z.string().optional(),
+  source: z.string().optional(),
+  organization: z.string().optional(),
   search: z.string().optional(),
 });
 

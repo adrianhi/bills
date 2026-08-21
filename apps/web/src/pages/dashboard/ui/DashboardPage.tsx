@@ -28,6 +28,11 @@ interface DashboardPageProps {
   setCategoryFilter: (cat: string) => void;
   statusFilter: string;
   setStatusFilter: (st: string) => void;
+  organizationFilter: string;
+  setOrganizationFilter: (org: string) => void;
+  typeFilter: string;
+  setTypeFilter: (t: string) => void;
+  onResetFilters: () => void;
   onRefresh: () => void;
   onExport: () => void;
   onLock: () => void;
@@ -58,6 +63,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   setCategoryFilter,
   statusFilter,
   setStatusFilter,
+  organizationFilter,
+  setOrganizationFilter,
+  typeFilter,
+  setTypeFilter,
+  onResetFilters,
   onRefresh,
   onExport,
   onLock,
@@ -108,6 +118,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           setCategoryFilter={setCategoryFilter}
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
+          organizationFilter={organizationFilter}
+          setOrganizationFilter={setOrganizationFilter}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          onResetFilters={onResetFilters}
           onEdit={(tx) => setEditingTransaction(tx)}
           loading={loading}
         />
@@ -115,7 +130,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
       {/* Footer */}
       <footer className="border-t py-4 text-center text-xs text-muted-foreground">
-        Banco BHD Transaction Tracker & Dashboard • Feature-Sliced Design & Shadcn UI
+        bills<span className="text-emerald-500 font-bold">.</span> • Control de Gastos Multi-Entidad & Analítica Financiera
       </footer>
 
       {/* Edit Modal */}

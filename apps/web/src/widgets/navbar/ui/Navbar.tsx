@@ -1,6 +1,5 @@
 import React from 'react';
 import { 
-  CreditCard, 
   Moon, 
   Sun, 
   Download, 
@@ -57,14 +56,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Brand */}
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/20">
-              <CreditCard className="h-5 w-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 text-white shadow-md shadow-emerald-500/20 font-bold text-lg tracking-tighter">
+              b.
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold tracking-tight text-lg">Banco BHD</span>
+                <span className="font-bold tracking-tight text-lg">bills<span className="text-emerald-500">.</span></span>
                 <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  En Vivo
+                  Multi-Bank
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">Control de Gastos & Automatización</p>

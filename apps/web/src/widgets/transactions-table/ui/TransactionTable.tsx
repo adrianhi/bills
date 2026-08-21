@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Search, 
   ShoppingCart, 
@@ -10,19 +10,20 @@ import {
   HeartPulse, 
   ShoppingBag, 
   Zap, 
-  ArrowDownLeft,
-  ArrowUpRight,
-  CreditCard,
-  Receipt,
+  ArrowDownLeft, 
+  ArrowUpRight, 
+  CreditCard, 
+  Receipt, 
   Edit3, 
   ChevronLeft, 
-  ChevronRight,
-  Layers,
-  CheckCircle2,
-  XCircle
+  ChevronRight, 
+  Layers, 
+  CheckCircle2, 
+  XCircle,
+  X
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Badge } from '@/shared/ui';
-import { formatCurrency, formatDate } from '@/shared/lib';
+import { formatCurrency, formatDate, getOrganizationMeta } from '@/shared/lib';
 import type { Transaction } from '@/entities/transaction';
 
 interface TransactionTableProps {
@@ -37,6 +38,11 @@ interface TransactionTableProps {
   setCategoryFilter: (cat: string) => void;
   statusFilter: string;
   setStatusFilter: (status: string) => void;
+  organizationFilter: string;
+  setOrganizationFilter: (org: string) => void;
+  typeFilter: string;
+  setTypeFilter: (type: string) => void;
+  onResetFilters: () => void;
   onEdit: (tx: Transaction) => void;
   loading: boolean;
 }
@@ -157,13 +163,26 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   setCategoryFilter,
   statusFilter,
   setStatusFilter,
+  organizationFilter,
+  setOrganizationFilter,
+  typeFilter,
+  setTypeFilter,
+  onResetFilters,
   onEdit,
   loading,
 }) => {
-  const [typeFilter, setTypeFilter] = useState<string>('');
   const totalPages = Math.ceil(total / limit) || 1;
 
-  // Filtrado local por tipo si se selecciona
+  // Active filters count
+  const activeFiltersCount = [
+    search ? 1 : 0,
+    categoryFilter ? 1 : 0,
+    statusFilter ? 1 : 0,
+    organizationFilter ? 1 : 0,
+    typeFilter ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  // Filtrado local por tipo si no se filtró en API
   const filteredTransactions = transactions.filter((tx) => {
     if (!typeFilter) return true;
     if (typeFilter === 'recibida') return isReceivedTransfer(tx);
@@ -175,38 +194,74 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   });
 
   return (
-    <Card className="border-border/60 shadow-sm">
+    <Card className="border-border/60 shadow-sm overflow-hidden">
       <CardHeader className="p-4 sm:p-6 pb-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <CardTitle className="text-lg font-bold">Historial de Transacciones</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-lg font-bold text-foreground">Historial de Transacciones</CardTitle>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-muted font-medium text-muted-foreground">
+                {total} registros
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {total} transacciones registradas
+              Consulta, filtra y clasifica movimientos financieros de todas tus organizaciones
             </p>
           </div>
 
-          {/* Search & Filters */}
+          {/* Filters Bar */}
           <div className="flex flex-wrap items-center gap-2">
             
             {/* Search */}
-            <div className="relative w-full sm:w-56">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <div className="relative w-full sm:w-52">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Buscar comercio, beneficiario..."
+                placeholder="Buscar comercio, nota..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="pl-8 h-9 text-xs"
+                className="pl-8 pr-8 h-9 text-xs"
               />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
-            {/* Type Filter (Enviadas vs Recibidas vs Compras) */}
+            {/* Organization Filter */}
+            <div className="relative">
+              <select
+                value={organizationFilter}
+                onChange={(e) => {
+                  setOrganizationFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none font-medium cursor-pointer"
+              >
+                <option value="">🏛️ Todas las Entidades</option>
+                <option value="BHD">🟢 Banco BHD</option>
+                <option value="POPULAR">🔵 Banco Popular</option>
+                <option value="BANRESERVAS">🔷 Banreservas</option>
+                <option value="QIK">🟣 Qik Banco Digital</option>
+                <option value="APAP">🟠 APAP</option>
+                <option value="SCOTIABANK">🔴 Scotiabank</option>
+              </select>
+            </div>
+
+            {/* Type Filter */}
             <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none font-medium"
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+                setPage(1);
+              }}
+              className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none font-medium cursor-pointer"
             >
               <option value="">Todos los Tipos</option>
               <option value="recibida">📥 Transferencias Recibidas</option>
@@ -216,20 +271,6 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               <option value="retiro">🏧 Retiros de Cajero</option>
             </select>
 
-            {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(1);
-              }}
-              className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none"
-            >
-              <option value="">Todos los Estados</option>
-              <option value="Aprobada">Aprobadas</option>
-              <option value="Rechazada">Rechazadas</option>
-            </select>
-
             {/* Category Filter */}
             <select
               value={categoryFilter}
@@ -237,7 +278,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                 setCategoryFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none"
+              className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none cursor-pointer"
             >
               <option value="">Todas las Categorías</option>
               <option value="Supermercado">Supermercado</option>
@@ -253,6 +294,34 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               <option value="Compras Online">Compras Online</option>
               <option value="Otros">Otros</option>
             </select>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="h-9 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none cursor-pointer"
+            >
+              <option value="">Todos los Estados</option>
+              <option value="Aprobada">Aprobadas</option>
+              <option value="Rechazada">Rechazadas</option>
+            </select>
+
+            {/* Reset Filters Button */}
+            {activeFiltersCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onResetFilters}
+                className="h-9 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                title="Restablecer todos los filtros"
+              >
+                <X className="h-3.5 w-3.5" />
+                <span>Limpiar ({activeFiltersCount})</span>
+              </Button>
+            )}
 
           </div>
         </div>
@@ -289,6 +358,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                   const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
                   const isIncome = isReceivedTransfer(tx);
                   const isSent = isSentTransfer(tx);
+                  const orgMeta = getOrganizationMeta(tx.source, tx.merchant);
 
                   return (
                     <tr 
@@ -313,8 +383,13 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                             <div className="font-semibold text-foreground truncate max-w-[180px] sm:max-w-[240px]" title={tx.merchant}>
                               {tx.merchant}
                             </div>
-                            <div className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px]" title={tx.notes || tx.rawMerchant}>
-                              {tx.notes || tx.rawMerchant}
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold border ${orgMeta.badgeClass}`}>
+                                {orgMeta.shortName}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground font-mono truncate max-w-[140px]" title={tx.notes || tx.rawMerchant}>
+                                {tx.notes || tx.rawMerchant}
+                              </span>
                             </div>
                           </div>
                         </div>

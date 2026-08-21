@@ -73,17 +73,36 @@ export class TransactionService {
   }
 
   /**
-   * Batch ingests multiple transactions idempotently.
+   * Helper to identify organization code from source / merchant.
+   */
+  public static getOrganization(source?: string | null, merchant?: string | null): string {
+    const src = (source || '').toUpperCase();
+    const merch = (merchant || '').toUpperCase();
+    if (src.includes('BHD') || merch.includes('BHD')) return 'Banco BHD';
+    if (src.includes('POPULAR') || src.includes('BPD') || merch.includes('POPULAR')) return 'Banco Popular';
+    if (src.includes('BANRESERVAS') || src.includes('RESERVAS') || merch.includes('BANRESERVAS')) return 'Banreservas';
+    if (src.includes('QIK') || merch.includes('QIK')) return 'Qik Banco Digital';
+    if (src.includes('APAP') || merch.includes('APAP')) return 'APAP';
+    if (src.includes('SCOTIA') || merch.includes('SCOTIABANK')) return 'Scotiabank';
+    if (src.includes('PROMERICA')) return 'Banco Promerica';
+    return 'Banco BHD';
+  }
+
+  /**
+   * Batch ingests multiple transactions idempotently in parallel.
    */
   public static async batchCreateTransactions(items: CreateTransactionInput[]) {
-    const results = [];
+    const results = await Promise.all(
+      items.map(async (item) => {
+        return this.createTransaction(item);
+      })
+    );
+
     let createdCount = 0;
     let duplicateCount = 0;
 
-    for (const item of items) {
-      const result = await this.createTransaction(item);
-      results.push(result);
-      if (result.isDuplicate) {
+    for (const res of results) {
+      if (res.isDuplicate) {
         duplicateCount++;
       } else {
         createdCount++;
@@ -136,16 +155,69 @@ export class TransactionService {
       where.cardLast4 = query.cardLast4;
     }
 
-    if ('status' in query && query.status) {
+    if (query.status) {
       where.status = query.status;
     }
 
+    // Organization / Source filter
+    const orgFilter = query.organization || query.source;
+    if (orgFilter && orgFilter.toUpperCase() !== 'ALL') {
+      const orgUpper = orgFilter.toUpperCase();
+      if (orgUpper === 'BHD' || orgUpper === 'BANCO BHD') {
+        where.source = { startsWith: 'BHD' };
+      } else if (orgUpper === 'POPULAR' || orgUpper === 'BANCO POPULAR') {
+        where.OR = [{ source: { contains: 'POPULAR' } }, { source: { contains: 'BPD' } }];
+      } else if (orgUpper === 'BANRESERVAS') {
+        where.source = { contains: 'BANRESERVAS' };
+      } else if (orgUpper === 'QIK') {
+        where.source = { contains: 'QIK' };
+      } else {
+        where.source = { contains: orgFilter };
+      }
+    }
+
+    // Transaction Type filter
+    if (query.transactionType) {
+      const typeLower = query.transactionType.toLowerCase();
+      if (typeLower === 'recibida' || typeLower.includes('recibida') || typeLower === 'ingreso') {
+        where.OR = [
+          { transactionType: { contains: 'Recibida' } },
+          { category: { contains: 'Ingresos' } },
+          { source: 'BHD_TRANSFER_INCOME' },
+        ];
+      } else if (typeLower === 'enviada' || typeLower.includes('enviada')) {
+        where.AND = [
+          { transactionType: { contains: 'Transferencia' } },
+          { NOT: { transactionType: { contains: 'Recibida' } } },
+          { NOT: { source: 'BHD_TRANSFER_INCOME' } },
+        ];
+      } else if (typeLower === 'compra') {
+        where.transactionType = { contains: 'Compra' };
+      } else if (typeLower === 'servicio') {
+        where.OR = [
+          { transactionType: { contains: 'Servicio' } },
+          { category: 'Servicios' },
+          { source: 'BHD_SERVICE_PAYMENT' },
+        ];
+      } else if (typeLower === 'retiro') {
+        where.transactionType = { contains: 'Retiro' };
+      } else {
+        where.transactionType = query.transactionType;
+      }
+    }
+
     if (query.search) {
-      where.OR = [
+      const searchOR = [
         { merchant: { contains: query.search } },
         { rawMerchant: { contains: query.search } },
         { notes: { contains: query.search } },
       ];
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: searchOR }];
+        delete where.OR;
+      } else {
+        where.OR = searchOR;
+      }
     }
 
     return where;

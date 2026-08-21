@@ -9,7 +9,7 @@ import {
   Input
 } from '@/shared/ui';
 import type { Transaction } from '@/entities/transaction';
-import { formatCurrency, formatDate } from '@/shared/lib';
+import { formatCurrency, formatDate, getOrganizationMeta } from '@/shared/lib';
 
 interface EditTransactionModalProps {
   transaction: Transaction | null;
@@ -57,6 +57,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
   if (!transaction) return null;
 
+  const orgMeta = getOrganizationMeta(transaction.source, transaction.merchant);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -80,7 +82,13 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         <form onSubmit={handleSave} className="space-y-4 py-2">
           
           {/* Summary Box */}
-          <div className="rounded-xl border bg-muted/40 p-3.5 text-xs space-y-1">
+          <div className="rounded-xl border bg-muted/40 p-3.5 text-xs space-y-1.5">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Entidad / Banco:</span>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${orgMeta.badgeClass}`}>
+                {orgMeta.name}
+              </span>
+            </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Monto:</span>
               <span className="font-bold text-foreground text-sm">

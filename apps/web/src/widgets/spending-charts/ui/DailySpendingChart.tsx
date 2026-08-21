@@ -75,7 +75,13 @@ export const DailySpendingChart: React.FC<DailySpendingChartProps> = ({ stats, c
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(156, 163, 175, 0.15)" />
+                <defs>
+                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#059669" stopOpacity={0.6} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(156, 163, 175, 0.12)" />
                 <XAxis 
                   dataKey="displayDate" 
                   tickLine={false} 
@@ -88,11 +94,11 @@ export const DailySpendingChart: React.FC<DailySpendingChartProps> = ({ stats, c
                   tick={{ fontSize: 11, fill: 'currentColor', opacity: 0.6 }}
                   tickFormatter={(val) => `$${val > 999 ? (val / 1000).toFixed(0) + 'k' : val}`}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }} />
                 <Bar 
                   dataKey="total" 
-                  fill="#10b981" 
-                  radius={[4, 4, 0, 0]} 
+                  fill="url(#barGradient)" 
+                  radius={[5, 5, 0, 0]} 
                 />
               </BarChart>
             </ResponsiveContainer>

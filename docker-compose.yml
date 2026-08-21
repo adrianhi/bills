@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2. Banco BHD Transaction Tracker API & Dashboard
+  # 2. bills. Transaction Tracker API & Dashboard
   api:
     build:
       context: .

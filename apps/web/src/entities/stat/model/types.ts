@@ -11,14 +11,24 @@ export interface DailyTrendItem {
   count: number;
 }
 
+export interface OrganizationBreakdown {
+  organization: string;
+  total: number;
+  count: number;
+  percentage: number;
+}
+
 export interface StatsSummary {
   period: string;
   totalAmount: number;
+  totalIncome?: number;
   totalTransactions: number;
   approvedCount: number;
   rejectedCount: number;
   currency: string;
   dailyAverage: number;
+  averageTicket?: number;
   byCategory: CategoryBreakdown[];
+  byOrganization?: OrganizationBreakdown[];
   dailyTrend: DailyTrendItem[];
 }

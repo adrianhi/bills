@@ -174,6 +174,7 @@ export class TransactionController {
         const rows = transactions.map((t) => ({
           'ID Transacción': t.id,
           'ID Externo (Gmail)': t.externalId,
+          'Entidad / Banco': TransactionService.getOrganization(t.source, t.merchant),
           'Fecha Transacción': t.transactionDate.toISOString(),
           'Tarjeta': t.cardLast4 ? `**** ${t.cardLast4}` : 'N/A',
           'Tipo Tarjeta': t.cardType || 'N/A',
@@ -197,7 +198,7 @@ export class TransactionController {
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader(
           'Content-Disposition',
-          `attachment; filename="transacciones-bhd-${filenameSuffix}.csv"`
+          `attachment; filename="bills-export-${filenameSuffix}.csv"`
         );
         res.status(200).send(csvOutput);
         return;
@@ -207,7 +208,7 @@ export class TransactionController {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="transacciones-bhd-${filenameSuffix}.json"`
+        `attachment; filename="bills-export-${filenameSuffix}.json"`
       );
       res.status(200).json({
         success: true,

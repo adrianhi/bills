@@ -1,36 +1,35 @@
-# 💳 Banco BHD Transaction Tracker & Expense Management API
+# 💳 bills. — Multi-Bank Financial Tracker & Expense Management Engine
 
-Un sistema integral y automatizado para capturar, procesar, normalizar, categorizar y analizar notificaciones de transacciones por correo electrónico de **Banco BHD (República Dominicana)** mediante un flujo de **n8n**, una **API REST en TypeScript/Node.js**, persistencia con **Prisma ORM**, soporte para exportación a **Excel/CSV/JSON** y un **Dashboard Web interactivo**.
+Un sistema integral, automatizado y minimalista para capturar, procesar, normalizar, categorizar y analizar notificaciones de transacciones financieras multientidad (**Banco BHD**, **Banco Popular**, **Banreservas**, **Qik**, **APAP**, **Scotiabank**, etc.) mediante flujos de **n8n**, una **API REST en TypeScript/Node.js**, persistencia con **Prisma ORM**, soporte para exportación a **Excel/CSV/JSON** y un **Dashboard Web interactivo con Dark Mode de alta fidelidad**.
 
 ---
 
 ## 🏛️ Arquitectura del Sistema
 
 ```
-[ Gmail Inbox ]
-       │ (Polling / Event Trigger cada X min)
+[ Inboxes de Correo / Webhooks ]
+       │ (Notificaciones de BHD, Popular, Banreservas, Qik, etc.)
        ▼
-[ n8n Workflow ]
-  ├─ 1. Gmail Trigger (Query: from:bhd.com.do "Notificación de Transacciones" is:unread)
-  ├─ 2. Code Node (Parser HTML/Regex + Normalización de fechas/moneda)
+[ n8n Workflows & Parsers ]
+  ├─ 1. Email Trigger (Compras, transferencias enviadas/recibidas, servicios)
+  ├─ 2. Code Node (Parser HTML/Regex + Normalización AST/UTC + Detección de Banco)
   └─ 3. HTTP Request Node (POST /api/v1/transactions con x-api-key)
        │
        ▼
-[ Tu Backend / API (Express + TypeScript) ]
-  ├─ Autenticación (Header x-api-key / Bearer Token)
+[ Backend / API REST (Express + TypeScript + Prisma) ]
+  ├─ Autenticación (Header x-api-key / Bearer Token / PIN Lock)
   ├─ Validación de Payload (Zod Schema Validation)
-  ├─ Normalizador de Comercios y Motor de Categorización
+  ├─ Normalizador de Comercios y Motor de Reglas
+  ├─ Clasificación Multientidad (BHD, Popular, Banreservas, Qik, etc.)
   ├─ Idempotencia (Evita duplicados por externalId)
-  └─ Persistencia (Prisma ORM)
+  └─ Persistencia (PostgreSQL / Supabase / SQLite)
        │
        ▼
-[ Base de Datos (SQLite local / PostgreSQL / Supabase) ]
-       ▲
-       │
-[ Consumidores / Dashboard / Exportación ]
-  ├─ Web Dashboard (KPIs, Gráficos por categoría, Feed en tiempo real)
+[ Consumidores / Dashboard Web "bills." ]
+  ├─ Dashboard Web Minimalista (Dark Mode OLED, KPIs dinámicos, Gráficos interactivos)
+  ├─ Barra de Filtros Avanzada (Por entidad bancaria, tipo de movimiento, categoría y estado)
   ├─ Exportación Directa (GET /api/v1/transactions/export?format=csv|json)
-  └─ Simulador de Webhooks BHD
+  └─ Gestor de Reglas de Categorización en Caliente
 ```
 
 ---

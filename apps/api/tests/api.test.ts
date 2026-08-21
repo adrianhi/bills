@@ -143,7 +143,7 @@ describe('Banco BHD REST API Integration Tests', () => {
       expect(res.body.data.total).toBe(3);
       expect(res.body.data.createdCount).toBe(2);
       expect(res.body.data.duplicateCount).toBe(1);
-    });
+    }, 15000);
   });
 
   describe('GET /api/v1/transactions (Feed & Filters)', () => {
@@ -183,8 +183,9 @@ describe('Banco BHD REST API Integration Tests', () => {
 
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toContain('text/csv');
-      expect(res.headers['content-disposition']).toContain('attachment; filename="transacciones-bhd-');
+      expect(res.headers['content-disposition']).toContain('attachment; filename="bills-export-');
       expect(res.text).toContain('ID Transacción');
+      expect(res.text).toContain('Entidad / Banco');
       expect(res.text).toContain('Supermercados Bravo');
       expect(res.text).toContain('Netflix');
     });

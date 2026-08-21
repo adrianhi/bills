@@ -32,6 +32,8 @@ export function App() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [organizationFilter, setOrganizationFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(1);
   const limit = 20;
 
@@ -74,6 +76,16 @@ export function App() {
     sessionStorage.removeItem('bills_session_token');
   };
 
+  // Reset Filters Handler
+  const handleResetFilters = useCallback(() => {
+    setSearch('');
+    setCategoryFilter('');
+    setStatusFilter('');
+    setOrganizationFilter('');
+    setTypeFilter('');
+    setPage(1);
+  }, []);
+
   // Fetch Stats
   const fetchStats = useCallback(async () => {
     if (!authToken) return;
@@ -82,6 +94,8 @@ export function App() {
         month: selectedMonth,
         currency,
       });
+      if (organizationFilter) params.append('organization', organizationFilter);
+
       const res = await fetch(`/api/v1/stats/summary?${params.toString()}`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
@@ -94,7 +108,7 @@ export function App() {
     } catch (err) {
       console.error('Error fetching stats:', err);
     }
-  }, [selectedMonth, currency, authToken]);
+  }, [selectedMonth, currency, organizationFilter, authToken]);
 
   // Fetch Transactions
   const fetchTransactions = useCallback(async () => {
@@ -110,6 +124,8 @@ export function App() {
       if (search) params.append('search', search);
       if (categoryFilter) params.append('category', categoryFilter);
       if (statusFilter) params.append('status', statusFilter);
+      if (organizationFilter) params.append('organization', organizationFilter);
+      if (typeFilter) params.append('transactionType', typeFilter);
 
       const res = await fetch(`/api/v1/transactions?${params.toString()}`, {
         headers: { Authorization: `Bearer ${authToken}` },
@@ -126,7 +142,7 @@ export function App() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, selectedMonth, currency, search, categoryFilter, statusFilter, authToken]);
+  }, [page, limit, selectedMonth, currency, search, categoryFilter, statusFilter, organizationFilter, typeFilter, authToken]);
 
   // Refresh All
   const refreshAll = useCallback(() => {
@@ -169,6 +185,8 @@ export function App() {
     });
     if (search) params.append('search', search);
     if (categoryFilter) params.append('category', categoryFilter);
+    if (organizationFilter) params.append('organization', organizationFilter);
+    if (typeFilter) params.append('transactionType', typeFilter);
 
     window.open(`/api/v1/transactions/export?${params.toString()}`, '_blank');
   };
@@ -198,6 +216,11 @@ export function App() {
       setCategoryFilter={setCategoryFilter}
       statusFilter={statusFilter}
       setStatusFilter={setStatusFilter}
+      organizationFilter={organizationFilter}
+      setOrganizationFilter={setOrganizationFilter}
+      typeFilter={typeFilter}
+      setTypeFilter={setTypeFilter}
+      onResetFilters={handleResetFilters}
       onRefresh={refreshAll}
       onExport={handleExport}
       onLock={handleLock}
