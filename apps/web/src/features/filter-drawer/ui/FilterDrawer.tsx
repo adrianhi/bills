@@ -1,13 +1,10 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   X, 
   RotateCcw, 
   Check, 
   SlidersHorizontal,
-  ArrowDownLeft,
   ArrowUpRight,
-  CreditCard,
-  Receipt,
   Landmark,
   ShoppingCart,
   Utensils,
@@ -38,23 +35,23 @@ interface FilterDrawerProps {
 }
 
 const ORGANIZATIONS = [
-  { id: '', label: '🏛️ Todos los Bancos', color: 'border-border/60' },
-  { id: 'BHD', label: '🟢 Banco BHD', color: 'border-emerald-500/40 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' },
-  { id: 'POPULAR', label: '🔵 Banco Popular', color: 'border-sky-500/40 bg-sky-500/5 text-sky-600 dark:text-sky-400' },
-  { id: 'BANRESERVAS', label: '🔷 Banreservas', color: 'border-blue-500/40 bg-blue-500/5 text-blue-600 dark:text-blue-400' },
-  { id: 'QIK', label: '🟣 Qik Banco Digital', color: 'border-purple-500/40 bg-purple-500/5 text-purple-600 dark:text-purple-400' },
-  { id: 'APAP', label: '🟠 APAP', color: 'border-orange-500/40 bg-orange-500/5 text-orange-600 dark:text-orange-400' },
-  { id: 'SCOTIABANK', label: '🔴 Scotiabank', color: 'border-red-500/40 bg-red-500/5 text-red-600 dark:text-red-400' },
-  { id: 'MANUAL', label: '⚪ Manual / Efectivo', color: 'border-slate-500/40 bg-slate-500/5 text-slate-400' },
+  { id: '', label: 'Todos los Bancos', icon: Landmark },
+  { id: 'BHD', label: 'Banco BHD', dot: 'bg-emerald-500' },
+  { id: 'POPULAR', label: 'Banco Popular', dot: 'bg-blue-500' },
+  { id: 'BANRESERVAS', label: 'Banreservas', dot: 'bg-sky-600' },
+  { id: 'QIK', label: 'Qik Banco Digital', dot: 'bg-purple-500' },
+  { id: 'APAP', label: 'APAP', dot: 'bg-orange-500' },
+  { id: 'SCOTIABANK', label: 'Scotiabank', dot: 'bg-red-500' },
+  { id: 'MANUAL', label: 'Manual / Efectivo', dot: 'bg-slate-400' },
 ];
 
-const TRANSACTION_TYPES = [
-  { id: '', label: 'Todos los Tipos', icon: SlidersHorizontal },
-  { id: 'recibida', label: '📥 Ingresos / Recibidas', icon: ArrowDownLeft, activeColor: 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400' },
-  { id: 'compra', label: '💳 Compras con Tarjeta', icon: CreditCard, activeColor: 'bg-slate-500/15 border-slate-400 text-foreground' },
-  { id: 'enviada', label: '↗️ Transf. Enviadas', icon: ArrowUpRight, activeColor: 'bg-sky-500/15 border-sky-500 text-sky-600 dark:text-sky-400' },
-  { id: 'servicio', label: '🧾 Pagos de Servicios', icon: Receipt, activeColor: 'bg-amber-500/15 border-amber-500 text-amber-600 dark:text-amber-400' },
-  { id: 'retiro', label: '🏧 Retiros de Cajero', icon: Landmark, activeColor: 'bg-blue-500/15 border-blue-500 text-blue-600 dark:text-blue-400' },
+const MOVEMENT_TYPES = [
+  { id: '', label: 'Todos los Tipos' },
+  { id: 'recibida', label: '📥 Ingresos / Recibidas' },
+  { id: 'compra', label: '💳 Compras con Tarjeta' },
+  { id: 'transferencia', label: '↗️ Transf. Enviadas' },
+  { id: 'pago', label: '🧾 Pagos de Servicios' },
+  { id: 'retiro', label: '🏧 Retiros de Cajero' },
 ];
 
 const CATEGORIES = [
@@ -93,6 +90,10 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   totalResults,
   onExport,
 }) => {
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startYRef = useRef(0);
+
   if (!isOpen) return null;
 
   const activeCount = [
@@ -102,24 +103,68 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
     statusFilter ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
+  // Touch handlers for drag-to-dismiss gesture
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startYRef.current = e.touches[0].clientY;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - startYRef.current;
+    if (diff > 0) {
+      setDragY(diff);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    if (dragY > 70) {
+      onClose();
+      setDragY(0);
+    } else {
+      setDragY(0);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-stretch sm:justify-end">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-stretch sm:justify-end">
       {/* Dark Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity z-[100]"
         onClick={onClose}
       />
 
       {/* Drawer Container (Bottom Sheet on Mobile, Slide-over on Desktop) */}
-      <div className="relative w-full sm:max-w-md bg-card border-t sm:border-t-0 sm:border-l border-border shadow-2xl rounded-t-3xl sm:rounded-none max-h-[88vh] sm:max-h-full flex flex-col z-50 animate-in slide-in-from-bottom sm:slide-in-from-right duration-300">
+      <div 
+        className={`relative w-full sm:max-w-md bg-card border-t sm:border-t-0 sm:border-l border-border shadow-2xl rounded-t-3xl sm:rounded-none max-h-[88vh] sm:max-h-full flex flex-col z-[101] ${
+          isDragging ? 'transition-none' : 'transition-transform duration-300'
+        }`}
+        style={{
+          transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+        }}
+      >
         
-        {/* Mobile Drag Indicator Handle */}
-        <div className="sm:hidden flex justify-center pt-3 pb-1">
-          <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30" />
+        {/* Mobile Drag Indicator Handle with Touch Gesture & Click to Close */}
+        <div 
+          className="sm:hidden flex flex-col items-center justify-center pt-3 pb-2 touch-none cursor-grab active:cursor-grabbing select-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onClick={onClose}
+          title="Arrastra hacia abajo o toca para cerrar"
+        >
+          <div className="w-12 h-1.5 rounded-full bg-muted-foreground/40 active:bg-emerald-500 transition-colors" />
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
+        {/* Header (Also supports drag to close) */}
+        <div 
+          className="flex items-center justify-between px-5 py-3.5 border-b border-border/60 select-none touch-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <SlidersHorizontal className="h-4 w-4" />
@@ -153,7 +198,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="h-8 w-8 rounded-full"
+              className="h-8 w-8 rounded-full cursor-pointer hover:bg-muted"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -161,7 +206,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        <div className="flex-1 overflow-y-auto p-5 pb-10 space-y-6">
           
           {/* 1. Entidad / Banco */}
           <div className="space-y-2.5">
@@ -175,14 +220,16 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                   <button
                     key={org.id}
                     onClick={() => setOrganizationFilter(org.id)}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold text-left transition-all cursor-pointer ${
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium text-left transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-sm font-bold'
                         : 'border-border/60 bg-muted/20 hover:bg-muted/50 text-foreground'
                     }`}
                   >
+                    {org.dot && <span className={`h-2.5 w-2.5 rounded-full ${org.dot}`} />}
+                    {org.icon && <org.icon className="h-3.5 w-3.5 text-muted-foreground" />}
                     <span className="truncate">{org.label}</span>
-                    {isSelected && <Check className="h-3.5 w-3.5 flex-shrink-0 ml-1" />}
+                    {isSelected && <Check className="h-3.5 w-3.5 ml-auto text-emerald-500 shrink-0" />}
                   </button>
                 );
               })}
@@ -195,36 +242,31 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
               Tipo de Movimiento
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {TRANSACTION_TYPES.map((type) => {
+              {MOVEMENT_TYPES.map((type) => {
                 const isSelected = typeFilter === type.id;
-                const Icon = type.icon;
                 return (
                   <button
                     key={type.id}
                     onClick={() => setTypeFilter(type.id)}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold text-left transition-all cursor-pointer ${
+                    className={`p-2.5 rounded-xl border text-xs font-medium text-left transition-all cursor-pointer truncate ${
                       isSelected
-                        ? `${type.activeColor || 'border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'} shadow-sm`
+                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-sm font-bold'
                         : 'border-border/60 bg-muted/20 hover:bg-muted/50 text-foreground'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Icon className="h-3.5 w-3.5 flex-shrink-0" />
-                      <span className="truncate">{type.label}</span>
-                    </div>
-                    {isSelected && <Check className="h-3.5 w-3.5 flex-shrink-0 ml-1" />}
+                    <span className="truncate">{type.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* 3. Categorías */}
+          {/* 3. Categoría */}
           <div className="space-y-2.5">
             <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Categoría
             </label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {CATEGORIES.map((cat) => {
                 const isSelected = categoryFilter === cat.id;
                 const Icon = cat.icon;
@@ -232,14 +274,14 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                   <button
                     key={cat.id}
                     onClick={() => setCategoryFilter(cat.id)}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium text-left transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                        : 'border-border/60 bg-muted/20 hover:bg-muted/50 text-muted-foreground hover:text-foreground'
+                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-sm font-bold'
+                        : 'border-border/60 bg-muted/20 hover:bg-muted/50 text-foreground'
                     }`}
                   >
-                    <Icon className="h-3.5 w-3.5" />
-                    <span>{cat.label}</span>
+                    <Icon className={`h-3.5 w-3.5 ${isSelected ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                    <span className="truncate">{cat.label}</span>
                   </button>
                 );
               })}
@@ -280,7 +322,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                   onClose();
                   onExport();
                 }}
-                className="w-full h-10 gap-2 text-xs font-semibold border-border/70 text-foreground hover:bg-muted"
+                className="w-full h-10 gap-2 text-xs font-semibold border-border/70 text-foreground hover:bg-muted cursor-pointer"
               >
                 <Download className="h-4 w-4 text-emerald-500" />
                 <span>Exportar lista filtrada a CSV</span>
@@ -296,14 +338,14 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
             <Button
               variant="outline"
               onClick={onResetFilters}
-              className="h-11 px-4 text-xs font-semibold border-border/70"
+              className="h-11 px-4 text-xs font-semibold border-border/70 cursor-pointer"
             >
               Limpiar
             </Button>
           )}
           <Button
             onClick={onClose}
-            className="h-11 flex-1 font-bold text-xs gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+            className="h-11 flex-1 font-bold text-xs gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 cursor-pointer"
           >
             <Check className="h-4 w-4" />
             <span>Ver {totalResults} {totalResults === 1 ? 'Movimiento' : 'Movimientos'}</span>
