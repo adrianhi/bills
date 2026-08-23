@@ -6,9 +6,14 @@
   "workspaces": [
     "apps/*"
   ],
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.0"
+    }
+  },
   "scripts": {
     "dev": "npm run dev --prefix apps/api",
-    "dev:web": "npm run dev --prefix apps/web",
+    "dev:web": "npm run dev --prefix apps/web -- --host",
     "dev:api": "npm run dev --prefix apps/api",
     "build:web": "npm run build --prefix apps/web",
     "build:api": "npm run build --prefix apps/api",
@@ -19,6 +24,7 @@
     "prisma:push": "npm run prisma:push --prefix apps/api",
     "prisma:studio": "npm run prisma:studio --prefix apps/api",
     "db:truncate": "npm run db:truncate --prefix apps/api",
+    "beta:invite": "npm run beta:invite --prefix apps/api --",
     "db:sync-from-supabase": "node scripts/sync-supabase-to-local.js",
     "db:clean-supabase": "node scripts/clean-supabase.js",
     "build:workflow": "node scripts/build-workflow.js"
@@ -34,5 +40,8 @@
     "express"
   ],
   "author": "Adrian Hidalgo",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "deepmerge-ts": "^8.0.0"
+  }
 }

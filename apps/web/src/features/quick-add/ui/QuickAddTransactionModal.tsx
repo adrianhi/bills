@@ -124,6 +124,8 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
       transactionType: selectedType?.type || 'Transferencia Recibida',
       transactionDate: new Date(dateTime).toISOString(),
       source: selectedOrg?.source || 'MANUAL',
+      institutionCode: selectedOrg?.id === 'MANUAL' ? 'CASH' : selectedOrg?.id || 'CASH',
+      ingestionChannel: 'MANUAL',
       notes: notes.trim() || null,
     };
 

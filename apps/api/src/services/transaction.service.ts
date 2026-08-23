@@ -13,12 +13,21 @@ export class TransactionService {
    * Ingests a single transaction idempotently.
    * If externalId exists, returns existing record with isDuplicate = true.
    */
-  public static async createTransaction(data: CreateTransactionInput) {
+  public static async createTransaction(workspaceId: string, data: CreateTransactionInput) {
     const txDate = new Date(data.transactionDate);
+    const institutionCode = this.resolveInstitutionCode(data.institutionCode, data.source);
+    const ingestionChannel =
+      data.ingestionChannel || (data.source === 'MANUAL' ? 'MANUAL' : 'EMAIL_FORWARD');
 
     // 1. Exact match by externalId (Idempotency)
     const existingByExtId = await prisma.transaction.findUnique({
-      where: { externalId: data.externalId },
+      where: {
+        workspaceId_institutionCode_externalId: {
+          workspaceId,
+          institutionCode,
+          externalId: data.externalId,
+        },
+      },
     });
 
     if (existingByExtId) {
@@ -49,6 +58,8 @@ export class TransactionService {
 
     const candidates = await prisma.transaction.findMany({
       where: {
+        workspaceId,
+        institutionCode,
         amount: data.amount,
         currency: data.currency,
         transactionDate: {
@@ -106,12 +117,16 @@ export class TransactionService {
     const { merchant, category } = await CategorizationService.categorize(
       data.rawMerchant,
       data.merchant,
-      data.category
+      data.category,
+      workspaceId
     );
 
     // 4. Save new transaction to database
     const transaction = await prisma.transaction.create({
       data: {
+        workspaceId,
+        institutionCode,
+        ingestionChannel,
         externalId: data.externalId,
         cardLast4: data.cardLast4 || null,
         cardType: data.cardType || null,
@@ -137,26 +152,39 @@ export class TransactionService {
   /**
    * Helper to identify organization code from source / merchant.
    */
-  public static getOrganization(source?: string | null, merchant?: string | null): string {
-    const src = (source || '').toUpperCase();
-    const merch = (merchant || '').toUpperCase();
-    if (src.includes('BHD') || merch.includes('BHD')) return 'Banco BHD';
-    if (src.includes('POPULAR') || src.includes('BPD') || merch.includes('POPULAR')) return 'Banco Popular';
-    if (src.includes('BANRESERVAS') || src.includes('RESERVAS') || merch.includes('BANRESERVAS')) return 'Banreservas';
-    if (src.includes('QIK') || merch.includes('QIK')) return 'Qik Banco Digital';
-    if (src.includes('APAP') || merch.includes('APAP')) return 'APAP';
-    if (src.includes('SCOTIA') || merch.includes('SCOTIABANK')) return 'Scotiabank';
-    if (src.includes('PROMERICA')) return 'Banco Promerica';
-    return 'Banco BHD';
+  public static getOrganization(institutionCode?: string | null): string {
+    const names: Record<string, string> = {
+      BHD: 'Banco BHD',
+      POPULAR: 'Banco Popular',
+      BANRESERVAS: 'Banreservas',
+      QIK: 'Qik Banco Digital',
+      APAP: 'APAP',
+      SCOTIABANK: 'Scotiabank',
+      PROMERICA: 'Banco Promerica',
+      CASH: 'Manual / Efectivo',
+    };
+    return names[(institutionCode || 'BHD').toUpperCase()] || institutionCode || 'Otra entidad';
+  }
+
+  public static resolveInstitutionCode(explicit?: string, source?: string): string {
+    if (explicit) return explicit.toUpperCase();
+    const value = (source || '').toUpperCase();
+    if (value.includes('POPULAR') || value.includes('BPD')) return 'POPULAR';
+    if (value.includes('BANRESERVAS') || value.includes('RESERVAS')) return 'BANRESERVAS';
+    if (value.includes('QIK')) return 'QIK';
+    if (value.includes('APAP')) return 'APAP';
+    if (value.includes('SCOTIA')) return 'SCOTIABANK';
+    if (value === 'MANUAL' || value.includes('CASH')) return 'CASH';
+    return 'BHD';
   }
 
   /**
    * Batch ingests multiple transactions idempotently in parallel.
    */
-  public static async batchCreateTransactions(items: CreateTransactionInput[]) {
+  public static async batchCreateTransactions(workspaceId: string, items: CreateTransactionInput[]) {
     const results = await Promise.all(
       items.map(async (item) => {
-        return this.createTransaction(item);
+        return this.createTransaction(workspaceId, item);
       })
     );
 
@@ -182,8 +210,11 @@ export class TransactionService {
   /**
    * Builds Prisma where clause from query parameters.
    */
-  private static buildWhereClause(query: TransactionQueryInput | ExportQueryInput): Prisma.TransactionWhereInput {
-    const where: Prisma.TransactionWhereInput = {};
+  private static buildWhereClause(
+    workspaceId: string,
+    query: TransactionQueryInput | ExportQueryInput
+  ): Prisma.TransactionWhereInput {
+    const where: Prisma.TransactionWhereInput = { workspaceId };
 
     // Date filtering (startDate / endDate take precedence over month)
     if (query.startDate || query.endDate) {
@@ -228,19 +259,19 @@ export class TransactionService {
     }
 
     // Organization / Source filter
-    const orgFilter = query.organization || query.source;
+    const orgFilter = query.institutionCode || query.organization || query.source;
     if (orgFilter && orgFilter.toUpperCase() !== 'ALL') {
       const orgUpper = orgFilter.toUpperCase();
       if (orgUpper === 'BHD' || orgUpper === 'BANCO BHD') {
-        where.source = { startsWith: 'BHD' };
+        where.institutionCode = 'BHD';
       } else if (orgUpper === 'POPULAR' || orgUpper === 'BANCO POPULAR') {
-        where.OR = [{ source: { contains: 'POPULAR' } }, { source: { contains: 'BPD' } }];
+        where.institutionCode = 'POPULAR';
       } else if (orgUpper === 'BANRESERVAS') {
-        where.source = { contains: 'BANRESERVAS' };
+        where.institutionCode = 'BANRESERVAS';
       } else if (orgUpper === 'QIK') {
-        where.source = { contains: 'QIK' };
+        where.institutionCode = 'QIK';
       } else {
-        where.source = { contains: orgFilter };
+        where.institutionCode = orgUpper;
       }
     }
 
@@ -294,8 +325,8 @@ export class TransactionService {
   /**
    * Retrieves paginated transactions with summary statistics.
    */
-  public static async getTransactions(query: TransactionQueryInput) {
-    const where = this.buildWhereClause(query);
+  public static async getTransactions(workspaceId: string, query: TransactionQueryInput) {
+    const where = this.buildWhereClause(workspaceId, query);
     const skip = (query.page - 1) * query.limit;
 
     const [total, transactions, allMatching] = await Promise.all([
@@ -326,18 +357,18 @@ export class TransactionService {
 
     for (const item of allMatching) {
       if (item.currency === 'USD') {
-        totalUSD += item.amount;
+        totalUSD += Number(item.amount);
       } else {
-        totalDOP += item.amount;
+        totalDOP += Number(item.amount);
       }
 
       if (!categoryTotals[item.category]) {
         categoryTotals[item.category] = { dop: 0, usd: 0, count: 0 };
       }
       if (item.currency === 'USD') {
-        categoryTotals[item.category].usd += item.amount;
+        categoryTotals[item.category].usd += Number(item.amount);
       } else {
-        categoryTotals[item.category].dop += item.amount;
+        categoryTotals[item.category].dop += Number(item.amount);
       }
       categoryTotals[item.category].count++;
     }
@@ -363,8 +394,8 @@ export class TransactionService {
   /**
    * Retrieves all matching transactions for export (no pagination limit).
    */
-  public static async getTransactionsForExport(query: ExportQueryInput) {
-    const where = this.buildWhereClause(query);
+  public static async getTransactionsForExport(workspaceId: string, query: ExportQueryInput) {
+    const where = this.buildWhereClause(workspaceId, query);
     return prisma.transaction.findMany({
       where,
       orderBy: { transactionDate: 'desc' },
@@ -374,18 +405,18 @@ export class TransactionService {
   /**
    * Retrieves a single transaction by ID.
    */
-  public static async getTransactionById(id: string) {
-    return prisma.transaction.findUnique({
-      where: { id },
+  public static async getTransactionById(workspaceId: string, id: string) {
+    return prisma.transaction.findFirst({
+      where: { id, workspaceId },
     });
   }
 
   /**
    * Updates a transaction (e.g., manual recategorization, merchant rename, or notes).
    */
-  public static async updateTransaction(id: string, data: UpdateTransactionInput) {
-    return prisma.transaction.update({
-      where: { id },
+  public static async updateTransaction(workspaceId: string, id: string, data: UpdateTransactionInput) {
+    const result = await prisma.transaction.updateMany({
+      where: { id, workspaceId },
       data: {
         ...(data.merchant && { merchant: data.merchant }),
         ...(data.category && { category: data.category }),
@@ -393,14 +424,14 @@ export class TransactionService {
         ...(data.status && { status: data.status }),
       },
     });
+    if (result.count === 0) return null;
+    return this.getTransactionById(workspaceId, id);
   }
 
   /**
    * Deletes a transaction by ID.
    */
-  public static async deleteTransaction(id: string) {
-    return prisma.transaction.delete({
-      where: { id },
-    });
+  public static async deleteTransaction(workspaceId: string, id: string) {
+    return prisma.transaction.deleteMany({ where: { id, workspaceId } });
   }
 }

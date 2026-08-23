@@ -1,9 +1,15 @@
 const { PrismaClient } = require('@prisma/client');
 
+const databaseUrl = process.env.SUPABASE_DATABASE_URL;
+if (!databaseUrl) throw new Error('SUPABASE_DATABASE_URL is required.');
+if (process.env.CONFIRM_TRUNCATE_SUPABASE !== 'TRUNCATE_TRANSACTIONS') {
+  throw new Error('Set CONFIRM_TRUNCATE_SUPABASE=TRUNCATE_TRANSACTIONS to confirm this destructive action.');
+}
+
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: 'postgresql://postgres.fxijnufrdixjvizeynir:bhd_secret_token_123456@aws-0-us-west-2.pooler.supabase.com:5432/postgres'
+      url: databaseUrl
     }
   }
 });

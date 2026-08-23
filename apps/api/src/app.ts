@@ -4,9 +4,12 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
+import { rateLimit } from 'express-rate-limit';
 import { config } from './config';
 import apiRoutes from './routes';
 import { errorHandler } from './middlewares/error.middleware';
+import { ResendWebhookController } from './controllers/resend-webhook.controller';
 
 function resolvePublicDir(): string {
   const candidates = [
@@ -28,19 +31,59 @@ function resolvePublicDir(): string {
 export function createApp(): Express {
   const app = express();
 
+  app.disable('x-powered-by');
+  app.set('trust proxy', 1);
+  app.use((req: Request, res: Response, next) => {
+    const incoming = req.headers['x-request-id'];
+    req.requestId = typeof incoming === 'string' && incoming.length <= 100 ? incoming : crypto.randomUUID();
+    res.setHeader('x-request-id', req.requestId);
+    next();
+  });
+
   // Security and utilities middleware
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Allows embedded dashboard scripts/styles
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          connectSrc: ["'self'", 'https://*.supabase.co'],
+          fontSrc: ["'self'", 'data:'],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          frameAncestors: ["'none'"],
+        },
+      },
     })
   );
   app.use(
     cors({
-      origin: config.corsOrigin,
+      origin(origin, callback) {
+        if (!origin || config.nodeEnv !== 'production' || config.corsOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error('Origin is not allowed by CORS'));
+      },
       credentials: true,
     })
   );
-  app.use(express.json({ limit: '10mb' }));
+  app.post(
+    '/webhooks/resend',
+    express.raw({ type: 'application/json', limit: '1mb' }),
+    ResendWebhookController.handle
+  );
+  app.use(
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: config.nodeEnv === 'test' ? 10_000 : 300,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+    })
+  );
+  app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
 
   if (config.nodeEnv !== 'test') {
@@ -64,8 +107,15 @@ export function createApp(): Express {
   // Mount API routes
   app.use('/api', apiRoutes);
 
+  app.use('/api', (req: Request, res: Response) => {
+    res.status(404).json({
+      success: false,
+      error: { code: 'ROUTE_NOT_FOUND', message: 'API route not found.', requestId: req.requestId },
+    });
+  });
+
   // Fallback for frontend SPA routes
-  app.get('/', (_req: Request, res: Response) => {
+  app.get('*', (_req: Request, res: Response) => {
     res.sendFile(path.join(publicDir, 'index.html'));
   });
 

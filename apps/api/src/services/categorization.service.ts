@@ -115,7 +115,12 @@ export class CategorizationService {
   /**
    * Categorizes a raw merchant name using custom DB rules first, then built-in rules.
    */
-  public static async categorize(rawMerchant: string, explicitMerchant?: string | null, explicitCategory?: string | null): Promise<CategorizationResult> {
+  public static async categorize(
+    rawMerchant: string,
+    explicitMerchant?: string | null,
+    explicitCategory?: string | null,
+    workspaceId?: string
+  ): Promise<CategorizationResult> {
     const textToMatch = `${rawMerchant} ${explicitMerchant || ''}`.trim();
 
     // 1. If explicit category and merchant are provided and valid, prioritize them
@@ -126,24 +131,27 @@ export class CategorizationService {
       };
     }
 
-    // 2. Check dynamic database rules (if database is reachable)
-    try {
-      const customRules = await prisma.categoryRule.findMany({
-        where: { isActive: true },
-        orderBy: { priority: 'desc' },
-      });
+    // 2. User-created rules are workspace-owned. Calls without a workspace
+    // (parser/unit normalization) intentionally use only built-in rules.
+    if (workspaceId) {
+      try {
+        const customRules = await prisma.categoryRule.findMany({
+          where: { isActive: true, workspaceId },
+          orderBy: { priority: 'desc' },
+        });
 
-      for (const rule of customRules) {
-        const regex = new RegExp(rule.pattern, 'i');
-        if (regex.test(textToMatch)) {
-          return {
-            merchant: rule.normalizedMerchant || explicitMerchant || this.cleanRawMerchant(rawMerchant),
-            category: rule.category,
-          };
+        for (const rule of customRules) {
+          const regex = new RegExp(rule.pattern, 'i');
+          if (regex.test(textToMatch)) {
+            return {
+              merchant: rule.normalizedMerchant || explicitMerchant || this.cleanRawMerchant(rawMerchant),
+              category: rule.category,
+            };
+          }
         }
+      } catch {
+        // If DB fails temporarily, continue with built-in rules.
       }
-    } catch {
-      // If DB fails during isolated unit tests, fall through to built-in rules
     }
 
     // 3. Match against built-in rules

@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DashboardPage } from '@/pages/dashboard';
-import { PinLockScreen } from '@/features/auth-pin';
+import { AuthScreen } from '@/features/auth';
+import { BankOnboarding } from '@/features/onboarding';
+import { supabase } from '@/shared/lib';
 import { type PeriodSelection } from '@/features/period-filter';
 import type { Transaction } from '@/entities/transaction';
 import type { StatsSummary } from '@/entities/stat';
@@ -20,13 +22,10 @@ const getCurrentMonthStr = () => {
 
 export function App() {
   // Auth State
-  const [authToken, setAuthToken] = useState<string | null>(() => {
-    return (
-      localStorage.getItem('bills_device_token') ||
-      sessionStorage.getItem('bills_session_token') ||
-      null
-    );
-  });
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [setupError, setSetupError] = useState('');
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
 
   // Theme State
   const [darkMode, setDarkMode] = useState(() => {
@@ -87,22 +86,73 @@ export function App() {
     }
   }, [darkMode]);
 
-  // Handle Unlock
-  const handleUnlock = (token: string, remember: boolean) => {
-    setAuthToken(token);
-    if (remember) {
-      localStorage.setItem('bills_device_token', token);
-    } else {
-      sessionStorage.setItem('bills_session_token', token);
-    }
-  };
-
-  // Handle Lock
-  const handleLock = () => {
+  const handleLock = useCallback(async () => {
     setAuthToken(null);
-    localStorage.removeItem('bills_device_token');
-    sessionStorage.removeItem('bills_session_token');
-  };
+    setOnboardingComplete(false);
+    setSetupError('');
+    await supabase?.auth.signOut();
+  }, []);
+
+  const activatingTokenRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const activateSession = async (token?: string) => {
+      if (!active) return;
+      if (!token) {
+        activatingTokenRef.current = null;
+        setAuthToken(null);
+        setCheckingSession(false);
+        return;
+      }
+
+      if (activatingTokenRef.current === token) return;
+      activatingTokenRef.current = token;
+
+      setCheckingSession(true);
+      setSetupError('');
+      try {
+        const response = await fetch('/api/v1/me/bootstrap', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          throw new Error(body?.error?.message || 'No se pudo preparar tu espacio personal.');
+        }
+        if (active) {
+          setAuthToken(token);
+          setSetupError('');
+        }
+      } catch (error) {
+        if (active) {
+          setAuthToken(null);
+          setSetupError(error instanceof Error ? error.message : 'No se pudo iniciar la sesión.');
+        }
+      } finally {
+        activatingTokenRef.current = null;
+        if (active) setCheckingSession(false);
+      }
+    };
+
+    if (!supabase) {
+      setCheckingSession(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    supabase.auth.getSession().then(({ data }) => activateSession(data.session?.access_token));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      void activateSession(session?.access_token);
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   // Apply Period Selection
   const handleApplyPeriod = useCallback((selection: PeriodSelection) => {
@@ -139,12 +189,12 @@ export function App() {
         const json = await res.json();
         setStats(json.data);
       } else if (res.status === 401) {
-        handleLock();
+        void handleLock();
       }
     } catch (err) {
       console.error('Error fetching stats:', err);
     }
-  }, [periodSelection, currency, organizationFilter, authToken]);
+  }, [periodSelection, currency, organizationFilter, authToken, handleLock]);
 
   // Fetch Transactions
   const fetchTransactions = useCallback(async () => {
@@ -179,14 +229,14 @@ export function App() {
           0
         );
       } else if (res.status === 401) {
-        handleLock();
+        void handleLock();
       }
     } catch (err) {
       console.error('Error fetching transactions:', err);
     } finally {
       setLoading(false);
     }
-  }, [page, limit, periodSelection, currency, search, categoryFilter, statusFilter, organizationFilter, typeFilter, authToken]);
+  }, [page, limit, periodSelection, currency, search, categoryFilter, statusFilter, organizationFilter, typeFilter, authToken, handleLock]);
 
   // Refresh All
   const refreshAll = useCallback(() => {
@@ -208,7 +258,7 @@ export function App() {
     notes: string
   ) => {
     const res = await fetch(`/api/v1/transactions/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authToken}`,
@@ -221,7 +271,8 @@ export function App() {
   };
 
   // Export to CSV
-  const handleExport = () => {
+  const handleExport = async () => {
+    if (!authToken) return;
     const params = new URLSearchParams({
       currency,
       format: 'csv',
@@ -234,11 +285,37 @@ export function App() {
     if (organizationFilter) params.append('organization', organizationFilter);
     if (typeFilter) params.append('transactionType', typeFilter);
 
-    window.open(`/api/v1/transactions/export?${params.toString()}`, '_blank');
+    const response = await fetch(`/api/v1/transactions/export?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (response.status === 401) {
+      void handleLock();
+      return;
+    }
+    if (!response.ok) return;
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bills-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   if (!authToken) {
-    return <PinLockScreen onUnlock={handleUnlock} />;
+    return <AuthScreen checkingSession={checkingSession} setupError={setupError} />;
+  }
+
+  if (!onboardingComplete) {
+    return (
+      <BankOnboarding
+        authToken={authToken}
+        onComplete={() => setOnboardingComplete(true)}
+        onLogout={() => void handleLock()}
+      />
+    );
   }
 
   return (
@@ -271,7 +348,7 @@ export function App() {
       onResetFilters={handleResetFilters}
       onRefresh={refreshAll}
       onExport={handleExport}
-      onLock={handleLock}
+      onLock={() => void handleLock()}
       editingTransaction={editingTransaction}
       setEditingTransaction={setEditingTransaction}
       onSaveTransaction={handleSaveTransaction}

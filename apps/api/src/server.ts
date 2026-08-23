@@ -9,9 +9,9 @@ async function bootstrap() {
   const server = app.listen(config.port, () => {
     console.log(`🚀 Banco BHD Transaction Tracker API is running!`);
     console.log(`🌐 Dashboard & API: http://localhost:${config.port}`);
-    console.log(`📡 Ingestion Endpoint: POST http://localhost:${config.port}/api/v1/transactions`);
+    console.log(`📡 Authenticated API: http://localhost:${config.port}/api/v1`);
     console.log(`📊 Export Endpoint: GET http://localhost:${config.port}/api/v1/transactions/export?format=csv`);
-    console.log(`🔒 API Key Auth: Header x-api-key: ${config.apiKey.substring(0, 4)}***`);
+    console.log(`🔒 Authentication: Supabase JWT`);
   });
 
   const shutdown = async () => {

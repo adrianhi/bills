@@ -13,6 +13,8 @@ export const CreateTransactionSchema = z.object({
   transactionType: z.string().default('Compra'),
   transactionDate: z.coerce.date(),
   source: z.string().default('BHD_EMAIL'),
+  institutionCode: z.string().min(2).max(32).optional().transform((val) => val?.toUpperCase()),
+  ingestionChannel: z.enum(['EMAIL_FORWARD', 'MANUAL', 'CSV_IMPORT', 'GMAIL_OAUTH']).optional(),
   notes: z.string().optional().nullable(),
 });
 
@@ -41,6 +43,7 @@ export const TransactionQuerySchema = z.object({
   transactionType: z.string().optional(),
   source: z.string().optional(),
   organization: z.string().optional(),
+  institutionCode: z.string().optional().transform((val) => val?.toUpperCase()),
   search: z.string().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(500).default(50),
@@ -62,6 +65,7 @@ export const ExportQuerySchema = z.object({
   transactionType: z.string().optional(),
   source: z.string().optional(),
   organization: z.string().optional(),
+  institutionCode: z.string().optional().transform((val) => val?.toUpperCase()),
   search: z.string().optional(),
 });
 

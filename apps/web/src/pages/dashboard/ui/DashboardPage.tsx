@@ -227,6 +227,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       <RulesManagerModal
         isOpen={isRulesModalOpen}
         onClose={() => setIsRulesModalOpen(false)}
+        authToken={authToken}
       />
     </div>
   );

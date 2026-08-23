@@ -8,6 +8,11 @@ import {
   ExportQuerySchema,
 } from '../schemas/transaction.schema';
 import { TransactionService } from '../services/transaction.service';
+import { AppError } from '../errors/app-error';
+
+function serializeTransaction<T extends { amount: unknown }>(transaction: T) {
+  return { ...transaction, amount: Number(transaction.amount) };
+}
 
 export class TransactionController {
   /**
@@ -18,14 +23,14 @@ export class TransactionController {
   public static async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = CreateTransactionSchema.parse(req.body);
-      const result = await TransactionService.createTransaction(validatedData);
+      const result = await TransactionService.createTransaction(req.auth!.workspaceId!, validatedData);
 
       if (result.isDuplicate) {
         res.status(200).json({
           success: true,
           duplicate: true,
           message: 'Transaction already processed (Idempotent)',
-          data: result.transaction,
+          data: serializeTransaction(result.transaction),
         });
         return;
       }
@@ -34,7 +39,7 @@ export class TransactionController {
         success: true,
         duplicate: false,
         message: 'Transaction recorded successfully',
-        data: result.transaction,
+        data: serializeTransaction(result.transaction),
       });
     } catch (error) {
       next(error);
@@ -48,12 +53,21 @@ export class TransactionController {
   public static async batchCreate(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = BatchCreateTransactionsSchema.parse(req.body);
-      const result = await TransactionService.batchCreateTransactions(validatedData.transactions);
+      const result = await TransactionService.batchCreateTransactions(
+        req.auth!.workspaceId!,
+        validatedData.transactions
+      );
 
       res.status(201).json({
         success: true,
         message: `Processed ${result.total} transactions (${result.createdCount} created, ${result.duplicateCount} duplicates ignored)`,
-        data: result,
+        data: {
+          ...result,
+          items: result.items.map((item) => ({
+            ...item,
+            transaction: serializeTransaction(item.transaction),
+          })),
+        },
       });
     } catch (error) {
       next(error);
@@ -67,11 +81,12 @@ export class TransactionController {
   public static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const query = TransactionQuerySchema.parse(req.query);
-      const result = await TransactionService.getTransactions(query);
+      const result = await TransactionService.getTransactions(req.auth!.workspaceId!, query);
 
       res.status(200).json({
         success: true,
         ...result,
+        data: result.data.map(serializeTransaction),
       });
     } catch (error) {
       next(error);
@@ -85,19 +100,15 @@ export class TransactionController {
   public static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params as { id: string };
-      const transaction = await TransactionService.getTransactionById(id);
+      const transaction = await TransactionService.getTransactionById(req.auth!.workspaceId!, id);
 
       if (!transaction) {
-        res.status(404).json({
-          success: false,
-          error: 'Transaction not found',
-        });
-        return;
+        throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Transaction not found.');
       }
 
       res.status(200).json({
         success: true,
-        data: transaction,
+        data: serializeTransaction(transaction),
       });
     } catch (error) {
       next(error);
@@ -113,20 +124,20 @@ export class TransactionController {
       const { id } = req.params as { id: string };
       const validatedData = UpdateTransactionSchema.parse(req.body);
 
-      const existing = await TransactionService.getTransactionById(id);
+      const existing = await TransactionService.getTransactionById(req.auth!.workspaceId!, id);
       if (!existing) {
-        res.status(404).json({
-          success: false,
-          error: 'Transaction not found',
-        });
-        return;
+        throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Transaction not found.');
       }
 
-      const updated = await TransactionService.updateTransaction(id, validatedData);
+      const updated = await TransactionService.updateTransaction(
+        req.auth!.workspaceId!,
+        id,
+        validatedData
+      );
       res.status(200).json({
         success: true,
         message: 'Transaction updated successfully',
-        data: updated,
+        data: updated ? serializeTransaction(updated) : null,
       });
     } catch (error) {
       next(error);
@@ -140,16 +151,12 @@ export class TransactionController {
   public static async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params as { id: string };
-      const existing = await TransactionService.getTransactionById(id);
+      const existing = await TransactionService.getTransactionById(req.auth!.workspaceId!, id);
       if (!existing) {
-        res.status(404).json({
-          success: false,
-          error: 'Transaction not found',
-        });
-        return;
+        throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Transaction not found.');
       }
 
-      await TransactionService.deleteTransaction(id);
+      await TransactionService.deleteTransaction(req.auth!.workspaceId!, id);
       res.status(200).json({
         success: true,
         message: 'Transaction deleted successfully',
@@ -166,7 +173,10 @@ export class TransactionController {
   public static async export(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const query = ExportQuerySchema.parse(req.query);
-      const transactions = await TransactionService.getTransactionsForExport(query);
+      const transactions = await TransactionService.getTransactionsForExport(
+        req.auth!.workspaceId!,
+        query
+      );
 
       const filenameSuffix = query.month || new Date().toISOString().slice(0, 10);
 
@@ -174,7 +184,7 @@ export class TransactionController {
         const rows = transactions.map((t) => ({
           'ID Transacción': t.id,
           'ID Externo (Gmail)': t.externalId,
-          'Entidad / Banco': TransactionService.getOrganization(t.source, t.merchant),
+          'Entidad / Banco': TransactionService.getOrganization(t.institutionCode),
           'Fecha Transacción': t.transactionDate.toISOString(),
           'Tarjeta': t.cardLast4 ? `**** ${t.cardLast4}` : 'N/A',
           'Tipo Tarjeta': t.cardType || 'N/A',
@@ -214,7 +224,7 @@ export class TransactionController {
         success: true,
         exportedAt: new Date().toISOString(),
         totalCount: transactions.length,
-        data: transactions,
+        data: transactions.map(serializeTransaction),
       });
     } catch (error) {
       next(error);
