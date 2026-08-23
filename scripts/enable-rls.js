@@ -7,6 +7,8 @@ const tables = [
   'workspace_members',
   'financial_institutions',
   'bank_connections',
+  'inbox_connections',
+  'oauth_states',
   'ingestion_addresses',
   'ingestion_events',
   'beta_invites',

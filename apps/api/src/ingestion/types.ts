@@ -24,8 +24,18 @@ export interface NormalizedTransaction {
   transactionDate: Date;
   source: string;
   institutionCode: string;
-  ingestionChannel: 'EMAIL_FORWARD';
+  ingestionChannel: IngestionChannelName;
   notes?: string | null;
+}
+
+export type IngestionChannelName =
+  | 'EMAIL_FORWARD'
+  | 'GMAIL_OAUTH'
+  | 'MANUAL'
+  | 'CSV_IMPORT';
+
+export interface ParserContext {
+  ingestionChannel: Extract<IngestionChannelName, 'EMAIL_FORWARD' | 'GMAIL_OAUTH'>;
 }
 
 export type ParseResult =
@@ -37,5 +47,5 @@ export interface BankEmailParser {
   institutionCode: string;
   version: string;
   canParse(email: NormalizedEmail): boolean;
-  parse(email: NormalizedEmail): Promise<ParseResult>;
+  parse(email: NormalizedEmail, context?: ParserContext): Promise<ParseResult>;
 }

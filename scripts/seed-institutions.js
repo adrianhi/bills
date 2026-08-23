@@ -31,11 +31,15 @@ async function main() {
       ('BHD', 'Banco BHD', 'PILOT', ARRAY['alertas@bhd.com.do', '@bhd.com.do'], CURRENT_TIMESTAMP),
       ('POPULAR', 'Banco Popular', 'COMING_SOON', ARRAY[]::TEXT[], CURRENT_TIMESTAMP),
       ('BANRESERVAS', 'Banreservas', 'COMING_SOON', ARRAY[]::TEXT[], CURRENT_TIMESTAMP),
-      ('QIK', 'Qik Banco Digital', 'COMING_SOON', ARRAY[]::TEXT[], CURRENT_TIMESTAMP),
+      ('QIK', 'Qik Banco Digital', 'PILOT', ARRAY['@qik.do', '@qik.com.do'], CURRENT_TIMESTAMP),
       ('APAP', 'APAP', 'COMING_SOON', ARRAY[]::TEXT[], CURRENT_TIMESTAMP),
       ('SCOTIABANK', 'Scotiabank', 'COMING_SOON', ARRAY[]::TEXT[], CURRENT_TIMESTAMP),
       ('CASH', 'Manual / Efectivo', 'ACTIVE', ARRAY[]::TEXT[], CURRENT_TIMESTAMP)
-    ON CONFLICT ("code") DO NOTHING;
+    ON CONFLICT ("code") DO UPDATE SET
+      "display_name" = EXCLUDED."display_name",
+      "status" = EXCLUDED."status",
+      "sender_patterns" = EXCLUDED."sender_patterns",
+      "updated_at" = CURRENT_TIMESTAMP;
   `);
 
   console.log('Successfully seeded financial_institutions!');

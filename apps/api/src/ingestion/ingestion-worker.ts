@@ -1,29 +1,19 @@
-import crypto from 'crypto';
 import { Resend } from 'resend';
 import { prisma } from '../config/database';
 import { config } from '../config';
-import { ParserRegistry } from './parser-registry';
 import type { NormalizedEmail } from './types';
-import { CreateTransactionSchema } from '../schemas/transaction.schema';
-import { TransactionService } from '../services/transaction.service';
+import { SecretCryptoService } from '../services/secret-crypto.service';
+import { NormalizedEmailProcessor } from './normalized-email.processor';
 
 const MAX_ATTEMPTS = 5;
 const FAILED_CONTENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-function encryptionKey() {
-  if (!config.ingestionEncryptionKey) return null;
-  const key = Buffer.from(config.ingestionEncryptionKey, 'base64');
-  return key.length === 32 ? key : null;
-}
-
 function encryptForRetention(value: string) {
-  const key = encryptionKey();
-  if (!key) return null;
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return Buffer.concat([iv, tag, encrypted]).toString('base64');
+  try {
+    return SecretCryptoService.encrypt(value);
+  } catch {
+    return null;
+  }
 }
 
 function sanitizeError(error: unknown) {
@@ -81,10 +71,14 @@ export class IngestionWorker {
       };
       emailForRetention = email;
 
-      const parser = ParserRegistry.forInstitution(candidate.bankConnection.institutionCode);
-      if (!parser) throw new Error('PARSER_NOT_AVAILABLE');
-      if (!parser.canParse(email)) throw new Error('SENDER_DOES_NOT_MATCH_INSTITUTION');
-      const result = await parser.parse(email);
+      const result = await NormalizedEmailProcessor.process({
+        workspaceId: candidate.workspaceId,
+        email,
+        ingestionChannel: 'EMAIL_FORWARD',
+        institutionCode: candidate.bankConnection.institutionCode,
+        bankConnectionId: candidate.bankConnection.id,
+        sourceEmail: candidate.bankConnection.sourceEmail || undefined,
+      });
 
       if (result.status === 'unsupported') throw new Error(result.reason);
       if (result.status === 'ignored') {
@@ -92,8 +86,8 @@ export class IngestionWorker {
           where: { id: candidate.id },
           data: {
             status: 'IGNORED',
-            parserCode: parser.institutionCode,
-            parserVersion: parser.version,
+            parserCode: result.parserCode,
+            parserVersion: result.parserVersion,
             errorCode: result.reason,
             processedAt: new Date(),
             rawContent: null,
@@ -103,26 +97,17 @@ export class IngestionWorker {
         return true;
       }
 
-      for (const transaction of result.transactions) {
-        const input = CreateTransactionSchema.parse(transaction);
-        await TransactionService.createTransaction(candidate.workspaceId, input);
-      }
-
       await prisma.$transaction([
         prisma.ingestionEvent.update({
           where: { id: candidate.id },
           data: {
             status: 'SUCCEEDED',
-            parserCode: parser.institutionCode,
-            parserVersion: parser.version,
+            parserCode: result.parserCode,
+            parserVersion: result.parserVersion,
             processedAt: new Date(),
             rawContent: null,
             rawContentExpiresAt: null,
           },
-        }),
-        prisma.bankConnection.update({
-          where: { id: candidate.bankConnection.id },
-          data: { status: 'ACTIVE', lastEventAt: new Date(), lastErrorCode: null },
         }),
       ]);
       return true;

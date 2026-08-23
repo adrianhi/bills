@@ -1,4 +1,4 @@
-import type { BankEmailParser, NormalizedEmail, NormalizedTransaction, ParseResult } from '../types';
+import type { BankEmailParser, NormalizedEmail, NormalizedTransaction, ParseResult, ParserContext } from '../types';
 
 function htmlToText(value: string) {
   return value
@@ -81,7 +81,7 @@ export class BhdEmailParser implements BankEmailParser {
     );
   }
 
-  public async parse(email: NormalizedEmail): Promise<ParseResult> {
+  public async parse(email: NormalizedEmail, context?: ParserContext): Promise<ParseResult> {
     const content = `${email.subject} ${email.text || ''} ${htmlToText(email.html || '')}`
       .replace(/\s+/g, ' ')
       .trim();
@@ -153,7 +153,7 @@ export class BhdEmailParser implements BankEmailParser {
       transactionDate: parseBhdDate(content, email.receivedAt),
       source,
       institutionCode: this.institutionCode,
-      ingestionChannel: 'EMAIL_FORWARD',
+      ingestionChannel: context?.ingestionChannel || 'EMAIL_FORWARD',
       notes,
     };
     return { status: 'parsed', transactions: [transaction] };
