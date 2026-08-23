@@ -36,5 +36,35 @@ export const config = {
     Math.max(parseInt(process.env.GMAIL_SYNC_MAX_MESSAGES || '100', 10), 1),
     500
   ),
+  legalProviderName: process.env.LEGAL_PROVIDER_NAME || '',
+  legalProviderId: process.env.LEGAL_PROVIDER_ID || '',
+  legalContactEmail: process.env.LEGAL_CONTACT_EMAIL || '',
+  legalContactAddress: process.env.LEGAL_CONTACT_ADDRESS || '',
+  legalAuditSalt: process.env.LEGAL_AUDIT_SALT || '',
   requireBetaInvite: process.env.REQUIRE_BETA_INVITE === 'true',
 };
+
+export function validateRuntimeConfig() {
+  const errors: string[] = [];
+  if (!config.databaseUrl) errors.push('DATABASE_URL');
+  if (!config.supabaseUrl) errors.push('SUPABASE_URL');
+  if (!config.supabasePublishableKey) errors.push('SUPABASE_PUBLISHABLE_KEY');
+
+  if (config.nodeEnv === 'production') {
+    if (!config.legalProviderName) errors.push('LEGAL_PROVIDER_NAME');
+    if (!config.legalContactEmail) errors.push('LEGAL_CONTACT_EMAIL');
+    if (!config.legalContactAddress) errors.push('LEGAL_CONTACT_ADDRESS');
+    if (config.legalAuditSalt.length < 32) errors.push('LEGAL_AUDIT_SALT (minimum 32 characters)');
+    const encryptionKey = Buffer.from(config.ingestionEncryptionKey, 'base64');
+    if (encryptionKey.length !== 32) errors.push('INGESTION_ENCRYPTION_KEY (32 bytes, base64)');
+    if (!config.appUrl.startsWith('https://')) errors.push('APP_URL (HTTPS required)');
+    if (!config.apiPublicUrl.startsWith('https://')) errors.push('API_PUBLIC_URL (HTTPS required)');
+  }
+
+  const hasGoogleId = Boolean(config.googleOAuthClientId);
+  const hasGoogleSecret = Boolean(config.googleOAuthClientSecret);
+  if (hasGoogleId !== hasGoogleSecret) {
+    errors.push('GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must be configured together');
+  }
+  if (errors.length) throw new Error(`Invalid runtime configuration: ${errors.join(', ')}`);
+}

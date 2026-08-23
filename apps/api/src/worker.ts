@@ -1,8 +1,9 @@
 import { connectDB, prisma } from './config/database';
-import { config } from './config';
+import { config, validateRuntimeConfig } from './config';
 import { IngestionWorker } from './ingestion/ingestion-worker';
 
 async function run() {
+  validateRuntimeConfig();
   if (!config.resendApiKey) throw new Error('RESEND_API_KEY is required to start the ingestion worker.');
   await connectDB();
   const worker = new IngestionWorker();

@@ -7,6 +7,7 @@ import { NormalizedEmailProcessor } from '../ingestion/normalized-email.processo
 import type { NormalizedEmail } from '../ingestion/types';
 import { ParserRegistry } from '../ingestion/parser-registry';
 import { SecretCryptoService } from './secret-crypto.service';
+import { LegalService } from './legal.service';
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -236,6 +237,12 @@ export class GmailConnectionService {
             grantedAt: new Date(),
           },
         });
+
+    await LegalService.recordGoogleConsent(
+      oauthState.profileId,
+      connection.id,
+      (tokens.scope || GMAIL_READONLY_SCOPE).split(' ').filter(Boolean)
+    );
 
     return { connection: serializeConnection(connection), returnTo: oauthState.returnTo };
   }
@@ -524,5 +531,6 @@ export class GmailConnectionService {
         },
       }),
     ]);
+    await LegalService.revokeGoogleConsent(connection.id);
   }
 }

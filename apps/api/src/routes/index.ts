@@ -4,6 +4,8 @@ import statsRoutes from './stats.routes';
 import authRoutes from './auth.routes';
 import bankConnectionRoutes from './bank-connection.routes';
 import inboxConnectionRoutes from './inbox-connection.routes';
+import legalRoutes from './legal.routes';
+import accountRoutes from './account.routes';
 
 const router = Router();
 
@@ -13,5 +15,7 @@ router.use('/v1', transactionRoutes);
 router.use('/v1', statsRoutes);
 router.use('/v1', bankConnectionRoutes);
 router.use('/v1', inboxConnectionRoutes);
+router.use('/v1', legalRoutes);
+router.use('/v1', accountRoutes);
 
 export default router;

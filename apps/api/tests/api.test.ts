@@ -29,8 +29,12 @@ function auth(user: typeof userA) {
 }
 
 async function cleanDatabase() {
+  await prisma.integrationConsent.deleteMany();
+  await prisma.legalAcceptance.deleteMany();
+  await prisma.oAuthState.deleteMany();
   await prisma.ingestionEvent.deleteMany();
   await prisma.bankConnection.deleteMany();
+  await prisma.inboxConnection.deleteMany();
   await prisma.transaction.deleteMany();
   await prisma.categoryRule.deleteMany();
   await prisma.workspaceMember.deleteMany();
@@ -38,6 +42,24 @@ async function cleanDatabase() {
   await prisma.profile.deleteMany();
   await prisma.betaInvite.deleteMany();
   await prisma.financialInstitution.deleteMany();
+  await prisma.legalDocument.deleteMany();
+  await prisma.accountDeletionAudit.deleteMany();
+}
+
+async function acceptCurrentLegalDocuments(user: typeof userA) {
+  const current = await request(app).get('/api/v1/legal/me/current').set(auth(user));
+  expect(current.status).toBe(200);
+  const documents = current.body.data
+    .filter((document: { required: boolean }) => document.required)
+    .map((document: { type: string; version: string }) => ({
+      type: document.type,
+      version: document.version,
+    }));
+  const accepted = await request(app)
+    .post('/api/v1/legal/accept')
+    .set(auth(user))
+    .send({ documents, source: 'SIGNUP', locale: 'es-DO' });
+  expect(accepted.status).toBe(200);
 }
 
 integrationDescribe('SaaS API integration and tenant isolation', () => {
@@ -58,7 +80,15 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     for (const user of [userA, userB]) {
       const bootstrap = await request(app).post('/api/v1/me/bootstrap').set(auth(user));
       expect(bootstrap.status).toBe(200);
+      expect(bootstrap.body.data.legalAcceptanceRequired).toBe(true);
     }
+
+    const blockedBeforeAcceptance = await request(app).get('/api/v1/transactions').set(auth(userA));
+    expect(blockedBeforeAcceptance.status).toBe(428);
+    expect(blockedBeforeAcceptance.body.error.code).toBe('LEGAL_ACCEPTANCE_REQUIRED');
+
+    await acceptCurrentLegalDocuments(userA);
+    await acceptCurrentLegalDocuments(userB);
 
     const payload = {
       externalId: 'shared-bank-id-001',
@@ -85,6 +115,13 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     const response = await request(app).get('/health');
     expect(response.status).toBe(200);
     expect(response.body.status).toBe('healthy');
+  });
+
+  it('publishes legal documents without requiring a session', async () => {
+    const response = await request(app).get('/api/v1/legal/current');
+    expect(response.status).toBe(200);
+    expect(response.body.data.some((document: { type: string }) => document.type === 'TERMS')).toBe(true);
+    expect(response.body.data.some((document: { type: string }) => document.type === 'PRIVACY')).toBe(true);
   });
 
   it('rejects transaction access without a Supabase session', async () => {
@@ -131,5 +168,30 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
       .set(auth(userA));
     expect(ownerRead.status).toBe(200);
     expect(ownerRead.body.data.category).toBe('Supermercado');
+  });
+
+  it('exports only the authenticated profile data and excludes encrypted secrets', async () => {
+    const response = await request(app).post('/api/v1/me/data-export').set(auth(userA));
+    expect(response.status).toBe(200);
+    expect(response.body.data.profile.email).toBe(userA.email);
+    expect(JSON.stringify(response.body)).not.toContain('encryptedAccessToken');
+    expect(JSON.stringify(response.body)).not.toContain('rawContent');
+  });
+
+  it('deletes a personal account and retains only a pseudonymous completion audit', async () => {
+    const userC = {
+      id: '33333333-3333-4333-8333-333333333333',
+      email: 'carla@bills.test',
+      name: 'Carla',
+    };
+    await prisma.betaInvite.create({ data: { email: userC.email } });
+    expect((await request(app).post('/api/v1/me/bootstrap').set(auth(userC))).status).toBe(200);
+    const response = await request(app)
+      .delete('/api/v1/me')
+      .set(auth(userC))
+      .send({ confirmation: 'DELETE_MY_ACCOUNT' });
+    expect(response.status).toBe(200);
+    expect(await prisma.profile.findUnique({ where: { id: userC.id } })).toBeNull();
+    expect(await prisma.accountDeletionAudit.count()).toBe(1);
   });
 });

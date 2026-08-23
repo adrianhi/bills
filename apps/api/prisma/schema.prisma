@@ -49,6 +49,19 @@ enum InboxConnectionStatus {
   REVOKED
 }
 
+enum LegalDocumentType {
+  TERMS
+  PRIVACY
+  GOOGLE_API_DISCLOSURE
+  DATA_DELETION
+}
+
+enum LegalAcceptanceSource {
+  SIGNUP
+  RECONSENT
+  SETTINGS
+}
+
 enum ConnectionStatus {
   PENDING
   VERIFYING
@@ -66,15 +79,17 @@ enum IngestionEventStatus {
 }
 
 model Profile {
-  id              String            @id @db.Uuid
-  email           String            @unique
-  displayName     String?           @map("display_name")
-  timezone        String            @default("America/Santo_Domingo")
-  defaultCurrency String            @default("DOP") @map("default_currency")
-  memberships     WorkspaceMember[]
-  oauthStates     OAuthState[]
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  id                  String               @id @db.Uuid
+  email               String               @unique
+  displayName         String?              @map("display_name")
+  timezone            String               @default("America/Santo_Domingo")
+  defaultCurrency     String               @default("DOP") @map("default_currency")
+  memberships         WorkspaceMember[]
+  oauthStates         OAuthState[]
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  legalAcceptances    LegalAcceptance[]
+  integrationConsents IntegrationConsent[]
 
   @@map("profiles")
 }
@@ -167,12 +182,75 @@ model InboxConnection {
   workspace             Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   bankConnections       BankConnection[]
   ingestionEvents       IngestionEvent[]
+  integrationConsents   IntegrationConsent[]
   createdAt             DateTime              @default(now()) @map("created_at")
   updatedAt             DateTime              @updatedAt @map("updated_at")
 
   @@unique([workspaceId, provider, providerAccountId])
   @@index([workspaceId, status])
   @@map("inbox_connections")
+}
+
+model LegalDocument {
+  id          String            @id @default(uuid()) @db.Uuid
+  type        LegalDocumentType
+  version     String
+  locale      String            @default("es-DO")
+  title       String
+  slug        String
+  contentHash String            @map("content_hash")
+  isCurrent   Boolean           @default(false) @map("is_current")
+  effectiveAt DateTime          @map("effective_at")
+  acceptances LegalAcceptance[]
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@unique([type, version, locale])
+  @@index([type, locale, isCurrent])
+  @@map("legal_documents")
+}
+
+model LegalAcceptance {
+  id              String                @id @default(uuid()) @db.Uuid
+  profileId       String                @map("profile_id") @db.Uuid
+  legalDocumentId String                @map("legal_document_id") @db.Uuid
+  source          LegalAcceptanceSource
+  locale          String                @default("es-DO")
+  ipHash          String?               @map("ip_hash")
+  userAgentHash   String?               @map("user_agent_hash")
+  profile         Profile               @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  legalDocument   LegalDocument         @relation(fields: [legalDocumentId], references: [id], onDelete: Restrict)
+  acceptedAt      DateTime              @default(now()) @map("accepted_at")
+
+  @@unique([profileId, legalDocumentId])
+  @@index([profileId, acceptedAt])
+  @@map("legal_acceptances")
+}
+
+model IntegrationConsent {
+  id                String          @id @default(uuid()) @db.Uuid
+  profileId         String          @map("profile_id") @db.Uuid
+  inboxConnectionId String          @map("inbox_connection_id") @db.Uuid
+  provider          InboxProvider
+  scopes            String[]        @default([])
+  disclosureVersion String          @map("disclosure_version")
+  grantedAt         DateTime        @default(now()) @map("granted_at")
+  revokedAt         DateTime?       @map("revoked_at")
+  profile           Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  inboxConnection   InboxConnection @relation(fields: [inboxConnectionId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  @@index([profileId, grantedAt])
+  @@index([inboxConnectionId, grantedAt])
+  @@map("integration_consents")
+}
+
+model AccountDeletionAudit {
+  id          String   @id @default(uuid()) @db.Uuid
+  subjectHash String   @map("subject_hash")
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  @@index([completedAt])
+  @@map("account_deletion_audits")
 }
 
 model OAuthState {
