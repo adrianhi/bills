@@ -130,6 +130,12 @@ export function AuthScreen({ checkingSession = false, setupError }: AuthScreenPr
         <p className="text-center text-[11px] text-muted-foreground">
           BHD es el banco piloto. La arquitectura está preparada para nuevas instituciones.
         </p>
+        <p className="text-center text-[11px] text-muted-foreground">
+          Al continuar podrás revisar y aceptar nuestros{' '}
+          <a href="/legal/terms" target="_blank" className="underline hover:text-foreground">Términos</a>
+          {' '}y la{' '}
+          <a href="/legal/privacy" target="_blank" className="underline hover:text-foreground">Política de Privacidad</a>.
+        </p>
       </div>
     </div>
   );

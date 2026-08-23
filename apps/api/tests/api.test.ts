@@ -170,6 +170,18 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     expect(ownerRead.body.data.category).toBe('Supermercado');
   });
 
+  it('persists onboarding completion for the authenticated profile', async () => {
+    const completed = await request(app)
+      .post('/api/v1/me/onboarding/complete')
+      .set(auth(userA));
+    expect(completed.status).toBe(200);
+    expect(completed.body.data.onboardingComplete).toBe(true);
+
+    const bootstrap = await request(app).post('/api/v1/me/bootstrap').set(auth(userA));
+    expect(bootstrap.status).toBe(200);
+    expect(bootstrap.body.data.onboardingComplete).toBe(true);
+  });
+
   it('exports only the authenticated profile data and excludes encrypted secrets', async () => {
     const response = await request(app).post('/api/v1/me/data-export').set(auth(userA));
     expect(response.status).toBe(200);

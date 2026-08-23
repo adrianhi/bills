@@ -1,11 +1,16 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { DashboardPage } from '@/pages/dashboard';
+import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { AuthScreen } from '@/features/auth';
 import { BankOnboarding } from '@/features/onboarding';
+import { LegalAcceptanceScreen, LegalDocumentPage } from '@/features/legal';
 import { supabase } from '@/shared/lib';
 import { type PeriodSelection } from '@/features/period-filter';
 import type { Transaction } from '@/entities/transaction';
 import type { StatsSummary } from '@/entities/stat';
+
+const DashboardPage = lazy(async () => {
+  const module = await import('@/pages/dashboard');
+  return { default: module.DashboardPage };
+});
 
 const formatReadableMonth = (monthStr: string) => {
   if (!monthStr) return '';
@@ -26,6 +31,7 @@ export function App() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [setupError, setSetupError] = useState('');
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [legalAcceptanceRequired, setLegalAcceptanceRequired] = useState(false);
 
   // Theme State
   const [darkMode, setDarkMode] = useState(() => {
@@ -89,6 +95,7 @@ export function App() {
   const handleLock = useCallback(async () => {
     setAuthToken(null);
     setOnboardingComplete(false);
+    setLegalAcceptanceRequired(false);
     setSetupError('');
     await supabase?.auth.signOut();
   }, []);
@@ -121,8 +128,11 @@ export function App() {
           const body = await response.json().catch(() => null);
           throw new Error(body?.error?.message || 'No se pudo preparar tu espacio personal.');
         }
+        const body = await response.json().catch(() => null);
         if (active) {
           setAuthToken(token);
+          setLegalAcceptanceRequired(Boolean(body?.data?.legalAcceptanceRequired));
+          setOnboardingComplete(Boolean(body?.data?.onboardingComplete));
           setSetupError('');
         }
       } catch (error) {
@@ -304,8 +314,22 @@ export function App() {
     URL.revokeObjectURL(url);
   };
 
+  if (window.location.pathname.startsWith('/legal/')) {
+    return <LegalDocumentPage />;
+  }
+
   if (!authToken) {
     return <AuthScreen checkingSession={checkingSession} setupError={setupError} />;
+  }
+
+  if (legalAcceptanceRequired) {
+    return (
+      <LegalAcceptanceScreen
+        authToken={authToken}
+        onAccepted={() => setLegalAcceptanceRequired(false)}
+        onLogout={() => void handleLock()}
+      />
+    );
   }
 
   if (!onboardingComplete) {
@@ -319,7 +343,8 @@ export function App() {
   }
 
   return (
-    <DashboardPage
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Cargando tu dashboard…</div>}>
+      <DashboardPage
       darkMode={darkMode}
       setDarkMode={setDarkMode}
       hideBalances={hideBalances}
@@ -349,6 +374,7 @@ export function App() {
       onRefresh={refreshAll}
       onExport={handleExport}
       onLock={() => void handleLock()}
+      onAccountDeleted={() => void handleLock()}
       editingTransaction={editingTransaction}
       setEditingTransaction={setEditingTransaction}
       onSaveTransaction={handleSaveTransaction}
@@ -357,7 +383,8 @@ export function App() {
       isQuickAddOpen={isQuickAddOpen}
       setIsQuickAddOpen={setIsQuickAddOpen}
       authToken={authToken}
-    />
+      />
+    </Suspense>
   );
 }
 

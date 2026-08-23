@@ -79,17 +79,18 @@ enum IngestionEventStatus {
 }
 
 model Profile {
-  id                  String               @id @db.Uuid
-  email               String               @unique
-  displayName         String?              @map("display_name")
-  timezone            String               @default("America/Santo_Domingo")
-  defaultCurrency     String               @default("DOP") @map("default_currency")
-  memberships         WorkspaceMember[]
-  oauthStates         OAuthState[]
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  legalAcceptances    LegalAcceptance[]
-  integrationConsents IntegrationConsent[]
+  id                    String               @id @db.Uuid
+  email                 String               @unique
+  displayName           String?              @map("display_name")
+  timezone              String               @default("America/Santo_Domingo")
+  defaultCurrency       String               @default("DOP") @map("default_currency")
+  onboardingCompletedAt DateTime?            @map("onboarding_completed_at")
+  memberships           WorkspaceMember[]
+  oauthStates           OAuthState[]
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+  legalAcceptances      LegalAcceptance[]
+  integrationConsents   IntegrationConsent[]
 
   @@map("profiles")
 }

@@ -7,6 +7,7 @@ import { TransactionTable } from '@/widgets/transactions-table';
 import { EditTransactionModal } from '@/features/edit-transaction';
 import { RulesManagerModal } from '@/features/manage-rules';
 import { QuickAddTransactionModal } from '@/features/quick-add';
+import { AccountSettingsModal } from '@/features/account-settings';
 import type { Transaction } from '@/entities/transaction';
 import type { StatsSummary } from '@/entities/stat';
 
@@ -42,6 +43,7 @@ interface DashboardPageProps {
   onRefresh: () => void;
   onExport: () => void;
   onLock: () => void;
+  onAccountDeleted: () => void;
   editingTransaction: Transaction | null;
   setEditingTransaction: (tx: Transaction | null) => void;
   onSaveTransaction: (id: string, merchant: string, category: string, notes: string) => Promise<void>;
@@ -82,6 +84,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onRefresh,
   onExport,
   onLock,
+  onAccountDeleted,
   editingTransaction,
   setEditingTransaction,
   onSaveTransaction,
@@ -92,6 +95,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   authToken,
 }) => {
   const [activeSection, setActiveSection] = useState<ActiveSection>('overview');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(
+    () => new URLSearchParams(window.location.search).get('settings') === 'connections'
+  );
 
   // Active filters count
   const activeFiltersCount = [
@@ -151,6 +157,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         onQuickAdd={() => setIsQuickAddOpen(true)}
         onExport={onExport}
         onLock={onLock}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         loading={loading}
       />
 
@@ -229,6 +236,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         onClose={() => setIsRulesModalOpen(false)}
         authToken={authToken}
       />
+      {authToken && <AccountSettingsModal
+        authToken={authToken}
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onAccountDeleted={onAccountDeleted}
+      />}
     </div>
   );
 };

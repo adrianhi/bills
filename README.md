@@ -7,8 +7,9 @@ Plataforma SaaS de finanzas personales que unifica notificaciones bancarias, nor
 - Acceso con Google o magic link mediante Supabase Auth.
 - Beta privada por invitación.
 - Un workspace personal aislado por usuario; todas las consultas y mutaciones se filtran por workspace.
-- Onboarding BHD con una dirección privada de reenvío.
-- Ingesta asíncrona: Resend Inbound → webhook firmado → cola PostgreSQL → worker → adaptador BHD.
+- Onboarding principal con Gmail OAuth de solo lectura y sincronización automática; reenvío privado como alternativa.
+- Ingesta común: Gmail OAuth o Resend Inbound → `NormalizedEmail` → registro de adaptadores → BHD/Qik.
+- Términos y privacidad versionados, consentimiento auditable, exportación y eliminación autoservicio.
 - Registro manual, reglas por usuario, dashboard, filtros y exportación autenticada.
 - Catálogo multi-banco: BHD en `PILOT`; Popular, Banreservas, Qik, APAP y Scotiabank en `COMING_SOON`.
 
@@ -19,13 +20,14 @@ Consulta el plan, las decisiones y los criterios de salida en [docs/SAAS-PLAN.md
 ```text
 Supabase Auth ── token ──> React/Vite ── Bearer ──> Express API
                                                    │
-Correo BHD ── forward ──> Resend Inbound ── firma ─┤
+Gmail ── OAuth readonly ───────────────────────────┤
+Correo bancario ── forward ─> Resend ── firma ────┤
                                                    ▼
                                       ingestion_events (PostgreSQL)
                                                    │
                                                 worker
                                                    │
-                                  ParserRegistry -> BhdEmailParser
+                                  ParserRegistry -> BHD | Qik | siguiente banco
                                                    │
                                       transactions (workspace_id)
 ```
@@ -64,7 +66,7 @@ URLs locales:
 
 ## Variables necesarias
 
-Para Google/magic link solo hacen falta estas variables en `.env`:
+Para Google/magic link de la cuenta solo hacen falta estas variables en `.env`:
 
 ```dotenv
 VITE_SUPABASE_URL=https://PROJECT.supabase.co
@@ -75,7 +77,7 @@ APP_URL=http://localhost:5173
 LEGACY_OWNER_EMAIL=tu-correo@example.com
 ```
 
-La API también acepta `VITE_SUPABASE_PUBLISHABLE_KEY` como fallback. **La secret key de Supabase no es necesaria** para este flujo y no debe enviarse al navegador. La URL JWKS tampoco necesita configuración manual.
+La API también acepta `VITE_SUPABASE_PUBLISHABLE_KEY` como fallback. **La secret key de Supabase no es necesaria** para este flujo y no debe enviarse al navegador. La URL JWKS se deriva de `SUPABASE_URL`.
 
 En Supabase Dashboard:
 
@@ -83,6 +85,17 @@ En Supabase Dashboard:
 2. Configura el Client ID y Client Secret de Google dentro de Supabase.
 3. Añade `http://localhost:5173/auth/callback` a Redirect URLs.
 4. Define `http://localhost:5173` como Site URL durante desarrollo.
+
+La importación de Gmail es un OAuth separado del login y requiere credenciales server-side:
+
+```dotenv
+GOOGLE_OAUTH_CLIENT_ID=...
+GOOGLE_OAUTH_CLIENT_SECRET=...
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/v1/oauth/google/callback
+INGESTION_ENCRYPTION_KEY=base64_de_32_bytes
+```
+
+Habilita Gmail API, registra exactamente el redirect URI y agrega los testers en la audiencia de Google Cloud. En modo `Testing`, los grants con `gmail.readonly` expiran a los siete días. La salida pública exige verificación de alcance restringido y, al procesarse datos mediante el servidor, normalmente una evaluación de seguridad. Consulta el checklist completo en [docs/SAAS-PLAN.md](docs/SAAS-PLAN.md).
 
 Para la ingesta por correo:
 

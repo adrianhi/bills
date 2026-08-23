@@ -4,8 +4,8 @@ import { config } from '../config';
 import { prisma } from '../config/database';
 import { AppError } from '../errors/app-error';
 
-export const CURRENT_LEGAL_VERSION = '2026-08-23';
-export const GOOGLE_DISCLOSURE_VERSION = '2026-08-23';
+export const CURRENT_LEGAL_VERSION = '2026-08-23.1';
+export const GOOGLE_DISCLOSURE_VERSION = '2026-08-23.1';
 export const REQUIRED_LEGAL_TYPES: LegalDocumentType[] = ['TERMS', 'PRIVACY'];
 
 interface LegalTemplate {
@@ -87,10 +87,13 @@ Tratamos datos de cuenta y perfil, identificadores de sesión, bancos detectados
 Usamos los datos para crear la cuenta, importar y clasificar movimientos, mostrar analítica, prevenir duplicados y abuso, mantener seguridad, atender solicitudes y mejorar la precisión de los parsers con información anonimizada o autorizada.
 
 ## Minimización y retención
-El cuerpo de un correo procesado correctamente no se conserva. Un mensaje que no pueda procesarse puede conservarse cifrado por hasta 7 días para diagnóstico y luego se purga. Los tokens OAuth se almacenan cifrados y se eliminan al revocar la conexión o borrar la cuenta. Los datos normalizados permanecen mientras la cuenta esté activa. Los backups se eliminan conforme al ciclo operativo publicado y no se restauran para reactivar una cuenta eliminada.
+El cuerpo de un correo procesado correctamente no se conserva. Un mensaje que no pueda procesarse puede conservarse cifrado por hasta 7 días para diagnóstico y luego se purga. Los tokens OAuth se almacenan cifrados y se eliminan al revocar la conexión o borrar la cuenta. Los datos normalizados permanecen mientras la cuenta esté activa. Las copias de respaldo cifradas pueden conservar datos eliminados por hasta 30 días antes de expirar y no se utilizan para reactivar una cuenta eliminada.
 
 ## Proveedores y transferencias
 Podemos utilizar Google, Supabase, Resend, infraestructura de hosting y monitoreo como encargados tecnológicos. Esto puede implicar procesamiento fuera de República Dominicana. Se limita el acceso por finalidad, configuración contractual y controles de seguridad.
+
+## Venta, publicidad y acceso humano
+No vendemos datos personales o financieros ni usamos datos de Gmail para publicidad. El acceso humano a contenido de correo se restringe a seguridad, cumplimiento o soporte solicitado por el titular, cuando sea indispensable y esté permitido por la ley y las políticas de Google.
 
 ## Seguridad
 Aplicamos cifrado de secretos, HTTPS en producción, separación por workspace, control de acceso, registros minimizados, rotación de credenciales y pruebas de aislamiento. Ningún sistema es infalible; investigaremos incidentes y notificaremos cuando corresponda.
@@ -118,7 +121,7 @@ Conectar Gmail es opcional. bills. solicita acceso de solo lectura para buscar c
 
 El contenido de un mensaje procesado correctamente no se conserva. Los fallidos pueden mantenerse cifrados hasta 7 días. Los datos normalizados y metadatos técnicos se usan para prestar y proteger el servicio, no para publicidad, venta de datos ni perfiles comerciales.
 
-El uso y transferencia de información recibida desde las API de Google se ajustará a la Google API Services User Data Policy, incluidos sus requisitos de Limited Use. Puedes revocar el acceso en cualquier momento desde bills. o desde la configuración de seguridad de Google.
+El uso y transferencia de información recibida desde las API de Google se ajustará a la Google API Services User Data Policy, incluidos sus requisitos de Limited Use. No vendemos esta información, no la usamos para publicidad y no permitimos acceso humano salvo las excepciones expresamente permitidas por esa política. Puedes revocar el acceso en cualquier momento desde bills. o desde la configuración de seguridad de Google.
 `,
     },
     {
@@ -132,7 +135,7 @@ El uso y transferencia de información recibida desde las API de Google se ajust
 
 Puedes desconectar Gmail sin borrar tus transacciones, o eliminar completamente la cuenta desde la configuración autenticada.
 
-Al eliminar la cuenta revocamos y borramos tokens, conexiones, eventos de ingesta, movimientos, reglas, perfil y membresías personales. La operación no puede deshacerse. Se conserva únicamente un registro irreversible y pseudonimizado de que la eliminación se completó. Las copias de respaldo expiran dentro de su ciclo operativo y no se utilizan para restaurar la cuenta.
+Al eliminar la cuenta revocamos y borramos tokens, conexiones, eventos de ingesta, movimientos, reglas, perfil y membresías personales. La operación no puede deshacerse. Se conserva únicamente un registro irreversible y pseudonimizado de que la eliminación se completó. Las copias de respaldo cifradas pueden tardar hasta 30 días en expirar y no se utilizan para restaurar la cuenta.
 
 También puedes solicitar eliminación escribiendo a ${owner.email}. Será necesario verificar tu identidad. Las solicitudes procedentes se completarán dentro del plazo legal aplicable y del plazo comunicado al confirmar la solicitud.
 `,
@@ -151,11 +154,22 @@ function evidenceHash(value?: string) {
 }
 
 export class LegalService {
+  private static catalogReady: Promise<void> | null = null;
+
   public static catalog() {
     return templates();
   }
 
   public static async ensureCatalog() {
+    if (this.catalogReady) return this.catalogReady;
+    this.catalogReady = this.writeCatalog().catch((error) => {
+      this.catalogReady = null;
+      throw error;
+    });
+    return this.catalogReady;
+  }
+
+  private static async writeCatalog() {
     const catalog = templates();
     await prisma.$transaction(async (tx) => {
       for (const item of catalog) {
