@@ -150,6 +150,8 @@ npx prisma migrate resolve --applied 00000000000000_legacy_baseline --schema app
 
 No se ejecuta ninguna migración remota automáticamente desde el servidor.
 
+El proyecto Supabase actual ya tiene las seis migraciones registradas y aplicadas. En despliegues siguientes basta ejecutar `prisma migrate deploy`; no vuelvas a resolver el baseline salvo al preparar otra base legacy que carezca de historial Prisma.
+
 ## Beta por invitación
 
 `LEGACY_OWNER_EMAIL` puede crear el primer workspace. Para cada tester adicional:

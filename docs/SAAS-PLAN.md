@@ -137,7 +137,8 @@ Cambiar una URL de ngrok no obliga a rotar la API key de Resend. El signing secr
 - [x] Build de API/web y lint sin errores bloqueantes.
 - [ ] Rotar todas las credenciales compartidas durante desarrollo o chat.
 - [ ] Completar identidad legal real y revisión con abogado dominicano.
-- [ ] Backup de Supabase y `prisma migrate deploy` remoto.
+- [x] Historial Prisma remoto reconciliado y seis migraciones desplegadas en Supabase.
+- [ ] Confirmar política de backups de Supabase y ensayar una restauración antes de invitar testers.
 - [ ] Google Cloud Testing configurado y prueba real de conexión/reconexión a siete días.
 - [ ] Resend/ngrok probado extremo a extremo y purga de fallidos observada.
 - [ ] Prueba de restauración, monitoreo e incidente antes de ampliar la beta.
