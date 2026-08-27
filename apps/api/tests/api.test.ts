@@ -32,7 +32,9 @@ async function cleanDatabase() {
   await prisma.integrationConsent.deleteMany();
   await prisma.legalAcceptance.deleteMany();
   await prisma.oAuthState.deleteMany();
+  await prisma.ingestionJob.deleteMany();
   await prisma.ingestionEvent.deleteMany();
+  await prisma.transactionStatusEvent.deleteMany();
   await prisma.bankConnection.deleteMany();
   await prisma.inboxConnection.deleteMany();
   await prisma.transaction.deleteMany();
@@ -142,6 +144,72 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     expect(responseA.body.data[0].externalId).toBe('shared-bank-id-001');
     expect(responseB.body.data[0].externalId).toBe('shared-bank-id-001');
     expect(responseA.body.data[0].id).not.toBe(responseB.body.data[0].id);
+  });
+
+  it('keeps one transaction and materializes a later reversal', async () => {
+    const approved = await request(app).post('/api/v1/transactions').set(auth(userA)).send({
+      externalId: 'bhd-approved-reversal-pair',
+      rawMerchant: 'UBER RIDES',
+      amount: 313.34,
+      currency: 'DOP',
+      cardLast4: '0380',
+      statusCode: 'APPROVED',
+      transactionType: 'Compra',
+      transactionDate: '2026-08-26T11:32:00.000Z',
+      institutionCode: 'BHD',
+      ingestionChannel: 'GMAIL_OAUTH',
+    });
+    expect(approved.status).toBe(201);
+
+    const reversed = await request(app).post('/api/v1/transactions').set(auth(userA)).send({
+      externalId: 'bhd-reversed-reversal-pair',
+      rawMerchant: 'Reversa BHD',
+      amount: 313.34,
+      currency: 'DOP',
+      cardLast4: '0380',
+      statusCode: 'REVERSED',
+      transactionType: 'Compra',
+      transactionDate: '2026-08-26T11:34:00.000Z',
+      institutionCode: 'BHD',
+      ingestionChannel: 'GMAIL_OAUTH',
+    });
+    expect(reversed.status).toBe(200);
+    expect(reversed.body.data.id).toBe(approved.body.data.id);
+    expect(reversed.body.data.statusCode).toBe('REVERSED');
+    expect(reversed.body.data.merchant).toBe('Uber');
+  });
+
+  it('resolves a reversal that was ingested before its approval', async () => {
+    const reversal = await request(app).post('/api/v1/transactions').set(auth(userB)).send({
+      externalId: 'bhd-reversed-before-approved',
+      rawMerchant: 'Reversa BHD',
+      amount: 987.65,
+      currency: 'DOP',
+      cardLast4: '0380',
+      statusCode: 'REVERSED',
+      transactionType: 'Compra',
+      transactionDate: '2026-08-26T14:02:00.000Z',
+      institutionCode: 'BHD',
+      ingestionChannel: 'GMAIL_OAUTH',
+    });
+    expect(reversal.status).toBe(409);
+    expect(reversal.body.error.code).toBe('REVERSAL_MATCH_NOT_FOUND');
+
+    const approved = await request(app).post('/api/v1/transactions').set(auth(userB)).send({
+      externalId: 'bhd-approved-after-reversal',
+      rawMerchant: 'COMERCIO DEMO',
+      amount: 987.65,
+      currency: 'DOP',
+      cardLast4: '0380',
+      statusCode: 'APPROVED',
+      transactionType: 'Compra',
+      transactionDate: '2026-08-26T14:00:00.000Z',
+      institutionCode: 'BHD',
+      ingestionChannel: 'GMAIL_OAUTH',
+    });
+    expect(approved.status).toBe(201);
+    const current = await request(app).get(`/api/v1/transactions/${approved.body.data.id}`).set(auth(userB));
+    expect(current.body.data.statusCode).toBe('REVERSED');
   });
 
   it('does not expose another workspace transaction by ID', async () => {

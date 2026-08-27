@@ -1,4 +1,5 @@
 import type { BankEmailParser, NormalizedEmail, NormalizedTransaction, ParseResult, ParserContext } from '../types';
+import { normalizeTransactionStatus, transactionStatusLabel } from '../../domain/transaction-status';
 
 function htmlToText(value: string) {
   return value
@@ -16,6 +17,35 @@ function htmlToText(value: string) {
     .replace(/&uacute;/gi, 'ú')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function decodeCell(value: string) {
+  return htmlToText(value)
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .trim();
+}
+
+function normalizedHeader(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+}
+
+function extractTransactionTable(html?: string | null) {
+  if (!html) return null;
+  const required = ['fecha', 'moneda', 'monto', 'comercio', 'estado', 'tipo'];
+  for (const tableMatch of html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)) {
+    const rows = Array.from(tableMatch[1].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)).map((row) =>
+      Array.from(row[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)).map((cell) => decodeCell(cell[1]))
+    );
+    for (let index = 0; index < rows.length - 1; index += 1) {
+      const headers = rows[index].map(normalizedHeader);
+      if (!required.every((header) => headers.includes(header))) continue;
+      const values = rows.slice(index + 1).find((row) => row.some((value) => value.trim()));
+      if (!values) continue;
+      return Object.fromEntries(headers.map((header, position) => [header, values[position] ?? ''])) as Record<string, string>;
+    }
+  }
+  return null;
 }
 
 function parseNumericAmount(raw: string) {
@@ -69,7 +99,7 @@ function safeId(value: string) {
 
 export class BhdEmailParser implements BankEmailParser {
   public readonly institutionCode = 'BHD';
-  public readonly version = '1.0.0';
+  public readonly version = '1.1.0';
 
   public canParse(email: NormalizedEmail) {
     const sender = email.from.toLowerCase();
@@ -91,7 +121,12 @@ export class BhdEmailParser implements BankEmailParser {
     }
     if (/en proceso/i.test(email.subject)) return { status: 'ignored', reason: 'PENDING_NOTIFICATION' };
 
-    const amountValue = extractAmount(content);
+    const table = extractTransactionTable(email.html);
+    const tableAmount = table?.monto ? parseNumericAmount(table.monto) : NaN;
+    const tableCurrency = (table?.moneda || '').toUpperCase();
+    const amountValue = Number.isFinite(tableAmount) && tableAmount > 0
+      ? { amount: tableAmount, currency: /US|USD/.test(tableCurrency) ? 'USD' : 'DOP' }
+      : extractAmount(content);
     if (!amountValue) return { status: 'unsupported', reason: 'AMOUNT_NOT_FOUND' };
 
     const received = /Has recibido una transferencia|Ordenante\s*:/i.test(content);
@@ -106,7 +141,10 @@ export class BhdEmailParser implements BankEmailParser {
     let transactionType = 'Compra';
     let category: string | null = null;
     let source = 'BHD_EMAIL';
-    let rawMerchant = extractField(content, ['Comercio', 'Establecimiento', 'Descripci[oó]n']) || 'Comercio BHD';
+    const statusCode = normalizeTransactionStatus(table?.estado || content);
+    let rawMerchant = table
+      ? table.comercio?.trim() || 'Comercio BHD'
+      : extractField(content, ['Comercio', 'Establecimiento', 'Descripci[oó]n']) || 'Comercio BHD';
     let notes: string | null = null;
     let prefix = 'bhd_purchase';
 
@@ -132,9 +170,11 @@ export class BhdEmailParser implements BankEmailParser {
       prefix = 'bhd_transfer';
     }
 
-    if (rawMerchant === 'Comercio BHD' && transactionType === 'Compra') {
+    if (rawMerchant === 'Comercio BHD' && transactionType === 'Compra' && statusCode !== 'REVERSED') {
       return { status: 'unsupported', reason: 'MERCHANT_NOT_FOUND' };
     }
+
+    if (statusCode === 'REVERSED' && rawMerchant === 'Comercio BHD') rawMerchant = 'Reversa BHD';
 
     const confirmation = content.match(
       /(?:N[uú]mero\s+de\s+Confirmaci[oó]n|Confirmaci[oó]n|Referencia)\s*:\s*([A-Z0-9-]{5,})/i
@@ -148,9 +188,11 @@ export class BhdEmailParser implements BankEmailParser {
       category,
       amount: amountValue.amount,
       currency: amountValue.currency,
-      status: /rechazad|declinad|denegad/i.test(content) ? 'Rechazada' : 'Aprobada',
-      transactionType,
-      transactionDate: parseBhdDate(content, email.receivedAt),
+      status: transactionStatusLabel(statusCode),
+      statusCode,
+      bankReference: confirmation || null,
+      transactionType: table?.tipo?.trim() || transactionType,
+      transactionDate: parseBhdDate(table?.fecha || content, email.receivedAt),
       source,
       institutionCode: this.institutionCode,
       ingestionChannel: context?.ingestionChannel || 'EMAIL_FORWARD',

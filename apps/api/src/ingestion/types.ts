@@ -10,6 +10,8 @@ export interface NormalizedEmail {
   receivedAt: Date;
 }
 
+import type { TransactionStatusCodeName } from '../domain/transaction-status';
+
 export interface NormalizedTransaction {
   externalId: string;
   cardLast4?: string | null;
@@ -20,6 +22,8 @@ export interface NormalizedTransaction {
   amount: number;
   currency: string;
   status: string;
+  statusCode: TransactionStatusCodeName;
+  bankReference?: string | null;
   transactionType: string;
   transactionDate: Date;
   source: string;

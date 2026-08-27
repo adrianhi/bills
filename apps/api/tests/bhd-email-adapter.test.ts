@@ -89,4 +89,58 @@ describe('BHD email ingestion adapter', () => {
       source: 'BHD_TRANSFER_INCOME',
     });
   });
+
+  it('parses the current BHD transaction table layout', async () => {
+    const result = await parser.parse(
+      email({
+        subject: 'BHD Notificación de Transacciones',
+        html: `
+          <p>Te notificamos la transacción realizada con tu Tarjeta Visa Débito Intl # 0380</p>
+          <table>
+            <tr><th>Fecha</th><th>Moneda</th><th>Monto</th><th>Comercio</th><th>Estado</th><th>Tipo</th></tr>
+            <tr><td>25/08/2026 07:19 pm</td><td>RD</td><td>$85.00</td><td>COMERCIO DEMO</td><td>Aprobada</td><td>Compra</td></tr>
+          </table>
+        `,
+      })
+    );
+
+    expect(result.status).toBe('parsed');
+    if (result.status !== 'parsed') return;
+    expect(result.transactions[0]).toMatchObject({
+      amount: 85,
+      currency: 'DOP',
+      rawMerchant: 'COMERCIO DEMO',
+      cardLast4: '0380',
+      statusCode: 'APPROVED',
+      status: 'Aprobada',
+    });
+    expect(result.transactions[0].transactionDate.toISOString()).toBe('2026-08-25T23:19:00.000Z');
+  });
+
+  it('parses a merchant-less reversal from the current BHD table layout', async () => {
+    const result = await parser.parse(
+      email({
+        id: 'email_reversal',
+        messageId: '<reversal@bhd.com.do>',
+        subject: 'BHD Notificación de Transacciones',
+        html: `
+          <p>Te notificamos la transacción realizada con tu Tarjeta Visa Débito Intl # 0380</p>
+          <table>
+            <tr><th>Fecha</th><th>Moneda</th><th>Monto</th><th>Comercio</th><th>Estado</th><th>Tipo</th></tr>
+            <tr><td>26/08/2026 07:34 am</td><td>RD</td><td>$313.34</td><td></td><td>Reversada</td><td>Compra</td></tr>
+          </table>
+        `,
+      })
+    );
+
+    expect(result.status).toBe('parsed');
+    if (result.status !== 'parsed') return;
+    expect(result.transactions[0]).toMatchObject({
+      amount: 313.34,
+      rawMerchant: 'Reversa BHD',
+      cardLast4: '0380',
+      statusCode: 'REVERSED',
+      status: 'Reversada',
+    });
+  });
 });

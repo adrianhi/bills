@@ -5,6 +5,7 @@ import type {
   ParseResult,
   ParserContext,
 } from '../types';
+import { normalizeTransactionStatus, transactionStatusLabel } from '../../domain/transaction-status';
 
 function toText(value: string) {
   return value
@@ -85,6 +86,7 @@ export class QikEmailParser implements BankEmailParser {
 
     const reference = content.match(/(?:Referencia|Confirmaci[oó]n)\s*:\s*([A-Z0-9-]{5,})/i)?.[1];
     const cardLast4 = content.match(/(?:tarjeta|terminada en)\D{0,24}(\d{4})\b/i)?.[1] || null;
+    const statusCode = normalizeTransactionStatus(content);
     const transaction: NormalizedTransaction = {
       externalId: `qik_${safeId(reference || email.messageId || email.id)}`,
       cardLast4,
@@ -92,7 +94,8 @@ export class QikEmailParser implements BankEmailParser {
       category: received ? 'Ingresos / Transferencias' : sent ? 'Transferencias' : null,
       amount: amount.amount,
       currency: amount.currency,
-      status: /rechazad|declinad|denegad/i.test(content) ? 'Rechazada' : 'Aprobada',
+      status: transactionStatusLabel(statusCode),
+      statusCode,
       transactionType,
       transactionDate: email.receivedAt,
       source: received ? 'QIK_TRANSFER_INCOME' : sent ? 'QIK_TRANSFER_EMAIL' : 'QIK_EMAIL',
