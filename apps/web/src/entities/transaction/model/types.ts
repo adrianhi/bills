@@ -8,6 +8,7 @@ export interface Transaction {
   amount: number;
   currency: string;
   status: string;
+  statusCode: 'PENDING' | 'APPROVED' | 'DECLINED' | 'REVERSED';
   transactionType: string;
   category: string;
   notes?: string | null;

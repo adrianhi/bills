@@ -101,7 +101,7 @@ const workflow = {
           parameters: [
             {
               name: "x-api-key",
-              value: "bhd_secret_token_123456"
+              value: "legacy_n8n_flow_no_longer_supported"
             },
             {
               name: "Content-Type",

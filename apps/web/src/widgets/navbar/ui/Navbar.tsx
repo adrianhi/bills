@@ -7,7 +7,8 @@ import {
   Lock,
   Plus,
   Eye,
-  EyeOff
+  EyeOff,
+  Settings
 } from 'lucide-react';
 import { Button } from '@/shared/ui';
 
@@ -27,6 +28,7 @@ interface NavbarProps {
   onQuickAdd: () => void;
   onExport: () => void;
   onLock: () => void;
+  onOpenSettings: () => void;
   loading: boolean;
 }
 
@@ -44,6 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onQuickAdd,
   onExport,
   onLock,
+  onOpenSettings,
   loading,
 }) => {
   return (
@@ -69,6 +72,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Mobile Actions */}
           <div className="flex items-center gap-1 md:hidden">
+            <Button variant="ghost" size="icon" onClick={onOpenSettings} className="h-8 w-8 text-muted-foreground" title="Privacidad y conexiones">
+              <Settings className="h-4 w-4" />
+            </Button>
             {/* Privacy Mode Toggle */}
             <Button
               variant="ghost"
@@ -163,6 +169,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Desktop Refresh & Theme & Privacy & Lock */}
           <div className="hidden md:flex items-center gap-1.5 border-l pl-2.5 ml-1">
+            <Button variant="ghost" size="icon" onClick={onOpenSettings} className="h-9 w-9 rounded-lg" title="Privacidad y conexiones">
+              <Settings className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"

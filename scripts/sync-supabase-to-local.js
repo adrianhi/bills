@@ -1,9 +1,15 @@
 const { PrismaClient } = require('@prisma/client');
 
+const sourceDatabaseUrl = process.env.SUPABASE_DATABASE_URL;
+const targetDatabaseUrl = process.env.LOCAL_DATABASE_URL;
+if (!sourceDatabaseUrl || !targetDatabaseUrl) {
+  throw new Error('SUPABASE_DATABASE_URL and LOCAL_DATABASE_URL are required.');
+}
+
 const supabasePrisma = new PrismaClient({
   datasources: {
     db: {
-      url: 'postgresql://postgres.fxijnufrdixjvizeynir:bhd_secret_token_123456@aws-0-us-west-2.pooler.supabase.com:5432/postgres'
+      url: sourceDatabaseUrl
     }
   }
 });
@@ -11,7 +17,7 @@ const supabasePrisma = new PrismaClient({
 const localPrisma = new PrismaClient({
   datasources: {
     db: {
-      url: 'postgresql://postgres:postgres@localhost:5432/bills_db?schema=public'
+      url: targetDatabaseUrl
     }
   }
 });
@@ -24,11 +30,15 @@ async function main() {
   console.log('📤 Copiando a base de datos PostgreSQL local...');
   let copied = 0;
   for (const tx of txs) {
-    await localPrisma.transaction.upsert({
-      where: { externalId: tx.externalId },
-      update: tx,
-      create: tx,
+    const existing = await localPrisma.transaction.findFirst({
+      where: {
+        workspaceId: tx.workspaceId,
+        institutionCode: tx.institutionCode,
+        externalId: tx.externalId,
+      },
     });
+    if (existing) await localPrisma.transaction.update({ where: { id: existing.id }, data: tx });
+    else await localPrisma.transaction.create({ data: tx });
     copied++;
   }
   console.log('✅ Sincronización completa: ' + copied + ' transacciones en base de datos local.');

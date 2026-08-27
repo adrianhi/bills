@@ -1,20 +1,17 @@
 import { Router } from 'express';
 import { TransactionController } from '../controllers/transaction.controller';
-import { requireApiKey, optionalApiKey } from '../middlewares/auth.middleware';
+import { requireAuth, requireWorkspace } from '../middlewares/auth.middleware';
+import { requireCurrentLegalAcceptance } from '../middlewares/legal.middleware';
 
 const router = Router();
+const protectedRoute = [requireAuth, requireCurrentLegalAcceptance, requireWorkspace];
 
-// Ingestion endpoints (Require API Key for webhook/n8n)
-router.post('/transactions', requireApiKey, TransactionController.create);
-router.post('/transactions/batch', requireApiKey, TransactionController.batchCreate);
-
-// Export endpoint (Allow optional API key or browser download)
-router.get('/transactions/export', optionalApiKey, TransactionController.export);
-
-// Feed & CRUD endpoints
-router.get('/transactions', optionalApiKey, TransactionController.list);
-router.get('/transactions/:id', optionalApiKey, TransactionController.getById);
-router.patch('/transactions/:id', optionalApiKey, TransactionController.update);
-router.delete('/transactions/:id', optionalApiKey, TransactionController.delete);
+router.post('/transactions', ...protectedRoute, TransactionController.create);
+router.post('/transactions/batch', ...protectedRoute, TransactionController.batchCreate);
+router.get('/transactions/export', ...protectedRoute, TransactionController.export);
+router.get('/transactions', ...protectedRoute, TransactionController.list);
+router.get('/transactions/:id', ...protectedRoute, TransactionController.getById);
+router.patch('/transactions/:id', ...protectedRoute, TransactionController.update);
+router.delete('/transactions/:id', ...protectedRoute, TransactionController.delete);
 
 export default router;

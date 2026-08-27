@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRANSACTION_STATUS_CODES } from '../domain/transaction-status';
 
 export const CreateTransactionSchema = z.object({
   externalId: z.string().min(1, 'externalId is required'),
@@ -10,9 +11,13 @@ export const CreateTransactionSchema = z.object({
   amount: z.coerce.number().positive('amount must be a positive number'),
   currency: z.string().default('DOP').transform((val) => val.toUpperCase()),
   status: z.string().default('Aprobada'),
+  statusCode: z.enum(TRANSACTION_STATUS_CODES).optional(),
+  bankReference: z.string().max(180).optional().nullable(),
   transactionType: z.string().default('Compra'),
   transactionDate: z.coerce.date(),
   source: z.string().default('BHD_EMAIL'),
+  institutionCode: z.string().min(2).max(32).optional().transform((val) => val?.toUpperCase()),
+  ingestionChannel: z.enum(['EMAIL_FORWARD', 'MANUAL', 'CSV_IMPORT', 'GMAIL_OAUTH']).optional(),
   notes: z.string().optional().nullable(),
 });
 
@@ -25,6 +30,7 @@ export const UpdateTransactionSchema = z.object({
   category: z.string().min(1).optional(),
   notes: z.string().optional().nullable(),
   status: z.string().optional(),
+  statusCode: z.enum(TRANSACTION_STATUS_CODES).optional(),
 });
 
 export const TransactionQuerySchema = z.object({
@@ -41,6 +47,7 @@ export const TransactionQuerySchema = z.object({
   transactionType: z.string().optional(),
   source: z.string().optional(),
   organization: z.string().optional(),
+  institutionCode: z.string().optional().transform((val) => val?.toUpperCase()),
   search: z.string().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(500).default(50),
@@ -62,6 +69,7 @@ export const ExportQuerySchema = z.object({
   transactionType: z.string().optional(),
   source: z.string().optional(),
   organization: z.string().optional(),
+  institutionCode: z.string().optional().transform((val) => val?.toUpperCase()),
   search: z.string().optional(),
 });
 

@@ -14,6 +14,7 @@ import type { CategoryRule } from '@/entities/transaction';
 interface RulesManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
+  authToken: string | null;
 }
 
 const COMMON_CATEGORIES = [
@@ -37,6 +38,7 @@ const COMMON_CATEGORIES = [
 export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
   isOpen,
   onClose,
+  authToken,
 }) => {
   const [rules, setRules] = useState<CategoryRule[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,7 +50,10 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
   const fetchRules = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/rules');
+      if (!authToken) return;
+      const res = await fetch('/api/v1/rules', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
       if (res.ok) {
         const json = await res.json();
         setRules(json.data || []);
@@ -64,7 +69,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
     if (isOpen) {
       fetchRules();
     }
-  }, [isOpen]);
+  }, [isOpen, authToken]);
 
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +78,10 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
     try {
       const res = await fetch('/api/v1/rules', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
         body: JSON.stringify({ pattern, normalizedMerchant, category }),
       });
       if (res.ok) {
@@ -90,7 +98,10 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
 
   const handleDeleteRule = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/rules/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/v1/rules/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
       if (res.ok) {
         setRules(rules.filter((r) => r.id !== id));
       }

@@ -7,21 +7,245 @@ import {
   ExportQueryInput,
 } from '../schemas/transaction.schema';
 import { Prisma } from '@prisma/client';
+import { AppError } from '../errors/app-error';
+import {
+  normalizeTransactionStatus,
+  transactionStatusLabel,
+  type TransactionStatusCodeName,
+} from '../domain/transaction-status';
 
 export class TransactionService {
+  private static statusEventData(
+    workspaceId: string,
+    institutionCode: string,
+    ingestionChannel: NonNullable<CreateTransactionInput['ingestionChannel']>,
+    data: CreateTransactionInput,
+    statusCode: TransactionStatusCodeName
+  ) {
+    return {
+      workspaceId,
+      institutionCode,
+      externalId: data.externalId,
+      statusCode,
+      eventDate: new Date(data.transactionDate),
+      amount: data.amount,
+      currency: data.currency,
+      cardLast4: data.cardLast4 || null,
+      rawMerchant: data.rawMerchant || null,
+      bankReference: data.bankReference || null,
+      source: data.source,
+      ingestionChannel,
+    };
+  }
+
+  private static async recordStatusEvent(
+    workspaceId: string,
+    institutionCode: string,
+    ingestionChannel: NonNullable<CreateTransactionInput['ingestionChannel']>,
+    data: CreateTransactionInput,
+    statusCode: TransactionStatusCodeName,
+    transactionId: string | null,
+    resolution: 'MATCHED' | 'UNMATCHED' | 'AMBIGUOUS'
+  ) {
+    const values = this.statusEventData(workspaceId, institutionCode, ingestionChannel, data, statusCode);
+    return prisma.transactionStatusEvent.upsert({
+      where: {
+        workspaceId_institutionCode_externalId: {
+          workspaceId,
+          institutionCode,
+          externalId: data.externalId,
+        },
+      },
+      create: { ...values, transactionId, resolution },
+      update: { ...values, transactionId, resolution },
+    });
+  }
+
+  private static async applyReversal(
+    workspaceId: string,
+    institutionCode: string,
+    ingestionChannel: NonNullable<CreateTransactionInput['ingestionChannel']>,
+    data: CreateTransactionInput
+  ) {
+    const eventDate = new Date(data.transactionDate);
+    let referenceTransactionId: string | null = null;
+
+    if (data.bankReference) {
+      const referenced = await prisma.transactionStatusEvent.findFirst({
+        where: {
+          workspaceId,
+          institutionCode,
+          bankReference: data.bankReference,
+          transactionId: { not: null },
+          statusCode: { in: ['APPROVED', 'REVERSED'] },
+        },
+        orderBy: { eventDate: 'desc' },
+      });
+      referenceTransactionId = referenced?.transactionId || null;
+    }
+
+    const candidates = referenceTransactionId
+      ? await prisma.transaction.findMany({ where: { id: referenceTransactionId, workspaceId }, take: 1 })
+      : await prisma.transaction.findMany({
+          where: {
+            workspaceId,
+            institutionCode,
+            amount: data.amount,
+            currency: data.currency,
+            statusCode: { in: ['APPROVED', 'REVERSED'] },
+            ...(data.cardLast4 ? { cardLast4: data.cardLast4 } : {}),
+            transactionDate: {
+              gte: new Date(eventDate.getTime() - 15 * 60 * 1000),
+              lte: eventDate,
+            },
+          },
+          orderBy: { transactionDate: 'desc' },
+          take: 3,
+        });
+
+    const compatible = candidates.filter((candidate) => {
+      if (!data.transactionType) return true;
+      return candidate.transactionType.toLowerCase() === data.transactionType.toLowerCase();
+    });
+    const candidate = compatible[0];
+    const firstDistance = candidate ? eventDate.getTime() - candidate.transactionDate.getTime() : null;
+    const secondDistance = compatible[1]
+      ? eventDate.getTime() - compatible[1].transactionDate.getTime()
+      : null;
+
+    if (!candidate) {
+      await this.recordStatusEvent(
+        workspaceId,
+        institutionCode,
+        ingestionChannel,
+        data,
+        'REVERSED',
+        null,
+        'UNMATCHED'
+      );
+      throw new AppError(409, 'REVERSAL_MATCH_NOT_FOUND', 'The reversal is waiting for its approved transaction.');
+    }
+
+    if (firstDistance !== null && secondDistance !== null && firstDistance === secondDistance) {
+      await this.recordStatusEvent(
+        workspaceId,
+        institutionCode,
+        ingestionChannel,
+        data,
+        'REVERSED',
+        null,
+        'AMBIGUOUS'
+      );
+      throw new AppError(409, 'REVERSAL_MATCH_AMBIGUOUS', 'The reversal matches more than one transaction.');
+    }
+
+    const transaction = await prisma.transaction.update({
+      where: { id: candidate.id },
+      data: {
+        statusCode: 'REVERSED',
+        status: transactionStatusLabel('REVERSED'),
+        statusUpdatedAt: eventDate,
+      },
+    });
+    await this.recordStatusEvent(
+      workspaceId,
+      institutionCode,
+      ingestionChannel,
+      data,
+      'REVERSED',
+      transaction.id,
+      'MATCHED'
+    );
+    return transaction;
+  }
+
+  private static async resolvePendingReversal(transaction: {
+    id: string;
+    workspaceId: string | null;
+    institutionCode: string;
+    amount: Prisma.Decimal;
+    currency: string;
+    cardLast4: string | null;
+    transactionDate: Date;
+  }) {
+    if (!transaction.workspaceId) return null;
+    const pending = await prisma.transactionStatusEvent.findMany({
+      where: {
+        workspaceId: transaction.workspaceId,
+        institutionCode: transaction.institutionCode,
+        transactionId: null,
+        resolution: 'UNMATCHED',
+        statusCode: 'REVERSED',
+        amount: transaction.amount,
+        currency: transaction.currency,
+        ...(transaction.cardLast4 ? { cardLast4: transaction.cardLast4 } : {}),
+        eventDate: {
+          gte: transaction.transactionDate,
+          lte: new Date(transaction.transactionDate.getTime() + 15 * 60 * 1000),
+        },
+      },
+      orderBy: { eventDate: 'asc' },
+      take: 2,
+    });
+    if (pending.length !== 1) {
+      if (pending.length > 1) {
+        await prisma.transactionStatusEvent.updateMany({
+          where: { id: { in: pending.map((event) => event.id) } },
+          data: { resolution: 'AMBIGUOUS' },
+        });
+      }
+      return null;
+    }
+    const event = pending[0];
+    await prisma.$transaction([
+      prisma.transactionStatusEvent.update({
+        where: { id: event.id },
+        data: { transactionId: transaction.id, resolution: 'MATCHED' },
+      }),
+      prisma.transaction.update({
+        where: { id: transaction.id },
+        data: {
+          statusCode: 'REVERSED',
+          status: transactionStatusLabel('REVERSED'),
+          statusUpdatedAt: event.eventDate,
+        },
+      }),
+    ]);
+    return event;
+  }
+
   /**
    * Ingests a single transaction idempotently.
    * If externalId exists, returns existing record with isDuplicate = true.
    */
-  public static async createTransaction(data: CreateTransactionInput) {
+  public static async createTransaction(workspaceId: string, data: CreateTransactionInput) {
     const txDate = new Date(data.transactionDate);
+    const institutionCode = this.resolveInstitutionCode(data.institutionCode, data.source);
+    const ingestionChannel =
+      data.ingestionChannel || (data.source === 'MANUAL' ? 'MANUAL' : 'EMAIL_FORWARD');
+    const statusCode = data.statusCode || normalizeTransactionStatus(data.status);
+    const status = transactionStatusLabel(statusCode);
+
+    if (statusCode === 'REVERSED') {
+      const transaction = await this.applyReversal(workspaceId, institutionCode, ingestionChannel, data);
+      return { isDuplicate: true, transaction, statusUpdated: true };
+    }
 
     // 1. Exact match by externalId (Idempotency)
     const existingByExtId = await prisma.transaction.findUnique({
-      where: { externalId: data.externalId },
+      where: {
+        workspaceId_institutionCode_externalId: {
+          workspaceId,
+          institutionCode,
+          externalId: data.externalId,
+        },
+      },
     });
 
     if (existingByExtId) {
+      const effectiveStatus = existingByExtId.statusCode === 'REVERSED' && statusCode === 'APPROVED'
+        ? 'REVERSED'
+        : statusCode;
       const updated = await prisma.transaction.update({
         where: { id: existingByExtId.id },
         data: {
@@ -34,8 +258,14 @@ export class TransactionService {
           cardType: data.cardType || existingByExtId.cardType,
           transactionType: data.transactionType || existingByExtId.transactionType,
           notes: data.notes !== undefined ? data.notes : existingByExtId.notes,
+          statusCode: effectiveStatus,
+          status: transactionStatusLabel(effectiveStatus),
+          statusUpdatedAt: effectiveStatus !== existingByExtId.statusCode ? txDate : existingByExtId.statusUpdatedAt,
         },
       });
+      await this.recordStatusEvent(
+        workspaceId, institutionCode, ingestionChannel, data, statusCode, updated.id, 'MATCHED'
+      );
       return {
         isDuplicate: true,
         transaction: updated,
@@ -49,6 +279,8 @@ export class TransactionService {
 
     const candidates = await prisma.transaction.findMany({
       where: {
+        workspaceId,
+        institutionCode,
         amount: data.amount,
         currency: data.currency,
         transactionDate: {
@@ -59,23 +291,14 @@ export class TransactionService {
     });
 
     for (const cand of candidates) {
-      const candRaw = (cand.rawMerchant || '').toLowerCase();
-      const newRaw = (data.rawMerchant || '').toLowerCase();
-      const candMerch = (cand.merchant || '').toLowerCase();
-      const newMerch = (data.merchant || '').toLowerCase();
-
       const isSameCardOrAccount = !data.cardLast4 || !cand.cardLast4 || data.cardLast4 === cand.cardLast4;
-      const isSimilarMerchant =
-        candRaw.includes(newRaw.slice(0, 10)) ||
-        newRaw.includes(candRaw.slice(0, 10)) ||
-        candMerch.includes(newMerch.slice(0, 10)) ||
-        newMerch.includes(candMerch.slice(0, 10));
-
       const isBothTransfers =
         (/transferencia|recibida|enviada/i.test(cand.transactionType || '') || /transferencia|recibida|enviada/i.test(cand.category || '')) &&
         (/transferencia|recibida|enviada/i.test(data.transactionType || '') || /transferencia|recibida|enviada/i.test(data.category || ''));
 
-      if (isSameCardOrAccount && (isSimilarMerchant || isBothTransfers)) {
+      // Only transfer notification pairs are eligible for fuzzy merging. Two card purchases at
+      // the same merchant, card and amount can be legitimate and must remain separate.
+      if (isSameCardOrAccount && isBothTransfers) {
         // Choose the longer / more complete merchant name (e.g. "Yeisaly Collado Rosario" over truncated "Yeisaly Collado Rosari")
         const betterMerchant =
           (data.merchant && data.merchant.length > (cand.merchant?.length || 0))
@@ -92,8 +315,16 @@ export class TransactionService {
             notes: data.notes || cand.notes,
             cardLast4: data.cardLast4 || cand.cardLast4,
             transactionType: data.transactionType || cand.transactionType,
+            statusCode: cand.statusCode === 'REVERSED' && statusCode === 'APPROVED' ? 'REVERSED' : statusCode,
+            status: cand.statusCode === 'REVERSED' && statusCode === 'APPROVED'
+              ? transactionStatusLabel('REVERSED')
+              : status,
           },
         });
+
+        await this.recordStatusEvent(
+          workspaceId, institutionCode, ingestionChannel, data, statusCode, updated.id, 'MATCHED'
+        );
 
         return {
           isDuplicate: true,
@@ -106,12 +337,16 @@ export class TransactionService {
     const { merchant, category } = await CategorizationService.categorize(
       data.rawMerchant,
       data.merchant,
-      data.category
+      data.category,
+      workspaceId
     );
 
     // 4. Save new transaction to database
     const transaction = await prisma.transaction.create({
       data: {
+        workspaceId,
+        institutionCode,
+        ingestionChannel,
         externalId: data.externalId,
         cardLast4: data.cardLast4 || null,
         cardType: data.cardType || null,
@@ -120,13 +355,20 @@ export class TransactionService {
         category: category,
         amount: data.amount,
         currency: data.currency,
-        status: data.status,
+        status,
+        statusCode,
+        statusUpdatedAt: txDate,
         transactionType: data.transactionType,
         transactionDate: new Date(data.transactionDate),
         source: data.source,
         notes: data.notes || null,
       },
     });
+
+    await this.recordStatusEvent(
+      workspaceId, institutionCode, ingestionChannel, data, statusCode, transaction.id, 'MATCHED'
+    );
+    await this.resolvePendingReversal(transaction);
 
     return {
       isDuplicate: false,
@@ -137,26 +379,39 @@ export class TransactionService {
   /**
    * Helper to identify organization code from source / merchant.
    */
-  public static getOrganization(source?: string | null, merchant?: string | null): string {
-    const src = (source || '').toUpperCase();
-    const merch = (merchant || '').toUpperCase();
-    if (src.includes('BHD') || merch.includes('BHD')) return 'Banco BHD';
-    if (src.includes('POPULAR') || src.includes('BPD') || merch.includes('POPULAR')) return 'Banco Popular';
-    if (src.includes('BANRESERVAS') || src.includes('RESERVAS') || merch.includes('BANRESERVAS')) return 'Banreservas';
-    if (src.includes('QIK') || merch.includes('QIK')) return 'Qik Banco Digital';
-    if (src.includes('APAP') || merch.includes('APAP')) return 'APAP';
-    if (src.includes('SCOTIA') || merch.includes('SCOTIABANK')) return 'Scotiabank';
-    if (src.includes('PROMERICA')) return 'Banco Promerica';
-    return 'Banco BHD';
+  public static getOrganization(institutionCode?: string | null): string {
+    const names: Record<string, string> = {
+      BHD: 'Banco BHD',
+      POPULAR: 'Banco Popular',
+      BANRESERVAS: 'Banreservas',
+      QIK: 'Qik Banco Digital',
+      APAP: 'APAP',
+      SCOTIABANK: 'Scotiabank',
+      PROMERICA: 'Banco Promerica',
+      CASH: 'Manual / Efectivo',
+    };
+    return names[(institutionCode || 'BHD').toUpperCase()] || institutionCode || 'Otra entidad';
+  }
+
+  public static resolveInstitutionCode(explicit?: string, source?: string): string {
+    if (explicit) return explicit.toUpperCase();
+    const value = (source || '').toUpperCase();
+    if (value.includes('POPULAR') || value.includes('BPD')) return 'POPULAR';
+    if (value.includes('BANRESERVAS') || value.includes('RESERVAS')) return 'BANRESERVAS';
+    if (value.includes('QIK')) return 'QIK';
+    if (value.includes('APAP')) return 'APAP';
+    if (value.includes('SCOTIA')) return 'SCOTIABANK';
+    if (value === 'MANUAL' || value.includes('CASH')) return 'CASH';
+    return 'BHD';
   }
 
   /**
    * Batch ingests multiple transactions idempotently in parallel.
    */
-  public static async batchCreateTransactions(items: CreateTransactionInput[]) {
+  public static async batchCreateTransactions(workspaceId: string, items: CreateTransactionInput[]) {
     const results = await Promise.all(
       items.map(async (item) => {
-        return this.createTransaction(item);
+        return this.createTransaction(workspaceId, item);
       })
     );
 
@@ -182,8 +437,11 @@ export class TransactionService {
   /**
    * Builds Prisma where clause from query parameters.
    */
-  private static buildWhereClause(query: TransactionQueryInput | ExportQueryInput): Prisma.TransactionWhereInput {
-    const where: Prisma.TransactionWhereInput = {};
+  private static buildWhereClause(
+    workspaceId: string,
+    query: TransactionQueryInput | ExportQueryInput
+  ): Prisma.TransactionWhereInput {
+    const where: Prisma.TransactionWhereInput = { workspaceId };
 
     // Date filtering (startDate / endDate take precedence over month)
     if (query.startDate || query.endDate) {
@@ -224,23 +482,23 @@ export class TransactionService {
     }
 
     if (query.status) {
-      where.status = query.status;
+      where.statusCode = normalizeTransactionStatus(query.status);
     }
 
     // Organization / Source filter
-    const orgFilter = query.organization || query.source;
+    const orgFilter = query.institutionCode || query.organization || query.source;
     if (orgFilter && orgFilter.toUpperCase() !== 'ALL') {
       const orgUpper = orgFilter.toUpperCase();
       if (orgUpper === 'BHD' || orgUpper === 'BANCO BHD') {
-        where.source = { startsWith: 'BHD' };
+        where.institutionCode = 'BHD';
       } else if (orgUpper === 'POPULAR' || orgUpper === 'BANCO POPULAR') {
-        where.OR = [{ source: { contains: 'POPULAR' } }, { source: { contains: 'BPD' } }];
+        where.institutionCode = 'POPULAR';
       } else if (orgUpper === 'BANRESERVAS') {
-        where.source = { contains: 'BANRESERVAS' };
+        where.institutionCode = 'BANRESERVAS';
       } else if (orgUpper === 'QIK') {
-        where.source = { contains: 'QIK' };
+        where.institutionCode = 'QIK';
       } else {
-        where.source = { contains: orgFilter };
+        where.institutionCode = orgUpper;
       }
     }
 
@@ -294,8 +552,8 @@ export class TransactionService {
   /**
    * Retrieves paginated transactions with summary statistics.
    */
-  public static async getTransactions(query: TransactionQueryInput) {
-    const where = this.buildWhereClause(query);
+  public static async getTransactions(workspaceId: string, query: TransactionQueryInput) {
+    const where = this.buildWhereClause(workspaceId, query);
     const skip = (query.page - 1) * query.limit;
 
     const [total, transactions, allMatching] = await Promise.all([
@@ -315,6 +573,9 @@ export class TransactionService {
           amount: true,
           currency: true,
           category: true,
+          statusCode: true,
+          transactionType: true,
+          source: true,
         },
       }),
     ]);
@@ -325,19 +586,24 @@ export class TransactionService {
     const categoryTotals: Record<string, { dop: number; usd: number; count: number }> = {};
 
     for (const item of allMatching) {
+      const isIncome =
+        /recibida/i.test(item.transactionType || '') ||
+        /ingreso/i.test(item.category || '') ||
+        item.source === 'BHD_TRANSFER_INCOME';
+      if (item.statusCode !== 'APPROVED' || isIncome) continue;
       if (item.currency === 'USD') {
-        totalUSD += item.amount;
+        totalUSD += Number(item.amount);
       } else {
-        totalDOP += item.amount;
+        totalDOP += Number(item.amount);
       }
 
       if (!categoryTotals[item.category]) {
         categoryTotals[item.category] = { dop: 0, usd: 0, count: 0 };
       }
       if (item.currency === 'USD') {
-        categoryTotals[item.category].usd += item.amount;
+        categoryTotals[item.category].usd += Number(item.amount);
       } else {
-        categoryTotals[item.category].dop += item.amount;
+        categoryTotals[item.category].dop += Number(item.amount);
       }
       categoryTotals[item.category].count++;
     }
@@ -363,8 +629,8 @@ export class TransactionService {
   /**
    * Retrieves all matching transactions for export (no pagination limit).
    */
-  public static async getTransactionsForExport(query: ExportQueryInput) {
-    const where = this.buildWhereClause(query);
+  public static async getTransactionsForExport(workspaceId: string, query: ExportQueryInput) {
+    const where = this.buildWhereClause(workspaceId, query);
     return prisma.transaction.findMany({
       where,
       orderBy: { transactionDate: 'desc' },
@@ -374,33 +640,38 @@ export class TransactionService {
   /**
    * Retrieves a single transaction by ID.
    */
-  public static async getTransactionById(id: string) {
-    return prisma.transaction.findUnique({
-      where: { id },
+  public static async getTransactionById(workspaceId: string, id: string) {
+    return prisma.transaction.findFirst({
+      where: { id, workspaceId },
     });
   }
 
   /**
    * Updates a transaction (e.g., manual recategorization, merchant rename, or notes).
    */
-  public static async updateTransaction(id: string, data: UpdateTransactionInput) {
-    return prisma.transaction.update({
-      where: { id },
+  public static async updateTransaction(workspaceId: string, id: string, data: UpdateTransactionInput) {
+    const requestedStatus = data.statusCode || (data.status ? normalizeTransactionStatus(data.status) : undefined);
+    const result = await prisma.transaction.updateMany({
+      where: { id, workspaceId },
       data: {
         ...(data.merchant && { merchant: data.merchant }),
         ...(data.category && { category: data.category }),
         ...(data.notes !== undefined && { notes: data.notes }),
-        ...(data.status && { status: data.status }),
+        ...(requestedStatus && {
+          statusCode: requestedStatus,
+          status: transactionStatusLabel(requestedStatus),
+          statusUpdatedAt: new Date(),
+        }),
       },
     });
+    if (result.count === 0) return null;
+    return this.getTransactionById(workspaceId, id);
   }
 
   /**
    * Deletes a transaction by ID.
    */
-  public static async deleteTransaction(id: string) {
-    return prisma.transaction.delete({
-      where: { id },
-    });
+  public static async deleteTransaction(workspaceId: string, id: string) {
+    return prisma.transaction.deleteMany({ where: { id, workspaceId } });
   }
 }

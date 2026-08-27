@@ -1,202 +1,186 @@
-# 💳 bills. — Multi-Bank Financial Tracker & Expense Management Engine
+# bills.
 
-Un sistema integral, automatizado y minimalista para capturar, procesar, normalizar, categorizar y analizar notificaciones de transacciones financieras multientidad (**Banco BHD**, **Banco Popular**, **Banreservas**, **Qik**, **APAP**, **Scotiabank**, etc.) mediante flujos de **n8n**, una **API REST en TypeScript/Node.js**, persistencia con **Prisma ORM**, soporte para exportación a **Excel/CSV/JSON** y un **Dashboard Web interactivo con Dark Mode de alta fidelidad**.
+Plataforma SaaS de finanzas personales que unifica notificaciones bancarias, normaliza movimientos y ofrece analítica por usuario. **Banco BHD es el piloto**, pero cada institución se integra como un adaptador independiente sobre un contrato común.
 
----
+## Estado actual
 
-## 🏛️ Arquitectura del Sistema
+- Acceso con Google o magic link mediante Supabase Auth.
+- Beta privada por invitación.
+- Un workspace personal aislado por usuario; todas las consultas y mutaciones se filtran por workspace.
+- Onboarding principal con Gmail OAuth de solo lectura y sincronización automática; reenvío privado como alternativa.
+- Ingesta común: Gmail OAuth o Resend Inbound → `NormalizedEmail` → registro de adaptadores → BHD/Qik.
+- Términos y privacidad versionados, consentimiento auditable, exportación y eliminación autoservicio.
+- Registro manual, reglas por usuario, dashboard, filtros y exportación autenticada.
+- Catálogo multi-banco: BHD en `PILOT`; Popular, Banreservas, Qik, APAP y Scotiabank en `COMING_SOON`.
 
+Consulta el plan, las decisiones y los criterios de salida en [docs/SAAS-PLAN.md](docs/SAAS-PLAN.md).
+
+## Arquitectura
+
+```text
+Supabase Auth ── token ──> React/Vite ── Bearer ──> Express API
+                                                   │
+Gmail ── OAuth readonly ───────────────────────────┤
+Correo bancario ── forward ─> Resend ── firma ────┤
+                                                   ▼
+                                      ingestion_events (PostgreSQL)
+                                                   │
+                                                worker
+                                                   │
+                                  ParserRegistry -> BHD | Qik | siguiente banco
+                                                   │
+                                      transactions (workspace_id)
 ```
-[ Inboxes de Correo / Webhooks ]
-       │ (Notificaciones de BHD, Popular, Banreservas, Qik, etc.)
-       ▼
-[ n8n Workflows & Parsers ]
-  ├─ 1. Email Trigger (Compras, transferencias enviadas/recibidas, servicios)
-  ├─ 2. Code Node (Parser HTML/Regex + Normalización AST/UTC + Detección de Banco)
-  └─ 3. HTTP Request Node (POST /api/v1/transactions con x-api-key)
-       │
-       ▼
-[ Backend / API REST (Express + TypeScript + Prisma) ]
-  ├─ Autenticación (Header x-api-key / Bearer Token / PIN Lock)
-  ├─ Validación de Payload (Zod Schema Validation)
-  ├─ Normalizador de Comercios y Motor de Reglas
-  ├─ Clasificación Multientidad (BHD, Popular, Banreservas, Qik, etc.)
-  ├─ Idempotencia (Evita duplicados por externalId)
-  └─ Persistencia (PostgreSQL / Supabase / SQLite)
-       │
-       ▼
-[ Consumidores / Dashboard Web "bills." ]
-  ├─ Dashboard Web Minimalista (Dark Mode OLED, KPIs dinámicos, Gráficos interactivos)
-  ├─ Barra de Filtros Avanzada (Por entidad bancaria, tipo de movimiento, categoría y estado)
-  ├─ Exportación Directa (GET /api/v1/transactions/export?format=csv|json)
-  └─ Gestor de Reglas de Categorización en Caliente
-```
 
----
+Agregar un banco no requiere modificar el núcleo: se implementa `BankEmailParser`, se registra en `ParserRegistry` y se habilita la institución cuando sus fixtures y métricas cumplen el criterio de calidad.
 
-## 🚀 Inicio Rápido
+## Desarrollo local
 
-### Requisitos Previos
-- **Node.js**: v20 o superior (v26 soportado)
-- **npm** o **pnpm**
-- *(Opcional)* **Docker & Docker Compose**
-
-### 1. Instalación y Configuración Local
+Requisitos: Node.js 22+, npm y PostgreSQL 16 (local o Supabase).
 
 ```bash
-# 1. Clonar e ingresar al repositorio
-git clone <repo-url>
-cd bills
-
-# 2. Instalar dependencias
 npm install
-
-# 3. Configurar variables de entorno
 cp .env.example .env
-
-# 4. Generar el cliente Prisma y sincronizar la base de datos
-npx prisma generate
-npx prisma db push
-
-# 5. Iniciar servidor en modo desarrollo
-npm run dev
+npm run prisma:generate
+npm run dev:api
 ```
 
-El servidor iniciará en:
-- 🌐 **Dashboard & API**: `http://localhost:3000`
-- 📡 **Endpoint de Ingesta**: `http://localhost:3000/api/v1/transactions`
-- 📊 **Exportar CSV**: `http://localhost:3000/api/v1/transactions/export?format=csv`
-
----
-
-## 🔄 Configuración del Flujo n8n
-
-El repositorio incluye el workflow listo para producción en [`n8n/bhd-transaction-workflow.json`](n8n/bhd-transaction-workflow.json) y el código del parser en [`n8n/bhd-parser-code-node.js`](n8n/bhd-parser-code-node.js).
-
-### Pasos para Importar en n8n:
-1. Abre tu instancia de **n8n**.
-2. Haz clic en **Workflows** > **Import from File...** y selecciona [`n8n/bhd-transaction-workflow.json`](n8n/bhd-transaction-workflow.json).
-3. Conecta tus credenciales de **Gmail OAuth2** en el nodo `Gmail Trigger`.
-4. En el nodo `HTTP Request Node`, actualiza la URL a tu servidor API (por ejemplo `http://localhost:3000/api/v1/transactions` o tu dominio público).
-5. Configura el header `x-api-key` con el valor de tu `.env` (`bhd_secret_token_123456`).
-6. Activa el workflow.
-
----
-
-## 📋 Contrato de Datos (API Contract)
-
-### `POST /api/v1/transactions` (Ingesta de Transacción)
-Header requerido: `x-api-key: bhd_secret_token_123456`
-
-#### Request Payload:
-```json
-{
-  "externalId": "18f4a9b2c3d4e5f6",
-  "cardLast4": "0380",
-  "cardType": "Visa Débito Intl",
-  "rawMerchant": "SM BRAVO LAS AMERICAS",
-  "amount": 1530.00,
-  "currency": "DOP",
-  "status": "Aprobada",
-  "transactionType": "Compra",
-  "transactionDate": "2026-08-18T19:14:00.000Z",
-  "source": "BHD_EMAIL"
-}
-```
-
-#### Respuesta 201 Created (Nueva Transacción):
-```json
-{
-  "success": true,
-  "duplicate": false,
-  "message": "Transaction recorded successfully",
-  "data": {
-    "id": "c3e987c2-1234-4567-89ab-cdef01234567",
-    "externalId": "18f4a9b2c3d4e5f6",
-    "cardLast4": "0380",
-    "cardType": "Visa Débito Intl",
-    "rawMerchant": "SM BRAVO LAS AMERICAS",
-    "merchant": "Supermercados Bravo",
-    "category": "Supermercado",
-    "amount": 1530.00,
-    "currency": "DOP",
-    "status": "Aprobada",
-    "transactionType": "Compra",
-    "transactionDate": "2026-08-18T19:14:00.000Z",
-    "source": "BHD_EMAIL",
-    "createdAt": "2026-08-18T19:14:05.000Z"
-  }
-}
-```
-
-#### Idempotencia (Respuesta 200 OK si ya existía `externalId`):
-```json
-{
-  "success": true,
-  "duplicate": true,
-  "message": "Transaction already processed (Idempotent)",
-  "data": { ... }
-}
-```
-
----
-
-## 📑 Endpoints de la API
-
-| Método | Endpoint | Descripción | Autenticación |
-|---|---|---|---|
-| `POST` | `/api/v1/transactions` | Ingesta individual de transacción | `x-api-key` |
-| `POST` | `/api/v1/transactions/batch` | Ingesta masiva de transacciones | `x-api-key` |
-| `GET` | `/api/v1/transactions` | Feed con filtros (`month`, `category`, `currency`, `search`, `page`, `limit`) y totales | Opcional |
-| `GET` | `/api/v1/transactions/:id` | Detalle de transacción | Opcional |
-| `PATCH` | `/api/v1/transactions/:id` | Editar categoría, nombre o notas | Opcional |
-| `DELETE` | `/api/v1/transactions/:id` | Eliminar transacción | Opcional |
-| `GET` | `/api/v1/transactions/export` | Exportación en `format=csv` (con BOM para Excel) o `format=json` | Opcional |
-| `GET` | `/api/v1/stats/summary` | Métricas financieras, desglose por categorías y top comercios | Opcional |
-| `GET` | `/api/v1/categories` | Lista de categorías con conteo | Opcional |
-| `GET` | `/api/v1/rules` | Lista de reglas de categorización personalizadas | Opcional |
-| `POST` | `/api/v1/rules` | Crear regla de categorización personalizada | `x-api-key` |
-| `DELETE` | `/api/v1/rules/:id` | Eliminar regla personalizada | `x-api-key` |
-
----
-
-## 🧠 Motor de Normalización y Categorización
-
-El sistema incluye reglas automáticas para los comercios más comunes de República Dominicana:
-- **Supermercados**: Bravo, Nacional, Jumbo, La Sirena, Hipermercados Olé, Plaza Lama, PriceSmart, Carrefour.
-- **Restaurantes & Delivery**: PedidosYa, Uber Eats, McDonald's, Wendy's, Burger King, Domino's, KFC, Starbucks, Chef Pepper.
-- **Transporte & Combustible**: Uber, InDrive, Cabify, Paso Rápido, TotalEnergies, Sunix, Shell, Texaco, Nexgen.
-- **Salud & Farmacia**: Farmacia Carol, Farmacia GBC, Los Hidalgos, Amadita, Referencia, Cedimat.
-- **Servicios & Telecomunicaciones**: Claro Dominicana, Altice, Viva, EdeEste, EdeSur, EdeNorte, CAASD.
-- **Suscripciones & Tecnología**: Netflix, Spotify, Apple, Google, Disney+, Max, OpenAI (ChatGPT), AWS, GitHub.
-- **Compras Online**: Amazon, Shein, AliExpress, Temu.
-
-*(Puedes agregar reglas adicionales en cualquier momento desde el Dashboard o mediante `POST /api/v1/rules`).*
-
----
-
-## 🧪 Pruebas Automatizadas
-
-El proyecto cuenta con una suite completa de pruebas unitarias y de integración con **Vitest**:
+En otra terminal:
 
 ```bash
-# Ejecutar todas las pruebas
+npm run dev:web
+```
+
+Y para procesar correos entrantes:
+
+```bash
+npm run dev:worker --prefix apps/api
+```
+
+URLs locales:
+
+- Web: `http://localhost:5173`
+- API: `http://localhost:3000`
+- Health: `http://localhost:3000/health`
+- Webhook Resend: `POST http://localhost:3000/webhooks/resend`
+
+## Variables necesarias
+
+Para Google/magic link de la cuenta solo hacen falta estas variables en `.env`:
+
+```dotenv
+VITE_SUPABASE_URL=https://PROJECT.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_URL=https://PROJECT.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+APP_URL=http://localhost:5173
+LEGACY_OWNER_EMAIL=tu-correo@example.com
+```
+
+La API también acepta `VITE_SUPABASE_PUBLISHABLE_KEY` como fallback. **La secret key de Supabase no es necesaria** para este flujo y no debe enviarse al navegador. La URL JWKS se deriva de `SUPABASE_URL`.
+
+En Supabase Dashboard:
+
+1. Habilita Google en Authentication → Providers.
+2. Configura el Client ID y Client Secret de Google dentro de Supabase.
+3. Añade `http://localhost:5173/auth/callback` a Redirect URLs.
+4. Define `http://localhost:5173` como Site URL durante desarrollo.
+
+La importación de Gmail es un OAuth separado del login y requiere credenciales server-side:
+
+```dotenv
+GOOGLE_OAUTH_CLIENT_ID=...
+GOOGLE_OAUTH_CLIENT_SECRET=...
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/v1/oauth/google/callback
+INGESTION_ENCRYPTION_KEY=base64_de_32_bytes
+```
+
+Habilita Gmail API, registra exactamente el redirect URI y agrega los testers en la audiencia de Google Cloud. En modo `Testing`, los grants con `gmail.readonly` expiran a los siete días. La salida pública exige verificación de alcance restringido y, al procesarse datos mediante el servidor, normalmente una evaluación de seguridad. Consulta el checklist completo en [docs/SAAS-PLAN.md](docs/SAAS-PLAN.md).
+
+Para la ingesta por correo:
+
+```dotenv
+RESEND_API_KEY=re_...
+RESEND_WEBHOOK_SECRET=whsec_...
+RESEND_RECEIVING_DOMAIN=tu-dominio-temporal-de-recepcion
+INGESTION_ENCRYPTION_KEY=base64_de_32_bytes
+```
+
+Genera la clave de retención localmente:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Los contenidos crudos solo se conservan si un parseo falla, cifrados con AES-256-GCM y por un máximo de siete días. Si no hay clave válida, no se conserva contenido crudo.
+
+## Resend y túnel de desarrollo
+
+1. Levanta API y worker.
+2. Expón el puerto 3000 con ngrok.
+3. En Resend crea el webhook `email.received` apuntando a `https://TU-TUNEL.ngrok.app/webhooks/resend`.
+4. Copia el nuevo signing secret a `RESEND_WEBHOOK_SECRET` y reinicia la API.
+5. Configura el dominio receptor temporal de Resend en `RESEND_RECEIVING_DOMAIN`.
+
+Cambiar la URL de ngrok no exige cambios de código: solo actualiza el endpoint del webhook en Resend. No reutilices el secreto de webhook de otro endpoint.
+
+## Migraciones: no usar `db push` en producción
+
+Base nueva:
+
+```bash
+npm run prisma:generate
+npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+```
+
+Base Supabase existente con las tablas personales anteriores:
+
+1. Crea un backup verificable.
+2. Confirma que existen las tablas legacy `transactions` y `category_rules`.
+3. Marca únicamente el baseline como aplicado:
+
+```bash
+npx prisma migrate resolve --applied 00000000000000_legacy_baseline --schema apps/api/prisma/schema.prisma
+```
+
+4. Revisa el SQL de `20260823010000_saas_foundation`.
+5. Revisa también `20260823020000_lock_down_public_tables`, que bloquea el acceso directo desde Supabase Data API.
+6. Ejecuta `prisma migrate deploy`.
+7. Inicia sesión con `LEGACY_OWNER_EMAIL`; el bootstrap reclamará las filas legacy cuyo `workspace_id` sea nulo.
+
+No se ejecuta ninguna migración remota automáticamente desde el servidor.
+
+El proyecto Supabase actual ya tiene las seis migraciones registradas y aplicadas. En despliegues siguientes basta ejecutar `prisma migrate deploy`; no vuelvas a resolver el baseline salvo al preparar otra base legacy que carezca de historial Prisma.
+
+## Beta por invitación
+
+`LEGACY_OWNER_EMAIL` puede crear el primer workspace. Para cada tester adicional:
+
+```bash
+npm run beta:invite -- persona@example.com
+```
+
+El comando debe ejecutarse con `DATABASE_URL`/`DIRECT_URL` apuntando al entorno deseado. Una invitación se consume al crear el workspace del usuario.
+
+## Calidad
+
+```bash
+npm run build
 npm test
-
-# Modo observación (watch)
-npm run test:watch
 ```
 
-Cobertura de pruebas:
-- ✅ **Parser BHD**: Extracción de montos (DOP/USD), fechas dominicanas, tarjetas, comercios y estados.
-- ✅ **Categorización**: Normalización de nombres de comercios y asignación de categorías.
-- ✅ **API Integration**: Validación de schemas Zod, idempotencia ante duplicados, batch ingestion, exportación CSV con UTF-8 BOM, estadísticas y CRUD.
+Las pruebas de integración destructivas están bloqueadas salvo que `DATABASE_URL` y `TEST_DATABASE_URL` apunten explícitamente a la misma base descartable. Nunca uses la base de producción para tests.
 
----
-
-## 🐳 Despliegue con Docker
+## Docker
 
 ```bash
-# Iniciar la API con Docker Compose
 docker compose up -d --build
 ```
+
+Compose levanta PostgreSQL, ejecuta migraciones en un contenedor separado, inicia API y worker. El flujo n8n anterior queda disponible solo como compatibilidad:
+
+```bash
+docker compose --profile legacy-n8n up -d n8n
+```
+
+n8n ya no forma parte de la ruta SaaS principal porque una credencial de correo compartida no escala ni mantiene aislamiento por usuario.

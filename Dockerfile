@@ -16,6 +16,12 @@ RUN npm install
 RUN cd apps/api && npx prisma generate
 
 # 2. Build React Web frontend (outputs to /app/public)
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_KEY
+ARG VITE_APP_URL
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
+ENV VITE_APP_URL=$VITE_APP_URL
 COPY apps/web ./apps/web
 RUN npm run build --prefix apps/web
 
@@ -45,4 +51,4 @@ COPY --from=builder /app/public ./apps/api/public
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "cd apps/api && npx prisma db push && node dist/server.js"]
+CMD ["node", "apps/api/dist/server.js"]
