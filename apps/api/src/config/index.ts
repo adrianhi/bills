@@ -36,6 +36,21 @@ export const config = {
     Math.max(parseInt(process.env.GMAIL_SYNC_MAX_MESSAGES || '100', 10), 1),
     500
   ),
+  googlePubSubTopic: process.env.GOOGLE_PUBSUB_TOPIC || '',
+  googlePubSubPushAudience: process.env.GOOGLE_PUBSUB_PUSH_AUDIENCE || '',
+  googlePubSubPushServiceAccount: process.env.GOOGLE_PUBSUB_PUSH_SERVICE_ACCOUNT || '',
+  gmailReconcileIntervalMinutes: Math.min(
+    Math.max(parseInt(process.env.GMAIL_RECONCILE_INTERVAL_MINUTES || '5', 10), 1),
+    60
+  ),
+  gmailWatchRenewalHours: Math.min(
+    Math.max(parseInt(process.env.GMAIL_WATCH_RENEWAL_HOURS || '24', 10), 1),
+    120
+  ),
+  gmailSyncConcurrency: Math.min(
+    Math.max(parseInt(process.env.GMAIL_SYNC_CONCURRENCY || '4', 10), 1),
+    10
+  ),
   legalProviderName: process.env.LEGAL_PROVIDER_NAME || '',
   legalProviderId: process.env.LEGAL_PROVIDER_ID || '',
   legalContactEmail: process.env.LEGAL_CONTACT_EMAIL || '',

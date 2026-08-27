@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { config } from '../config';
 import { AppError } from '../errors/app-error';
 import { GmailConnectionService } from '../services/gmail-connection.service';
+import { IngestionJobService } from '../services/ingestion-job.service';
 
 const StartGoogleSchema = z.object({
   returnTo: z.string().max(200).optional(),
@@ -48,6 +49,9 @@ export class InboxConnectionController {
         throw new AppError(400, 'INVALID_OAUTH_CALLBACK', 'Google callback is incomplete.');
       }
       const result = await GmailConnectionService.completeAuthorization(code, state);
+      const connection = result.connection as { id: string; workspaceId: string };
+      await IngestionJobService.enqueueInitial(connection.workspaceId, connection.id);
+      if (config.googlePubSubTopic) await IngestionJobService.enqueueWatch(connection.workspaceId, connection.id);
       res.redirect(GmailConnectionService.callbackRedirect(result.returnTo));
     } catch (error) {
       const code = error instanceof AppError ? error.code : 'GOOGLE_OAUTH_FAILED';
@@ -60,11 +64,11 @@ export class InboxConnectionController {
 
   public static async sync(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await GmailConnectionService.sync(
+      const job = await IngestionJobService.enqueueManual(
         req.auth!.workspaceId!,
         String(req.params.id)
       );
-      res.status(200).json({ success: true, data: result });
+      res.status(202).json({ success: true, data: { jobId: job.id, status: 'QUEUED' } });
     } catch (error) {
       next(error);
     }

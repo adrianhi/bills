@@ -13,7 +13,7 @@ const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GMAIL_API_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
 const GMAIL_READONLY_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
-const FAILED_CONTENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const FAILED_CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface GoogleTokenResponse {
   access_token: string;
@@ -39,6 +39,38 @@ interface GmailMessage {
   id: string;
   internalDate?: string;
   payload?: GmailMessagePart;
+}
+
+interface GmailHistoryResponse {
+  history?: Array<{
+    messagesAdded?: Array<{ message?: { id?: string } }>;
+  }>;
+  nextPageToken?: string;
+  historyId?: string;
+}
+
+interface GmailWatchResponse {
+  historyId: string;
+  expiration: string;
+}
+
+type SyncSummary = {
+  scanned: number;
+  parsed: number;
+  created: number;
+  duplicates: number;
+  ignored: number;
+  failed: number;
+};
+
+export type GmailReplayFilters = {
+  bank?: string;
+  errors?: string[];
+  parserVersion?: string;
+};
+
+function emptySummary(): SyncSummary {
+  return { scanned: 0, parsed: 0, created: 0, duplicates: 0, ignored: 0, failed: 0 };
 }
 
 function hashState(value: string) {
@@ -267,7 +299,39 @@ export class GmailConnectionService {
       },
       orderBy: { createdAt: 'asc' },
     });
-    return connections.map((connection) => serializeConnection(connection));
+    return Promise.all(
+      connections.map(async (connection) => {
+        const [currentJob, failedEvents] = await Promise.all([
+          prisma.ingestionJob.findFirst({
+            where: {
+              inboxConnectionId: connection.id,
+              status: { in: ['PENDING', 'PROCESSING', 'FAILED'] },
+            },
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              type: true,
+              status: true,
+              attempts: true,
+              maxAttempts: true,
+              errorCode: true,
+              errorMessage: true,
+              createdAt: true,
+              startedAt: true,
+              processedAt: true,
+            },
+          }),
+          prisma.ingestionEvent.count({
+            where: {
+              inboxConnectionId: connection.id,
+              provider: 'GOOGLE_GMAIL',
+              status: 'FAILED',
+            },
+          }),
+        ]);
+        return serializeConnection({ ...connection, currentJob, failedEvents });
+      })
+    );
   }
 
   private static async accessToken(connectionId: string, workspaceId: string) {
@@ -343,40 +407,63 @@ export class GmailConnectionService {
     return `{${senders.join(' ')}} ${dateFilter}`;
   }
 
-  public static async sync(workspaceId: string, connectionId: string) {
-    const syncStartedAt = new Date();
-    const { connection, accessToken } = await this.accessToken(connectionId, workspaceId);
-    const query = await this.senderQuery(connection.lastSyncedAt);
-    const messageIds: string[] = [];
-    let pageToken = '';
+  private static retain(email: NormalizedEmail) {
+    return SecretCryptoService.encrypt(
+      JSON.stringify({
+        id: email.id,
+        messageId: email.messageId,
+        from: email.from,
+        to: email.to,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+        headers: email.headers,
+        receivedAt: email.receivedAt.toISOString(),
+      })
+    );
+  }
 
-    while (messageIds.length < config.gmailSyncMaxMessages) {
-      const params = new URLSearchParams({
-        q: query,
-        maxResults: String(Math.min(100, config.gmailSyncMaxMessages - messageIds.length)),
+  private static async processMessage(input: {
+    workspaceId: string;
+    connection: { id: string; email: string };
+    accessToken: string;
+    messageId: string;
+    summary: SyncSummary;
+    allowReplay?: boolean;
+    retainedEmail?: NormalizedEmail | null;
+  }) {
+    const providerEventId = `gmail:${input.connection.id}:${input.messageId}`;
+    const existing = await prisma.ingestionEvent.findUnique({ where: { providerEventId } });
+    let eventId = existing?.id || '';
+
+    if (existing) {
+      if (!input.allowReplay || !['FAILED', 'PENDING'].includes(existing.status)) {
+        input.summary.duplicates += 1;
+        return;
+      }
+      const claimed = await prisma.ingestionEvent.updateMany({
+        where: { id: existing.id, status: existing.status },
+        data: {
+          status: 'PROCESSING',
+          attempts: { increment: 1 },
+          errorCode: null,
+          errorMessage: null,
+          nextAttemptAt: null,
+        },
       });
-      if (pageToken) params.set('pageToken', pageToken);
-      const page = await googleJson<{
-        messages?: Array<{ id: string }>;
-        nextPageToken?: string;
-      }>(`${GMAIL_API_URL}/messages?${params.toString()}`, accessToken);
-      messageIds.push(...(page.messages || []).map((message) => message.id));
-      pageToken = page.nextPageToken || '';
-      if (!pageToken) break;
-    }
-
-    const summary = { scanned: messageIds.length, parsed: 0, created: 0, duplicates: 0, ignored: 0, failed: 0 };
-    for (const messageId of messageIds) {
-      const providerEventId = `gmail:${connection.id}:${messageId}`;
-      let eventId = '';
+      if (claimed.count !== 1) {
+        input.summary.duplicates += 1;
+        return;
+      }
+    } else {
       try {
         const event = await prisma.ingestionEvent.create({
           data: {
-            workspaceId,
-            inboxConnectionId: connection.id,
+            workspaceId: input.workspaceId,
+            inboxConnectionId: input.connection.id,
             provider: 'GOOGLE_GMAIL',
             providerEventId,
-            providerEmailId: messageId,
+            providerEmailId: input.messageId,
             status: 'PROCESSING',
             attempts: 1,
           },
@@ -384,117 +471,299 @@ export class GmailConnectionService {
         eventId = event.id;
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-          summary.duplicates += 1;
-          continue;
+          input.summary.duplicates += 1;
+          return;
         }
         throw error;
       }
+    }
 
-      let normalized: NormalizedEmail | null = null;
-      try {
+    let normalized = input.retainedEmail || null;
+    try {
+      if (!normalized) {
         const message = await googleJson<GmailMessage>(
-          `${GMAIL_API_URL}/messages/${encodeURIComponent(messageId)}?format=full`,
-          accessToken
+          `${GMAIL_API_URL}/messages/${encodeURIComponent(input.messageId)}?format=full`,
+          input.accessToken
         );
         normalized = normalizeGmailMessage(message);
-        const result = await NormalizedEmailProcessor.process({
-          workspaceId,
-          email: normalized,
-          ingestionChannel: 'GMAIL_OAUTH',
-          inboxConnectionId: connection.id,
-          sourceEmail: connection.email,
-        });
+      }
+      const result = await NormalizedEmailProcessor.process({
+        workspaceId: input.workspaceId,
+        email: normalized,
+        ingestionChannel: 'GMAIL_OAUTH',
+        inboxConnectionId: input.connection.id,
+        sourceEmail: input.connection.email,
+      });
 
-        if (result.status === 'parsed') {
-          summary.parsed += 1;
-          summary.created += result.created;
-          summary.duplicates += result.duplicates;
-          await prisma.ingestionEvent.update({
-            where: { id: eventId },
-            data: {
-              status: 'SUCCEEDED',
-              bankConnectionId: result.bankConnectionId,
-              parserCode: result.parserCode,
-              parserVersion: result.parserVersion,
-              processedAt: new Date(),
-            },
-          });
-        } else if (result.status === 'ignored') {
-          summary.ignored += 1;
-          await prisma.ingestionEvent.update({
-            where: { id: eventId },
-            data: {
-              status: 'IGNORED',
-              parserCode: result.parserCode,
-              parserVersion: result.parserVersion,
-              errorCode: result.reason,
-              processedAt: new Date(),
-            },
-          });
-        } else {
-          summary.failed += 1;
-          const retained = SecretCryptoService.encrypt(
-            JSON.stringify({
-              id: normalized.id,
-              from: normalized.from,
-              to: normalized.to,
-              subject: normalized.subject,
-              html: normalized.html,
-              text: normalized.text,
-            })
-          );
-          await prisma.ingestionEvent.update({
-            where: { id: eventId },
-            data: {
-              status: 'FAILED',
-              parserCode: result.parserCode,
-              parserVersion: result.parserVersion,
-              errorCode: result.reason,
-              errorMessage: result.reason,
-              rawContent: retained,
-              rawContentExpiresAt: new Date(Date.now() + FAILED_CONTENT_TTL_MS),
-            },
-          });
-        }
-      } catch (error) {
-        summary.failed += 1;
-        const code = error instanceof AppError ? error.code : 'GMAIL_MESSAGE_PROCESSING_FAILED';
-        const retained = normalized
-          ? SecretCryptoService.encrypt(
-              JSON.stringify({
-                id: normalized.id,
-                from: normalized.from,
-                to: normalized.to,
-                subject: normalized.subject,
-                html: normalized.html,
-                text: normalized.text,
-              })
-            )
-          : null;
+      if (result.status === 'parsed') {
+        input.summary.parsed += 1;
+        input.summary.created += result.created;
+        input.summary.duplicates += result.duplicates;
         await prisma.ingestionEvent.update({
           where: { id: eventId },
           data: {
-            status: 'FAILED',
-            errorCode: code,
-            errorMessage: code,
-            rawContent: retained,
-            rawContentExpiresAt: retained ? new Date(Date.now() + FAILED_CONTENT_TTL_MS) : null,
+            status: 'SUCCEEDED',
+            bankConnectionId: result.bankConnectionId,
+            parserCode: result.parserCode,
+            parserVersion: result.parserVersion,
+            errorCode: null,
+            errorMessage: null,
+            rawContent: null,
+            rawContentExpiresAt: null,
+            processedAt: new Date(),
           },
         });
+        return;
       }
+      if (result.status === 'ignored') {
+        input.summary.ignored += 1;
+        await prisma.ingestionEvent.update({
+          where: { id: eventId },
+          data: {
+            status: 'IGNORED',
+            parserCode: result.parserCode,
+            parserVersion: result.parserVersion,
+            errorCode: result.reason,
+            errorMessage: null,
+            rawContent: null,
+            rawContentExpiresAt: null,
+            processedAt: new Date(),
+          },
+        });
+        return;
+      }
+
+      input.summary.failed += 1;
+      await prisma.ingestionEvent.update({
+        where: { id: eventId },
+        data: {
+          status: 'FAILED',
+          parserCode: result.parserCode,
+          parserVersion: result.parserVersion,
+          errorCode: result.reason,
+          errorMessage: result.reason,
+          rawContent: this.retain(normalized),
+          rawContentExpiresAt: new Date(Date.now() + FAILED_CONTENT_TTL_MS),
+          nextAttemptAt: null,
+        },
+      });
+    } catch (error) {
+      input.summary.failed += 1;
+      const code = error instanceof AppError ? error.code : 'GMAIL_MESSAGE_PROCESSING_FAILED';
+      const parser = normalized ? ParserRegistry.detect(normalized) : null;
+      await prisma.ingestionEvent.update({
+        where: { id: eventId },
+        data: {
+          status: 'FAILED',
+          parserCode: parser?.institutionCode || existing?.parserCode,
+          parserVersion: parser?.version || existing?.parserVersion,
+          errorCode: code,
+          errorMessage: code,
+          rawContent: normalized ? this.retain(normalized) : existing?.rawContent,
+          rawContentExpiresAt: normalized || existing?.rawContent
+            ? new Date(Date.now() + FAILED_CONTENT_TTL_MS)
+            : null,
+          nextAttemptAt: null,
+        },
+      });
     }
+  }
+
+  private static async processIds(
+    workspaceId: string,
+    connection: { id: string; email: string },
+    accessToken: string,
+    messageIds: string[],
+    summary: SyncSummary
+  ) {
+    summary.scanned += messageIds.length;
+    for (let index = 0; index < messageIds.length; index += config.gmailSyncConcurrency) {
+      const chunk = messageIds.slice(index, index + config.gmailSyncConcurrency);
+      await Promise.all(chunk.map((messageId) => this.processMessage({
+        workspaceId,
+        connection,
+        accessToken,
+        messageId,
+        summary,
+      })));
+    }
+  }
+
+  private static async finishSync(connectionId: string, cursor: string | null | undefined, summary: SyncSummary) {
+    const now = new Date();
+    await prisma.inboxConnection.update({
+      where: { id: connectionId },
+      data: {
+        status: 'ACTIVE',
+        ...(cursor ? { syncCursor: cursor } : {}),
+        lastSyncedAt: now,
+        lastSuccessfulSyncAt: now,
+        lastSyncSummary: summary,
+        lastErrorCode: summary.failed > 0 ? 'PARTIAL_SYNC_FAILURE' : null,
+        syncLeaseUntil: null,
+        nextReconcileAt: new Date(now.getTime() + config.gmailReconcileIntervalMinutes * 60_000),
+      },
+    });
+  }
+
+  public static async syncFull(workspaceId: string, connectionId: string, initial = false) {
+    const { connection, accessToken } = await this.accessToken(connectionId, workspaceId);
+    const query = await this.senderQuery(initial ? null : connection.lastSuccessfulSyncAt || connection.lastSyncedAt);
+    const summary = emptySummary();
+    let pageToken = '';
+    do {
+      const params = new URLSearchParams({ q: query, maxResults: '100' });
+      if (pageToken) params.set('pageToken', pageToken);
+      const page = await googleJson<{ messages?: Array<{ id: string }>; nextPageToken?: string }>(
+        `${GMAIL_API_URL}/messages?${params.toString()}`,
+        accessToken
+      );
+      await this.processIds(
+        workspaceId,
+        connection,
+        accessToken,
+        (page.messages || []).map((message) => message.id),
+        summary
+      );
+      pageToken = page.nextPageToken || '';
+    } while (pageToken);
 
     const profile = await googleJson<GmailProfile>(`${GMAIL_API_URL}/profile`, accessToken);
+    await this.finishSync(connection.id, profile.historyId || connection.syncCursor, summary);
+    return summary;
+  }
+
+  public static async syncIncremental(workspaceId: string, connectionId: string) {
+    const { connection, accessToken } = await this.accessToken(connectionId, workspaceId);
+    if (!connection.syncCursor) return this.syncFull(workspaceId, connectionId, false);
+
+    const summary = emptySummary();
+    const messageIds = new Set<string>();
+    let pageToken = '';
+    let finalHistoryId = connection.syncCursor;
+    do {
+      const params = new URLSearchParams({
+        startHistoryId: connection.syncCursor,
+        historyTypes: 'messageAdded',
+        maxResults: '500',
+      });
+      if (pageToken) params.set('pageToken', pageToken);
+      const response = await fetch(`${GMAIL_API_URL}/history?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+      });
+      if (response.status === 404) return this.syncFull(workspaceId, connectionId, false);
+      if (!response.ok) {
+        throw new AppError(response.status === 401 ? 401 : 502, 'GOOGLE_HISTORY_ERROR', 'Gmail history could not be synchronized.');
+      }
+      const page = (await response.json()) as GmailHistoryResponse;
+      for (const history of page.history || []) {
+        for (const added of history.messagesAdded || []) {
+          if (added.message?.id) messageIds.add(added.message.id);
+        }
+      }
+      finalHistoryId = page.historyId || finalHistoryId;
+      pageToken = page.nextPageToken || '';
+    } while (pageToken);
+
+    const supportedQuery = await this.senderQuery(null);
+    const senderTerms = Array.from(supportedQuery.matchAll(/from:([^\s}]+)/g)).map((match) => match[1]);
+    const supportedIds: string[] = [];
+    for (const messageId of messageIds) {
+      const metadata = await googleJson<GmailMessage>(
+        `${GMAIL_API_URL}/messages/${encodeURIComponent(messageId)}?format=metadata&metadataHeaders=From`,
+        accessToken
+      );
+      const from = (metadata.payload?.headers || []).find((header) => header.name.toLowerCase() === 'from')?.value.toLowerCase() || '';
+      if (senderTerms.some((sender) => from.includes(sender.replace(/^@/, '').toLowerCase()))) supportedIds.push(messageId);
+    }
+    await this.processIds(workspaceId, connection, accessToken, supportedIds, summary);
+    await this.finishSync(connection.id, finalHistoryId, summary);
+    return summary;
+  }
+
+  public static async registerWatch(workspaceId: string, connectionId: string) {
+    if (!config.googlePubSubTopic) return { enabled: false };
+    const { connection, accessToken } = await this.accessToken(connectionId, workspaceId);
+    const response = await fetch(`${GMAIL_API_URL}/watch`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ topicName: config.googlePubSubTopic }),
+    });
+    if (!response.ok) throw new AppError(502, 'GOOGLE_WATCH_FAILED', 'Gmail push notifications could not be enabled.');
+    const watch = (await response.json()) as GmailWatchResponse;
     await prisma.inboxConnection.update({
       where: { id: connection.id },
       data: {
-        status: 'ACTIVE',
-        syncCursor: profile.historyId || connection.syncCursor,
-        lastSyncedAt: syncStartedAt,
+        watchExpiresAt: new Date(Number(watch.expiration)),
+        syncCursor: connection.syncCursor || watch.historyId,
         lastErrorCode: null,
       },
     });
+    return { enabled: true, expiration: watch.expiration };
+  }
+
+  public static async replayFailed(
+    workspaceId: string,
+    connectionId: string,
+    filters: GmailReplayFilters = {}
+  ) {
+    const { connection, accessToken } = await this.accessToken(connectionId, workspaceId);
+    const events = await prisma.ingestionEvent.findMany({
+      where: {
+        workspaceId,
+        inboxConnectionId: connectionId,
+        provider: 'GOOGLE_GMAIL',
+        status: 'FAILED',
+        ...(filters.bank ? { parserCode: filters.bank.toUpperCase() } : {}),
+        ...(filters.errors?.length ? { errorCode: { in: filters.errors } } : {}),
+        ...(filters.parserVersion ? { parserVersion: filters.parserVersion } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 500,
+    });
+    const summary = emptySummary();
+    summary.scanned = events.length;
+    for (const event of events) {
+      let retainedEmail: NormalizedEmail | null = null;
+      if (event.rawContent) {
+        try {
+          const parsed = JSON.parse(SecretCryptoService.decrypt(event.rawContent)) as Record<string, unknown>;
+          retainedEmail = {
+            id: String(parsed.id || event.providerEmailId || event.id),
+            messageId: String(parsed.messageId || parsed.id || event.providerEmailId || event.id),
+            from: String(parsed.from || ''),
+            to: Array.isArray(parsed.to) ? parsed.to.map(String) : [],
+            subject: String(parsed.subject || ''),
+            html: typeof parsed.html === 'string' ? parsed.html : null,
+            text: typeof parsed.text === 'string' ? parsed.text : null,
+            headers: parsed.headers && typeof parsed.headers === 'object' ? parsed.headers as Record<string, string> : null,
+            receivedAt: parsed.receivedAt ? new Date(String(parsed.receivedAt)) : event.createdAt,
+          };
+        } catch {
+          retainedEmail = null;
+        }
+      }
+      if (!event.providerEmailId) continue;
+      await this.processMessage({
+        workspaceId,
+        connection,
+        accessToken,
+        messageId: event.providerEmailId,
+        summary,
+        allowReplay: true,
+        retainedEmail,
+      });
+    }
+    await this.finishSync(connection.id, connection.syncCursor, summary);
     return summary;
+  }
+
+  public static sync(workspaceId: string, connectionId: string) {
+    return this.syncIncremental(workspaceId, connectionId);
   }
 
   public static async disconnect(workspaceId: string, connectionId: string) {

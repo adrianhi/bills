@@ -22,10 +22,10 @@ function sanitizeError(error: unknown) {
 }
 
 export class IngestionWorker {
-  private readonly resend: Resend;
+  private readonly resend: Resend | null;
 
   constructor() {
-    this.resend = new Resend(config.resendApiKey);
+    this.resend = config.resendApiKey ? new Resend(config.resendApiKey) : null;
   }
 
   public async processNext(): Promise<boolean> {
@@ -53,6 +53,7 @@ export class IngestionWorker {
       if (!candidate.providerEmailId || !candidate.bankConnection) {
         throw new Error('INGESTION_EVENT_INCOMPLETE');
       }
+      if (!this.resend) throw new Error('RESEND_API_KEY_NOT_CONFIGURED');
 
       const response = await this.resend.emails.receiving.get(candidate.providerEmailId, {
         html_format: 'cid',
