@@ -1,7 +1,8 @@
-import { connectDB, prisma } from './config/database';
+import { connectDB, disconnectDB } from './config/database';
 import { validateRuntimeConfig } from './config';
 import { IngestionWorker } from './ingestion/ingestion-worker';
 import { IngestionJobService } from './services/ingestion-job.service';
+import { logger } from './shared/observability/logger';
 
 async function run() {
   validateRuntimeConfig();
@@ -13,7 +14,7 @@ async function run() {
 
   const shutdown = async () => {
     running = false;
-    await prisma.$disconnect();
+    await disconnectDB();
     process.exit(0);
   };
   process.on('SIGINT', shutdown);
@@ -36,6 +37,6 @@ async function run() {
 }
 
 run().catch((error) => {
-  console.error('Ingestion worker failed to start:', error instanceof Error ? error.message : 'Unknown error');
+  logger.error('ingestion_worker_bootstrap_failed', { errorName: error instanceof Error ? error.name : 'UnknownError' });
   process.exit(1);
 });

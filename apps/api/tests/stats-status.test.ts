@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { summarize } from '../src/controllers/stats.controller';
+import { summarizeTransactions } from '../src/modules/analytics/domain/summarize-transactions';
 
 function transaction(statusCode: 'PENDING' | 'APPROVED' | 'DECLINED' | 'REVERSED', amount: number) {
   return {
@@ -19,7 +19,7 @@ function transaction(statusCode: 'PENDING' | 'APPROVED' | 'DECLINED' | 'REVERSED
 
 describe('financial status analytics', () => {
   it('counts every status but spends only approved transactions', () => {
-    const summary = summarize([
+    const summary = summarizeTransactions([
       transaction('APPROVED', 100),
       transaction('REVERSED', 100),
       transaction('DECLINED', 50),

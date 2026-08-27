@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TRANSACTION_STATUS_CODES } from '../domain/transaction-status';
+import { transactionStatusSchema } from '@bills/contracts';
 
 export const CreateTransactionSchema = z.object({
   externalId: z.string().min(1, 'externalId is required'),
@@ -11,7 +11,7 @@ export const CreateTransactionSchema = z.object({
   amount: z.coerce.number().positive('amount must be a positive number'),
   currency: z.string().default('DOP').transform((val) => val.toUpperCase()),
   status: z.string().default('Aprobada'),
-  statusCode: z.enum(TRANSACTION_STATUS_CODES).optional(),
+  statusCode: transactionStatusSchema.optional(),
   bankReference: z.string().max(180).optional().nullable(),
   transactionType: z.string().default('Compra'),
   transactionDate: z.coerce.date(),
@@ -30,7 +30,7 @@ export const UpdateTransactionSchema = z.object({
   category: z.string().min(1).optional(),
   notes: z.string().optional().nullable(),
   status: z.string().optional(),
-  statusCode: z.enum(TRANSACTION_STATUS_CODES).optional(),
+  statusCode: transactionStatusSchema.optional(),
 });
 
 export const TransactionQuerySchema = z.object({

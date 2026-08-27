@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Dialog, 
   DialogContent, 
@@ -42,18 +42,10 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const [merchant, setMerchant] = useState('');
-  const [category, setCategory] = useState('');
-  const [notes, setNotes] = useState('');
+  const [merchant, setMerchant] = useState(() => transaction?.merchant || transaction?.rawMerchant || '');
+  const [category, setCategory] = useState(() => transaction?.category || 'Otros');
+  const [notes, setNotes] = useState(() => transaction?.notes || '');
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (transaction) {
-      setMerchant(transaction.merchant || transaction.rawMerchant || '');
-      setCategory(transaction.category || 'Otros');
-      setNotes(transaction.notes || '');
-    }
-  }, [transaction]);
 
   if (!transaction) return null;
 

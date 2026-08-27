@@ -1,60 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
 import { Button, Card, CardContent } from '@/shared/ui';
+import { usePinUnlock } from '../model/usePinUnlock';
 
 interface PinLockScreenProps {
   onUnlock: (token: string, remember: boolean) => void;
 }
 
 export const PinLockScreen: React.FC<PinLockScreenProps> = ({ onUnlock }) => {
-  const [pin, setPin] = useState('');
-  const [remember, setRemember] = useState(true);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { pin, remember, setRemember, error, loading, submit, changePin } = usePinUnlock(onUnlock);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  const handleSubmit = async (pinToSubmit: string) => {
-    if (pinToSubmit.length < 4) return;
-    setLoading(true);
-    setError('');
-
-    try {
-      const res = await fetch('/api/v1/auth/verify-pin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: pinToSubmit }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        onUnlock(data.token, remember);
-      } else {
-        setError(data.message || 'PIN incorrecto');
-        setPin('');
-      }
-    } catch {
-      setError('Error al verificar el PIN');
-      setPin('');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-    setPin(val);
-    if (val.length === 4) {
-      handleSubmit(val);
-    }
+    changePin(e.target.value);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      handleSubmit(pin);
+      void submit(pin);
     }
   };
 
@@ -144,7 +111,7 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({ onUnlock }) => {
 
             {/* Submit Button */}
             <Button
-              onClick={() => handleSubmit(pin)}
+              onClick={() => void submit(pin)}
               disabled={loading || pin.length < 4}
               className="w-full h-10 gap-2 font-semibold shadow-md"
             >

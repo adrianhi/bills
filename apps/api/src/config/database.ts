@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../shared/observability/logger';
 
 // Load .env from current directory or monorepo root
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -25,9 +26,14 @@ if (process.env.NODE_ENV !== 'production') {
 export async function connectDB() {
   try {
     await prisma.$connect();
-    console.log('✅ Database connected successfully');
+    logger.info('database_connected');
   } catch (error) {
-    console.error('❌ Failed to connect to database:', error);
+    logger.error('database_connection_failed', { errorName: error instanceof Error ? error.name : 'UnknownError' });
     process.exit(1);
   }
+}
+
+export async function disconnectDB() {
+  await prisma.$disconnect();
+  logger.info('database_disconnected');
 }

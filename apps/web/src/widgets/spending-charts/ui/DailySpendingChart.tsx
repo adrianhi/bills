@@ -17,6 +17,16 @@ interface DailySpendingChartProps {
   currency: string;
 }
 
+function DailyTooltip({ active, payload, currency }: any) {
+  if (!active || !payload?.length) return null;
+  const item = payload[0].payload;
+  return <div className="rounded-xl border bg-popover/95 p-3 text-xs shadow-xl backdrop-blur">
+    <div className="font-semibold text-popover-foreground">Fecha: {item.date}</div>
+    <div className="mt-1 flex items-baseline justify-between gap-4 text-muted-foreground"><span>Gasto:</span><span className="font-bold text-foreground">{formatCurrency(item.total, currency)}</span></div>
+    <div className="flex items-baseline justify-between gap-4 text-muted-foreground"><span>Transacciones:</span><span className="font-medium text-foreground">{item.count}</span></div>
+  </div>;
+}
+
 export const DailySpendingChart: React.FC<DailySpendingChartProps> = ({ stats, currency }) => {
   const chartData = React.useMemo(() => {
     if (!stats || !stats.dailyTrend || stats.dailyTrend.length === 0) return [];
@@ -31,30 +41,6 @@ export const DailySpendingChart: React.FC<DailySpendingChartProps> = ({ stats, c
       };
     });
   }, [stats]);
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      return (
-        <div className="rounded-xl border bg-popover/95 p-3 text-xs shadow-xl backdrop-blur">
-          <div className="font-semibold text-popover-foreground">
-            Fecha: {item.date}
-          </div>
-          <div className="mt-1 flex items-baseline justify-between gap-4 text-muted-foreground">
-            <span>Gasto:</span>
-            <span className="font-bold text-foreground">
-              {formatCurrency(item.total, currency)}
-            </span>
-          </div>
-          <div className="flex items-baseline justify-between gap-4 text-muted-foreground">
-            <span>Transacciones:</span>
-            <span className="font-medium text-foreground">{item.count}</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <Card className="border-border/60 shadow-sm flex flex-col justify-between">
@@ -94,7 +80,7 @@ export const DailySpendingChart: React.FC<DailySpendingChartProps> = ({ stats, c
                   tick={{ fontSize: 11, fill: 'currentColor', opacity: 0.6 }}
                   tickFormatter={(val) => `$${val > 999 ? (val / 1000).toFixed(0) + 'k' : val}`}
                 />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }} />
+                <Tooltip content={<DailyTooltip currency={currency} />} cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }} />
                 <Bar 
                   dataKey="total" 
                   fill="url(#barGradient)" 

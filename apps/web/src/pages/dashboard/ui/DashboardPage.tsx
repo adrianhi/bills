@@ -2,59 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/widgets/navbar';
 import { BottomNav, type ActiveSection } from '@/widgets/bottom-nav';
 import { MetricCards } from '@/widgets/metric-summary';
-import { CategoryBreakdownChart, DailySpendingChart } from '@/widgets/spending-charts';
 import { TransactionTable } from '@/widgets/transactions-table';
 import { EditTransactionModal } from '@/features/edit-transaction';
 import { RulesManagerModal } from '@/features/manage-rules';
 import { QuickAddTransactionModal } from '@/features/quick-add';
 import { AccountSettingsModal } from '@/features/account-settings';
-import type { Transaction } from '@/entities/transaction';
-import type { StatsSummary } from '@/entities/stat';
+import { useSearchParams } from 'react-router-dom';
+import { useDashboardController } from '../model/useDashboardController';
 
-import { type PeriodSelection } from '@/features/period-filter';
+const CategoryBreakdownChart = React.lazy(async () => {
+  const module = await import('@/widgets/spending-charts/ui/CategoryBreakdownChart');
+  return { default: module.CategoryBreakdownChart };
+});
+const DailySpendingChart = React.lazy(async () => {
+  const module = await import('@/widgets/spending-charts/ui/DailySpendingChart');
+  return { default: module.DailySpendingChart };
+});
 
 interface DashboardPageProps {
-  darkMode: boolean;
-  setDarkMode: (val: boolean) => void;
-  hideBalances: boolean;
-  setHideBalances: (val: boolean) => void;
-  currentPeriod: PeriodSelection;
-  onApplyPeriod: (selection: PeriodSelection) => void;
-  currency: string;
-  setCurrency: (curr: string) => void;
-  stats: StatsSummary | null;
-  transactions: Transaction[];
-  totalTransactions: number;
-  loading: boolean;
-  page: number;
-  setPage: (page: number) => void;
-  limit: number;
-  search: string;
-  setSearch: (s: string) => void;
-  categoryFilter: string;
-  setCategoryFilter: (cat: string) => void;
-  statusFilter: string;
-  setStatusFilter: (st: string) => void;
-  organizationFilter: string;
-  setOrganizationFilter: (org: string) => void;
-  typeFilter: string;
-  setTypeFilter: (t: string) => void;
-  onResetFilters: () => void;
-  onRefresh: () => void;
-  onExport: () => void;
+  authToken: string;
   onLock: () => void;
   onAccountDeleted: () => void;
-  editingTransaction: Transaction | null;
-  setEditingTransaction: (tx: Transaction | null) => void;
-  onSaveTransaction: (id: string, merchant: string, category: string, notes: string) => Promise<void>;
-  isRulesModalOpen: boolean;
-  setIsRulesModalOpen: (open: boolean) => void;
-  isQuickAddOpen: boolean;
-  setIsQuickAddOpen: (open: boolean) => void;
-  authToken: string | null;
 }
 
-export const DashboardPage: React.FC<DashboardPageProps> = ({
+export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock: lockSession, onAccountDeleted }) => {
+  const {
   darkMode,
   setDarkMode,
   hideBalances,
@@ -84,7 +56,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onRefresh,
   onExport,
   onLock,
-  onAccountDeleted,
   editingTransaction,
   setEditingTransaction,
   onSaveTransaction,
@@ -92,11 +63,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   setIsRulesModalOpen,
   isQuickAddOpen,
   setIsQuickAddOpen,
-  authToken,
-}) => {
+  } = useDashboardController(authToken, lockSession);
+  const [searchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState<ActiveSection>('overview');
   const [isSettingsOpen, setIsSettingsOpen] = useState(
-    () => new URLSearchParams(window.location.search).get('settings') === 'connections'
+    () => searchParams.get('settings') === 'connections'
   );
 
   // Active filters count
@@ -170,8 +141,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
         {/* 2. Charts / Analytics Section */}
         <div id="charts-section" className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 scroll-mt-20">
-          <CategoryBreakdownChart stats={stats} currency={currency} />
-          <DailySpendingChart stats={stats} currency={currency} />
+          <React.Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-muted" />}>
+            <CategoryBreakdownChart stats={stats} currency={currency} />
+            <DailySpendingChart stats={stats} currency={currency} />
+          </React.Suspense>
         </div>
 
         {/* 3. Transaction Table & Filters Section */}
@@ -224,6 +197,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
       {/* Edit Modal */}
       <EditTransactionModal
+        key={editingTransaction?.id ?? 'no-transaction'}
         transaction={editingTransaction}
         isOpen={!!editingTransaction}
         onClose={() => setEditingTransaction(null)}

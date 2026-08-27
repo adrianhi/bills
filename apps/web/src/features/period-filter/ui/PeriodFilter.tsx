@@ -10,13 +10,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/ui';
-
-export interface PeriodSelection {
-  startDate?: string;
-  endDate?: string;
-  month?: string;
-  label: string;
-}
+import type { PeriodSelection } from '@/entities/period';
 
 interface PeriodFilterProps {
   currentSelection: PeriodSelection;

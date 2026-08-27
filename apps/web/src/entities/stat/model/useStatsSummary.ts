@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef } from 'react';
-import type { StatsSummary } from './types';
-import type { PeriodSelection } from '@/features/period-filter';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import type { PeriodSelection } from '@/entities/period';
+import { statsService, type StatsFilters } from '../api/stats.service';
 
 interface UseStatsSummaryProps {
   authToken: string | null;
@@ -10,51 +11,26 @@ interface UseStatsSummaryProps {
   onUnauthorized?: () => void;
 }
 
-export function useStatsSummary({
-  authToken,
-  currency,
-  periodSelection,
-  organizationFilter,
-  onUnauthorized,
-}: UseStatsSummaryProps) {
-  const onUnauthorizedRef = useRef(onUnauthorized);
-  onUnauthorizedRef.current = onUnauthorized;
+export function useStatsSummary({ authToken, currency, periodSelection, organizationFilter }: UseStatsSummaryProps) {
+  const filters = useMemo<StatsFilters>(() => ({
+    currency,
+    month: periodSelection.startDate ? undefined : periodSelection.month,
+    startDate: periodSelection.startDate,
+    endDate: periodSelection.endDate,
+    organization: organizationFilter || undefined,
+  }), [currency, periodSelection, organizationFilter]);
 
-  const [stats, setStats] = useState<StatsSummary | null>(null);
-  const [loadingStats, setLoadingStats] = useState(false);
-
-  const { startDate, endDate, month } = periodSelection;
-
-  const fetchStats = useCallback(async () => {
-    if (!authToken) return;
-    setLoadingStats(true);
-    try {
-      const params = new URLSearchParams({ currency });
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-      if (month && !startDate) params.append('month', month);
-      if (organizationFilter) params.append('organization', organizationFilter);
-
-      const res = await fetch(`/api/v1/stats/summary?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setStats(json.data);
-      } else if (res.status === 401 && onUnauthorizedRef.current) {
-        onUnauthorizedRef.current();
-      }
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-    } finally {
-      setLoadingStats(false);
-    }
-  }, [authToken, currency, startDate, endDate, month, organizationFilter]);
+  const query = useQuery({
+    queryKey: ['stats', 'summary', filters],
+    queryFn: ({ signal }) => statsService.summary(filters, signal),
+    enabled: Boolean(authToken),
+    refetchInterval: authToken ? 30_000 : false,
+  });
 
   return {
-    stats,
-    loadingStats,
-    fetchStats,
-    setStats,
+    stats: query.data ?? null,
+    loadingStats: query.isLoading || query.isFetching,
+    fetchStats: query.refetch,
+    error: query.error,
   };
 }

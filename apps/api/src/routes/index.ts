@@ -6,8 +6,12 @@ import bankConnectionRoutes from './bank-connection.routes';
 import inboxConnectionRoutes from './inbox-connection.routes';
 import legalRoutes from './legal.routes';
 import accountRoutes from './account.routes';
+import { appContainer } from '../app-container';
+import { asyncHandler } from '../shared/http/async-handler';
 
 const router = Router();
+
+router.get('/v1/health/ready', asyncHandler(appContainer.readinessController.handle));
 
 // Mount API v1 routes
 router.use('/v1', authRoutes);

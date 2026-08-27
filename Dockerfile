@@ -7,6 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY apps/web/package*.json ./apps/web/
+COPY packages/contracts/package*.json ./packages/contracts/
 COPY apps/api/prisma ./apps/api/prisma/
 
 ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/bills_db"
@@ -14,6 +15,9 @@ ENV DIRECT_URL="postgresql://postgres:postgres@localhost:5432/bills_db"
 
 RUN npm install
 RUN cd apps/api && npx prisma generate
+
+COPY packages/contracts ./packages/contracts
+RUN npm run build --workspace=@bills/contracts
 
 # 2. Build React Web frontend (outputs to /app/public)
 ARG VITE_SUPABASE_URL
@@ -39,6 +43,7 @@ ENV PORT=3000
 
 COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
+COPY packages/contracts/package*.json ./packages/contracts/
 COPY apps/api/prisma ./apps/api/prisma/
 
 RUN npm install --omit=dev
@@ -46,6 +51,7 @@ RUN npm install --omit=dev
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/packages/contracts ./packages/contracts
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/public ./apps/api/public
 

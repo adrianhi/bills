@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Plus, 
   ArrowDownLeft, 
@@ -17,6 +17,8 @@ import {
   Button, 
   Input 
 } from '@/shared/ui';
+import { COMMON_CATEGORIES, FINANCIAL_INSTITUTIONS } from '@/shared/config/financial-options';
+import { useQuickAddTransaction } from '../model/useQuickAddTransaction';
 
 interface QuickAddTransactionModalProps {
   isOpen: boolean;
@@ -24,16 +26,6 @@ interface QuickAddTransactionModalProps {
   onSuccess: () => void;
   authToken: string | null;
 }
-
-const ORGANIZATIONS_LIST = [
-  { id: 'BHD', label: '🟢 Banco BHD', source: 'BHD_MANUAL' },
-  { id: 'POPULAR', label: '🔵 Banco Popular', source: 'POPULAR_MANUAL' },
-  { id: 'BANRESERVAS', label: '🔷 Banreservas', source: 'BANRESERVAS_MANUAL' },
-  { id: 'QIK', label: '🟣 Qik Banco Digital', source: 'QIK_MANUAL' },
-  { id: 'APAP', label: '🟠 APAP', source: 'APAP_MANUAL' },
-  { id: 'SCOTIABANK', label: '🔴 Scotiabank', source: 'SCOTIABANK_MANUAL' },
-  { id: 'MANUAL', label: '⚪ Manual / Efectivo', source: 'MANUAL' },
-];
 
 const MOVEMENT_TYPES = [
   { id: 'recibida', label: '📥 Ingreso / Recibida', type: 'Transferencia Recibida', icon: ArrowDownLeft, color: 'text-emerald-500 bg-emerald-500/10' },
@@ -43,118 +35,19 @@ const MOVEMENT_TYPES = [
   { id: 'retiro', label: '🏧 Retiro', type: 'Retiro', icon: Landmark, color: 'text-blue-500 bg-blue-500/10' },
 ];
 
-const CATEGORIES = [
-  'Ingresos / Transferencias',
-  'Supermercado',
-  'Restaurantes & Delivery',
-  'Servicios Financieros',
-  'Transferencias',
-  'Transporte',
-  'Combustible',
-  'Servicios',
-  'Suscripciones',
-  'Salud & Farmacia',
-  'Compras Online',
-  'Otros',
-];
-
-const getTodayInputStr = () => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
-
 export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  authToken,
 }) => {
-  const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('DOP');
-  const [movementType, setMovementType] = useState('recibida');
-  const [organization, setOrganization] = useState('BHD');
-  const [merchant, setMerchant] = useState('');
-  const [category, setCategory] = useState('Ingresos / Transferencias');
-  const [dateTime, setDateTime] = useState(getTodayInputStr());
-  const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleTypeChange = (typeId: string) => {
-    setMovementType(typeId);
-    if (typeId === 'recibida') {
-      setCategory('Ingresos / Transferencias');
-    } else if (typeId === 'servicio') {
-      setCategory('Servicios');
-    } else if (typeId === 'compra' && category === 'Ingresos / Transferencias') {
-      setCategory('Supermercado');
-    }
-  };
+  const model = useQuickAddTransaction(onSuccess, onClose);
+  const { amount, setAmount, currency, setCurrency, movementType, organization, setOrganization,
+    merchant, setMerchant, category, setCategory, dateTime, setDateTime, notes, setNotes,
+    loading, error, handleTypeChange } = model;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      setError('Ingresa un monto válido.');
-      return;
-    }
-    if (!merchant.trim()) {
-      setError('Ingresa el nombre del comercio o emisor.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    const selectedOrg = ORGANIZATIONS_LIST.find((o) => o.id === organization);
-    const selectedType = MOVEMENT_TYPES.find((m) => m.id === movementType);
-
-    const payload = {
-      externalId: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      amount: Number(amount),
-      currency,
-      rawMerchant: merchant.trim(),
-      merchant: merchant.trim(),
-      category,
-      status: 'Aprobada',
-      transactionType: selectedType?.type || 'Transferencia Recibida',
-      transactionDate: new Date(dateTime).toISOString(),
-      source: selectedOrg?.source || 'MANUAL',
-      institutionCode: selectedOrg?.id === 'MANUAL' ? 'CASH' : selectedOrg?.id || 'CASH',
-      ingestionChannel: 'MANUAL',
-      notes: notes.trim() || null,
-    };
-
-    try {
-      const res = await fetch('/api/v1/transactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        // Reset form
-        setAmount('');
-        setMerchant('');
-        setNotes('');
-        onSuccess();
-        onClose();
-      } else {
-        const data = await res.json();
-        setError(data.message || 'Error al registrar el movimiento.');
-      }
-    } catch {
-      setError('Error de conexión con el servidor.');
-    } finally {
-      setLoading(false);
-    }
+    await model.submit();
   };
 
   return (
@@ -258,7 +151,7 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
               onChange={(e) => setOrganization(e.target.value)}
               className="w-full h-10 px-3 rounded-xl border border-input bg-background text-foreground text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer"
             >
-              {ORGANIZATIONS_LIST.map((org) => (
+              {FINANCIAL_INSTITUTIONS.map((org) => (
                 <option key={org.id} value={org.id}>
                   {org.label}
                 </option>
@@ -288,7 +181,7 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
               onChange={(e) => setCategory(e.target.value)}
               className="w-full h-10 px-3 rounded-xl border border-input bg-background text-foreground text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer"
             >
-              {CATEGORIES.map((cat) => (
+              {COMMON_CATEGORIES.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
                 </option>

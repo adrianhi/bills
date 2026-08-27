@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { config } from '../config';
 import { AppError } from '../errors/app-error';
+import { logger } from '../shared/observability/logger';
 
 export function errorHandler(
   err: any,
@@ -42,7 +43,13 @@ export function errorHandler(
   }
 
   if (config.nodeEnv !== 'test') {
-    console.error('💥 Server Error:', err);
+    logger.error('request_failed', {
+      requestId: req.requestId,
+      path: req.path,
+      method: req.method,
+      errorCode: err instanceof AppError ? err.code : 'INTERNAL_SERVER_ERROR',
+      errorName: err instanceof Error ? err.name : 'UnknownError',
+    });
   }
 
   const statusCode = err instanceof AppError ? err.statusCode : err.status || err.statusCode || 500;

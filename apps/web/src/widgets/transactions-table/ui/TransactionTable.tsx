@@ -30,6 +30,7 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Input, Badge } from '
 import { formatCurrency, formatDate, getOrganizationMeta } from '@/shared/lib';
 import { FilterDrawer } from '@/features/filter-drawer';
 import type { Transaction } from '@/entities/transaction';
+import { groupTransactionsByDate, isAtmWithdrawal, isReceivedTransfer, isSentTransfer, isServicePayment, statusCode } from '@/entities/transaction/model/selectors';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -54,23 +55,6 @@ interface TransactionTableProps {
   hideBalances?: boolean;
 }
 
-interface TransactionGroup {
-  dateKey: string;
-  title: string;
-  subtitle: string;
-  totalExpenseDOP: number;
-  totalIncomeDOP: number;
-  totalExpenseUSD: number;
-  totalIncomeUSD: number;
-  transactions: Transaction[];
-}
-
-const statusCode = (tx: Transaction) => tx.statusCode || (
-  /reversad|anulad/i.test(tx.status) ? 'REVERSED' :
-  /rechazad|declinad|denegad/i.test(tx.status) ? 'DECLINED' :
-  /pendiente|procesando/i.test(tx.status) ? 'PENDING' : 'APPROVED'
-);
-
 const renderStatus = (tx: Transaction) => {
   switch (statusCode(tx)) {
     case 'REVERSED':
@@ -82,38 +66,6 @@ const renderStatus = (tx: Transaction) => {
     default:
       return <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-3.5 w-3.5" />Aprobada</span>;
   }
-};
-
-const isReceivedTransfer = (tx: Transaction) => {
-  return (
-    tx.source === 'BHD_TRANSFER_INCOME' ||
-    /recibida/i.test(tx.transactionType) ||
-    /recibida/i.test(tx.category) ||
-    /ordenante/i.test(tx.notes || '') ||
-    (tx.amount > 0 && /transferencia/i.test(tx.transactionType) && /ingreso/i.test(tx.category))
-  );
-};
-
-const isSentTransfer = (tx: Transaction) => {
-  return (
-    tx.source === 'BHD_TRANSFER_SENT' ||
-    /enviada/i.test(tx.transactionType) ||
-    /beneficiario/i.test(tx.notes || '') ||
-    (/transferencia/i.test(tx.transactionType) && !isReceivedTransfer(tx))
-  );
-};
-
-const isServicePayment = (tx: Transaction) => {
-  return (
-    tx.source === 'BHD_SERVICE_PAYMENT' ||
-    /pago de servicio/i.test(tx.transactionType) ||
-    /impuesto/i.test(tx.transactionType) ||
-    /pago/i.test(tx.transactionType)
-  );
-};
-
-const isAtmWithdrawal = (tx: Transaction) => {
-  return /retiro/i.test(tx.transactionType) || /retiro/i.test(tx.rawMerchant);
 };
 
 const getTransactionIcon = (tx: Transaction) => {
@@ -191,85 +143,6 @@ const renderTypeBadge = (tx: Transaction) => {
       Compra
     </span>
   );
-};
-
-const formatGroupDate = (dateStr: string) => {
-  const d = new Date(dateStr);
-  const now = new Date();
-  
-  const isSameDay = (d1: Date, d2: Date) =>
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate();
-
-  const yesterday = new Date();
-  yesterday.setDate(now.getDate() - 1);
-
-  if (isSameDay(d, now)) {
-    return {
-      title: 'Hoy',
-      subtitle: d.toLocaleDateString('es-DO', { day: 'numeric', month: 'short' }),
-    };
-  }
-  if (isSameDay(d, yesterday)) {
-    return {
-      title: 'Ayer',
-      subtitle: d.toLocaleDateString('es-DO', { day: 'numeric', month: 'short' }),
-    };
-  }
-
-  const weekday = d.toLocaleDateString('es-DO', { weekday: 'long' });
-  const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-  const dateFormatted = d.toLocaleDateString('es-DO', { 
-    day: 'numeric', 
-    month: 'short', 
-    year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined 
-  });
-
-  return {
-    title: capitalizedWeekday,
-    subtitle: dateFormatted,
-  };
-};
-
-const groupTransactionsByDate = (txs: Transaction[]): TransactionGroup[] => {
-  const groupsMap = new Map<string, TransactionGroup>();
-
-  for (const tx of txs) {
-    const d = new Date(tx.transactionDate);
-    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-    if (!groupsMap.has(dateKey)) {
-      const { title, subtitle } = formatGroupDate(tx.transactionDate);
-      groupsMap.set(dateKey, {
-        dateKey,
-        title,
-        subtitle,
-        totalExpenseDOP: 0,
-        totalIncomeDOP: 0,
-        totalExpenseUSD: 0,
-        totalIncomeUSD: 0,
-        transactions: [],
-      });
-    }
-
-    const group = groupsMap.get(dateKey)!;
-    group.transactions.push(tx);
-
-    if (statusCode(tx) === 'APPROVED') {
-      const isIncome = isReceivedTransfer(tx);
-      const amount = Number(tx.amount) || 0;
-      if (tx.currency === 'USD') {
-        if (isIncome) group.totalIncomeUSD += amount;
-        else group.totalExpenseUSD += amount;
-      } else {
-        if (isIncome) group.totalIncomeDOP += amount;
-        else group.totalExpenseDOP += amount;
-      }
-    }
-  }
-
-  return Array.from(groupsMap.values());
 };
 
 export const TransactionTable: React.FC<TransactionTableProps> = ({
