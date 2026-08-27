@@ -1,5 +1,7 @@
 # bills.
 
+Documentación técnica: [arquitectura](docs/ARCHITECTURE.md) · [pruebas y staging](docs/TESTING.md) · [plan SaaS](docs/SAAS-PLAN.md)
+
 Plataforma SaaS de finanzas personales que unifica notificaciones bancarias, normaliza movimientos y ofrece analítica por usuario. **Banco BHD es el piloto**, pero cada institución se integra como un adaptador independiente sobre un contrato común.
 
 ## Estado actual
