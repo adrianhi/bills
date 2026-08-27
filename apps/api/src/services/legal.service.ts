@@ -4,8 +4,8 @@ import { config } from '../config';
 import { prisma } from '../config/database';
 import { AppError } from '../errors/app-error';
 
-export const CURRENT_LEGAL_VERSION = '2026-08-23.1';
-export const GOOGLE_DISCLOSURE_VERSION = '2026-08-23.1';
+export const CURRENT_LEGAL_VERSION = '2026-08-26.1';
+export const GOOGLE_DISCLOSURE_VERSION = '2026-08-26.1';
 export const REQUIRED_LEGAL_TYPES: LegalDocumentType[] = ['TERMS', 'PRIVACY'];
 
 interface LegalTemplate {
@@ -36,10 +36,10 @@ function templates(): LegalTemplate[] {
       locale: 'es-DO',
       title: 'Términos y condiciones de uso',
       slug: 'terms',
-      effectiveAt: new Date('2026-08-23T00:00:00.000Z'),
+      effectiveAt: new Date('2026-08-26T00:00:00.000Z'),
       content: `# Términos y condiciones de uso
 
-Vigentes desde el 23 de agosto de 2026. bills. es operado por ${owner.name}, identificación ${owner.id}, con domicilio de contacto en ${owner.address} y correo ${owner.email}.
+Vigentes desde el 26 de agosto de 2026. bills. es operado por ${owner.name}, identificación ${owner.id}, con domicilio de contacto en ${owner.address} y correo ${owner.email}.
 
 ## Servicio
 bills. es una aplicación beta de organización y analítica financiera personal. Importa notificaciones autorizadas por el usuario, normaliza movimientos y presenta métricas informativas. No es un banco, entidad financiera, contador, asesor fiscal ni asesor de inversión. Los registros oficiales de la entidad bancaria prevalecen y el usuario debe verificar cualquier diferencia.
@@ -75,7 +75,7 @@ Las consultas y reclamaciones pueden enviarse a ${owner.email}. Se intentará un
       locale: 'es-DO',
       title: 'Política de privacidad',
       slug: 'privacy',
-      effectiveAt: new Date('2026-08-23T00:00:00.000Z'),
+      effectiveAt: new Date('2026-08-26T00:00:00.000Z'),
       content: `# Política de privacidad
 
 El responsable del tratamiento es ${owner.name}. Contacto: ${owner.email}. Domicilio: ${owner.address}.
@@ -87,7 +87,7 @@ Tratamos datos de cuenta y perfil, identificadores de sesión, bancos detectados
 Usamos los datos para crear la cuenta, importar y clasificar movimientos, mostrar analítica, prevenir duplicados y abuso, mantener seguridad, atender solicitudes y mejorar la precisión de los parsers con información anonimizada o autorizada.
 
 ## Minimización y retención
-El cuerpo de un correo procesado correctamente no se conserva. Un mensaje que no pueda procesarse puede conservarse cifrado por hasta 7 días para diagnóstico y luego se purga. Los tokens OAuth se almacenan cifrados y se eliminan al revocar la conexión o borrar la cuenta. Los datos normalizados permanecen mientras la cuenta esté activa. Las copias de respaldo cifradas pueden conservar datos eliminados por hasta 30 días antes de expirar y no se utilizan para reactivar una cuenta eliminada.
+El cuerpo de un correo procesado correctamente no se conserva. Un mensaje que no pueda procesarse puede conservarse cifrado por hasta 30 días para diagnóstico y recuperación controlada y luego se purga. Los tokens OAuth se almacenan cifrados y se eliminan al revocar la conexión o borrar la cuenta. Los datos normalizados permanecen mientras la cuenta esté activa. Las copias de respaldo cifradas pueden conservar datos eliminados por hasta 30 días antes de expirar y no se utilizan para reactivar una cuenta eliminada.
 
 ## Proveedores y transferencias
 Podemos utilizar Google, Supabase, Resend, infraestructura de hosting y monitoreo como encargados tecnológicos. Esto puede implicar procesamiento fuera de República Dominicana. Se limita el acceso por finalidad, configuración contractual y controles de seguridad.
@@ -114,12 +114,12 @@ No está dirigido a menores de 18 años. Los cambios materiales se comunicarán 
       locale: 'es-DO',
       title: 'Divulgación de acceso a Gmail',
       slug: 'google-api-disclosure',
-      effectiveAt: new Date('2026-08-23T00:00:00.000Z'),
+      effectiveAt: new Date('2026-08-26T00:00:00.000Z'),
       content: `# Divulgación de acceso a Gmail
 
 Conectar Gmail es opcional. bills. solicita acceso de solo lectura para buscar correos de remitentes bancarios compatibles, extraer movimientos y evitar duplicados. No enviamos, editamos ni eliminamos correos.
 
-El contenido de un mensaje procesado correctamente no se conserva. Los fallidos pueden mantenerse cifrados hasta 7 días. Los datos normalizados y metadatos técnicos se usan para prestar y proteger el servicio, no para publicidad, venta de datos ni perfiles comerciales.
+El contenido de un mensaje procesado correctamente no se conserva. Los fallidos pueden mantenerse cifrados hasta 30 días para diagnóstico y recuperación controlada. Los datos normalizados y metadatos técnicos se usan para prestar y proteger el servicio, no para publicidad, venta de datos ni perfiles comerciales.
 
 El uso y transferencia de información recibida desde las API de Google se ajustará a la Google API Services User Data Policy, incluidos sus requisitos de Limited Use. No vendemos esta información, no la usamos para publicidad y no permitimos acceso humano salvo las excepciones expresamente permitidas por esa política. Puedes revocar el acceso en cualquier momento desde bills. o desde la configuración de seguridad de Google.
 `,
@@ -130,7 +130,7 @@ El uso y transferencia de información recibida desde las API de Google se ajust
       locale: 'es-DO',
       title: 'Eliminación de datos y cuenta',
       slug: 'data-deletion',
-      effectiveAt: new Date('2026-08-23T00:00:00.000Z'),
+      effectiveAt: new Date('2026-08-26T00:00:00.000Z'),
       content: `# Eliminación de datos y cuenta
 
 Puedes desconectar Gmail sin borrar tus transacciones, o eliminar completamente la cuenta desde la configuración autenticada.
