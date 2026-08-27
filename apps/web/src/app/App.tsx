@@ -60,7 +60,7 @@ export function App() {
   } = useTransactions({
     authToken,
     periodSelection,
-    onUnauthorized: () => void handleLock(),
+    onUnauthorized: handleLock,
   });
 
   // Statistics Summary
@@ -69,7 +69,7 @@ export function App() {
     currency,
     periodSelection,
     organizationFilter,
-    onUnauthorized: () => void handleLock(),
+    onUnauthorized: handleLock,
   });
 
   // UI Modals

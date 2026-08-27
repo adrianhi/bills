@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { Transaction } from './types';
 import type { PeriodSelection } from '@/features/period-filter';
 
@@ -13,6 +13,9 @@ export function useTransactions({
   periodSelection,
   onUnauthorized,
 }: UseTransactionsProps) {
+  const onUnauthorizedRef = useRef(onUnauthorized);
+  onUnauthorizedRef.current = onUnauthorized;
+
   // Filters State
   const [currency, setCurrency] = useState('DOP');
   const [search, setSearch] = useState('');
@@ -29,6 +32,8 @@ export function useTransactions({
   const [loading, setLoading] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
+  const { startDate, endDate, month } = periodSelection;
+
   // Fetch Transactions
   const fetchTransactions = useCallback(async () => {
     if (!authToken) return;
@@ -39,9 +44,9 @@ export function useTransactions({
         limit: String(limit),
         currency,
       });
-      if (periodSelection.startDate) params.append('startDate', periodSelection.startDate);
-      if (periodSelection.endDate) params.append('endDate', periodSelection.endDate);
-      if (periodSelection.month && !periodSelection.startDate) params.append('month', periodSelection.month);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (month && !startDate) params.append('month', month);
       if (search) params.append('search', search);
       if (categoryFilter) params.append('category', categoryFilter);
       if (statusFilter) params.append('status', statusFilter);
@@ -61,8 +66,8 @@ export function useTransactions({
           json.data?.length ??
           0
         );
-      } else if (res.status === 401 && onUnauthorized) {
-        onUnauthorized();
+      } else if (res.status === 401 && onUnauthorizedRef.current) {
+        onUnauthorizedRef.current();
       }
     } catch (err) {
       console.error('Error fetching transactions:', err);
@@ -74,13 +79,14 @@ export function useTransactions({
     page,
     limit,
     currency,
-    periodSelection,
+    startDate,
+    endDate,
+    month,
     search,
     categoryFilter,
     statusFilter,
     organizationFilter,
     typeFilter,
-    onUnauthorized,
   ]);
 
   // Reset Filters
