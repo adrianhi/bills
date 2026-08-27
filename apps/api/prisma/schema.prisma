@@ -78,6 +78,34 @@ enum IngestionEventStatus {
   FAILED
 }
 
+enum TransactionStatusCode {
+  PENDING
+  APPROVED
+  DECLINED
+  REVERSED
+}
+
+enum TransactionStatusResolution {
+  MATCHED
+  UNMATCHED
+  AMBIGUOUS
+}
+
+enum IngestionJobType {
+  GMAIL_INITIAL_BACKFILL
+  GMAIL_HISTORY_SYNC
+  GMAIL_RECONCILIATION
+  GMAIL_WATCH_RENEWAL
+  GMAIL_FAILED_REPLAY
+}
+
+enum IngestionJobStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
 model Profile {
   id                    String               @id @db.Uuid
   email                 String               @unique
@@ -107,6 +135,8 @@ model Workspace {
   inboxConnections InboxConnection[]
   oauthStates      OAuthState[]
   ingestionEvents  IngestionEvent[]
+  ingestionJobs    IngestionJob[]
+  statusEvents     TransactionStatusEvent[]
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
@@ -133,6 +163,7 @@ model FinancialInstitution {
   senderPatterns String[]          @default([]) @map("sender_patterns")
   connections    BankConnection[]
   transactions   Transaction[]
+  statusEvents   TransactionStatusEvent[]
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
@@ -177,12 +208,18 @@ model InboxConnection {
   scopes                String[]              @default([])
   syncCursor            String?               @map("sync_cursor")
   lastSyncedAt          DateTime?             @map("last_synced_at")
+  lastSuccessfulSyncAt  DateTime?             @map("last_successful_sync_at")
+  nextReconcileAt       DateTime?             @map("next_reconcile_at")
+  syncLeaseUntil        DateTime?             @map("sync_lease_until")
+  watchExpiresAt        DateTime?             @map("watch_expires_at")
+  lastSyncSummary       Json?                 @map("last_sync_summary")
   lastErrorCode         String?               @map("last_error_code")
   grantedAt             DateTime?             @map("granted_at")
   revokedAt             DateTime?             @map("revoked_at")
   workspace             Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   bankConnections       BankConnection[]
   ingestionEvents       IngestionEvent[]
+  ingestionJobs         IngestionJob[]
   integrationConsents   IntegrationConsent[]
   createdAt             DateTime              @default(now()) @map("created_at")
   updatedAt             DateTime              @updatedAt @map("updated_at")
@@ -313,6 +350,32 @@ model IngestionEvent {
   @@map("ingestion_events")
 }
 
+model IngestionJob {
+  id                String             @id @default(uuid()) @db.Uuid
+  workspaceId       String             @map("workspace_id") @db.Uuid
+  inboxConnectionId String             @map("inbox_connection_id") @db.Uuid
+  type              IngestionJobType
+  status            IngestionJobStatus @default(PENDING)
+  dedupeKey         String             @unique @map("dedupe_key")
+  payload           Json?
+  attempts          Int                @default(0)
+  maxAttempts       Int                @default(5) @map("max_attempts")
+  nextAttemptAt     DateTime           @default(now()) @map("next_attempt_at")
+  leaseUntil        DateTime?          @map("lease_until")
+  errorCode         String?            @map("error_code")
+  errorMessage      String?            @map("error_message")
+  startedAt         DateTime?          @map("started_at")
+  processedAt       DateTime?          @map("processed_at")
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  inboxConnection   InboxConnection    @relation(fields: [inboxConnectionId], references: [id], onDelete: Cascade)
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([inboxConnectionId, createdAt])
+  @@map("ingestion_jobs")
+}
+
 model BetaInvite {
   id        String    @id @default(uuid()) @db.Uuid
   email     String    @unique
@@ -336,6 +399,8 @@ model Transaction {
   amount           Decimal              @db.Decimal(18, 2)
   currency         String               @default("DOP")
   status           String               @default("Aprobada")
+  statusCode       TransactionStatusCode @default(APPROVED) @map("status_code")
+  statusUpdatedAt  DateTime?             @map("status_updated_at")
   transactionType  String               @default("Compra") @map("transaction_type")
   transactionDate  DateTime             @map("transaction_date")
   source           String               @default("BHD_EMAIL")
@@ -344,6 +409,7 @@ model Transaction {
   updatedAt        DateTime             @updatedAt @map("updated_at")
   workspace        Workspace?           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   institution      FinancialInstitution @relation(fields: [institutionCode], references: [code], onDelete: Restrict)
+  statusEvents     TransactionStatusEvent[]
 
   @@unique([workspaceId, institutionCode, externalId])
   @@index([workspaceId, transactionDate])
@@ -353,6 +419,35 @@ model Transaction {
   @@index([currency])
   @@index([merchant])
   @@map("transactions")
+}
+
+model TransactionStatusEvent {
+  id               String                      @id @default(uuid()) @db.Uuid
+  workspaceId      String                      @map("workspace_id") @db.Uuid
+  transactionId    String?                     @map("transaction_id")
+  institutionCode  String                      @map("institution_code")
+  externalId       String                      @map("external_id")
+  statusCode       TransactionStatusCode       @map("status_code")
+  resolution       TransactionStatusResolution @default(UNMATCHED)
+  eventDate        DateTime                    @map("event_date")
+  amount           Decimal                     @db.Decimal(18, 2)
+  currency         String                      @default("DOP")
+  cardLast4        String?                     @map("card_last_4")
+  rawMerchant      String?                     @map("raw_merchant")
+  bankReference    String?                     @map("bank_reference")
+  source           String
+  ingestionChannel IngestionChannel            @map("ingestion_channel")
+  workspace        Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transaction      Transaction?                @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  institution      FinancialInstitution        @relation(fields: [institutionCode], references: [code], onDelete: Restrict)
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
+
+  @@unique([workspaceId, institutionCode, externalId])
+  @@index([workspaceId, institutionCode, eventDate])
+  @@index([transactionId, eventDate])
+  @@index([resolution, statusCode])
+  @@map("transaction_status_events")
 }
 
 model CategoryRule {

@@ -32,6 +32,7 @@ export class IngestionWorker {
     const now = new Date();
     const candidate = await prisma.ingestionEvent.findFirst({
       where: {
+        provider: 'RESEND',
         status: { in: ['PENDING', 'FAILED'] },
         attempts: { lt: MAX_ATTEMPTS },
         OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
