@@ -491,7 +491,7 @@ export class TransactionService {
     }
 
     if (query.status) {
-      where.status = query.status;
+      where.statusCode = normalizeTransactionStatus(query.status);
     }
 
     // Organization / Source filter
@@ -582,6 +582,9 @@ export class TransactionService {
           amount: true,
           currency: true,
           category: true,
+          statusCode: true,
+          transactionType: true,
+          source: true,
         },
       }),
     ]);
@@ -592,6 +595,11 @@ export class TransactionService {
     const categoryTotals: Record<string, { dop: number; usd: number; count: number }> = {};
 
     for (const item of allMatching) {
+      const isIncome =
+        /recibida/i.test(item.transactionType || '') ||
+        /ingreso/i.test(item.category || '') ||
+        item.source === 'BHD_TRANSFER_INCOME';
+      if (item.statusCode !== 'APPROVED' || isIncome) continue;
       if (item.currency === 'USD') {
         totalUSD += Number(item.amount);
       } else {

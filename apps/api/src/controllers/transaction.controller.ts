@@ -194,6 +194,7 @@ export class TransactionController {
           'Monto': t.amount.toFixed(2),
           'Moneda': t.currency,
           'Estado': t.status,
+          'Estado Código': t.statusCode,
           'Tipo Transacción': t.transactionType,
           'Fuente': t.source,
           'Notas': t.notes || '',

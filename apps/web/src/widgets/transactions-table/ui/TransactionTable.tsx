@@ -20,6 +20,8 @@ import {
   Layers, 
   CheckCircle2, 
   XCircle,
+  Clock3,
+  Undo2,
   X,
   SlidersHorizontal,
   Calendar
@@ -62,6 +64,25 @@ interface TransactionGroup {
   totalIncomeUSD: number;
   transactions: Transaction[];
 }
+
+const statusCode = (tx: Transaction) => tx.statusCode || (
+  /reversad|anulad/i.test(tx.status) ? 'REVERSED' :
+  /rechazad|declinad|denegad/i.test(tx.status) ? 'DECLINED' :
+  /pendiente|procesando/i.test(tx.status) ? 'PENDING' : 'APPROVED'
+);
+
+const renderStatus = (tx: Transaction) => {
+  switch (statusCode(tx)) {
+    case 'REVERSED':
+      return <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400"><Undo2 className="h-3.5 w-3.5" />Reversada</span>;
+    case 'DECLINED':
+      return <span className="inline-flex items-center gap-1 text-xs font-semibold text-destructive"><XCircle className="h-3.5 w-3.5" />Rechazada</span>;
+    case 'PENDING':
+      return <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 dark:text-sky-400"><Clock3 className="h-3.5 w-3.5" />Pendiente</span>;
+    default:
+      return <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-3.5 w-3.5" />Aprobada</span>;
+  }
+};
 
 const isReceivedTransfer = (tx: Transaction) => {
   return (
@@ -235,8 +256,7 @@ const groupTransactionsByDate = (txs: Transaction[]): TransactionGroup[] => {
     const group = groupsMap.get(dateKey)!;
     group.transactions.push(tx);
 
-    const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
-    if (!isRejected) {
+    if (statusCode(tx) === 'APPROVED') {
       const isIncome = isReceivedTransfer(tx);
       const amount = Number(tx.amount) || 0;
       if (tx.currency === 'USD') {
@@ -629,7 +649,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                   {/* Group Items */}
                   <div className="divide-y divide-border/30">
                     {group.transactions.map((tx) => {
-                      const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
+                      const isInactive = statusCode(tx) !== 'APPROVED';
                       const isIncome = isReceivedTransfer(tx);
                       const isSent = isSentTransfer(tx);
                       const orgMeta = getOrganizationMeta(tx.source, tx.merchant);
@@ -663,7 +683,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
 
                           <div className="text-right shrink-0">
                             <div className={`font-black text-sm ${
-                              isRejected
+                              isInactive
                                 ? 'line-through text-muted-foreground'
                                 : isIncome
                                 ? 'text-emerald-600 dark:text-emerald-400'
@@ -674,6 +694,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                             <div className="text-[10px] text-muted-foreground font-semibold">
                               {tx.currency} {tx.cardLast4 ? `•••• ${tx.cardLast4}` : ''}
                             </div>
+                            <div className="mt-0.5">{renderStatus(tx)}</div>
                           </div>
                         </div>
                       );
@@ -736,7 +757,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
 
                       {/* Group Transactions */}
                       {group.transactions.map((tx) => {
-                        const isRejected = /rechazad|declinad|denegad/i.test(tx.status);
+                        const isInactive = statusCode(tx) !== 'APPROVED';
                         const isIncome = isReceivedTransfer(tx);
                         const isSent = isSentTransfer(tx);
                         const orgMeta = getOrganizationMeta(tx.source, tx.merchant);
@@ -800,23 +821,13 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
 
                             {/* Status */}
                             <td className="py-3.5 px-4">
-                              {isRejected ? (
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-destructive">
-                                  <XCircle className="h-3.5 w-3.5" />
-                                  Rechazada
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                  Aprobada
-                                </span>
-                              )}
+                              {renderStatus(tx)}
                             </td>
 
                             {/* Amount */}
                             <td className="py-3.5 px-4 text-right">
                               <div className={`font-bold font-mono text-sm ${
-                                isRejected
+                                isInactive
                                   ? 'line-through text-muted-foreground'
                                   : isIncome
                                   ? 'text-emerald-600 dark:text-emerald-400'

@@ -7,6 +7,13 @@ interface Connection {
   email: string;
   status: string;
   lastSyncedAt?: string | null;
+  lastSuccessfulSyncAt?: string | null;
+  nextReconcileAt?: string | null;
+  watchExpiresAt?: string | null;
+  lastErrorCode?: string | null;
+  failedEvents?: number;
+  lastSyncSummary?: { scanned: number; created: number; ignored: number; failed: number } | null;
+  currentJob?: { status: 'PENDING' | 'PROCESSING' | 'FAILED' | 'SUCCEEDED'; errorCode?: string | null } | null;
 }
 
 interface AccountSettingsModalProps {
@@ -21,6 +28,7 @@ export function AccountSettingsModal({ authToken, isOpen, onClose, onAccountDele
   const [busy, setBusy] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const headers = { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' };
 
   const load = useCallback(async () => {
@@ -58,6 +66,7 @@ export function AccountSettingsModal({ authToken, isOpen, onClose, onAccountDele
     const response = await fetch(`/api/v1/inbox-connections/${id}/sync`, { method: 'POST', headers });
     const body = await response.json().catch(() => null);
     if (!response.ok) setError(body?.error?.message || 'No se pudo sincronizar.');
+    else setNotice('Sincronización en cola; continuará en segundo plano.');
     await load();
     setBusy('');
   };
@@ -114,11 +123,17 @@ export function AccountSettingsModal({ authToken, isOpen, onClose, onAccountDele
           <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-emerald-500" /><h3 className="text-sm font-semibold">Correo conectado</h3></div>
           {connections.length ? connections.map((connection) => (
             <div key={connection.id} className="rounded-xl bg-muted/60 p-3">
-              <div className="flex items-center justify-between gap-2"><div><p className="text-sm font-medium">{connection.email}</p><p className="text-[11px] text-muted-foreground">{connection.status === 'ACTIVE' ? 'Activo' : 'Necesita reconexión'}</p></div><ShieldCheck className="h-4 w-4 text-emerald-500" /></div>
+              <div className="flex items-center justify-between gap-2"><div><p className="text-sm font-medium">{connection.email}</p><p className="text-[11px] text-muted-foreground">{connection.status === 'REAUTH_REQUIRED' ? 'Necesita reconexión' : connection.currentJob?.status === 'PROCESSING' ? 'Sincronizando' : connection.currentJob?.status === 'PENDING' ? 'Sincronización en cola' : (connection.failedEvents || 0) > 0 ? 'Activa con fallos parciales' : 'Activa'}</p></div><ShieldCheck className={`h-4 w-4 ${(connection.failedEvents || 0) > 0 || connection.status !== 'ACTIVE' ? 'text-amber-500' : 'text-emerald-500'}`} /></div>
+              <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                <p>Última sincronización: {connection.lastSuccessfulSyncAt ? new Date(connection.lastSuccessfulSyncAt).toLocaleString('es-DO') : 'pendiente'}</p>
+                {connection.lastSyncSummary && <p>{connection.lastSyncSummary.created} creados · {connection.lastSyncSummary.ignored} ignorados · {connection.lastSyncSummary.failed} fallidos</p>}
+                {(connection.failedEvents || 0) > 0 && <p className="text-amber-600 dark:text-amber-400">{connection.failedEvents} correos pendientes de reprocesamiento{connection.lastErrorCode ? ` · ${connection.lastErrorCode}` : ''}</p>}
+              </div>
               <div className="mt-3 flex gap-2"><Button size="sm" variant="outline" className="gap-1" disabled={Boolean(busy)} onClick={() => void sync(connection.id)}>{busy === `sync:${connection.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Sincronizar</Button><Button size="sm" variant="ghost" className="gap-1 text-muted-foreground" disabled={Boolean(busy)} onClick={() => void disconnect(connection.id)}><Unplug className="h-3 w-3" /> Desconectar</Button></div>
             </div>
           )) : <Button variant="outline" className="w-full gap-2" disabled={busy === 'google'} onClick={startGoogle}>{busy === 'google' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Conectar Gmail</Button>}
           <a href="/legal/google-api-disclosure" target="_blank" className="block text-xs text-muted-foreground underline">Cómo bills. usa los datos de Google</a>
+          {notice && <div className="rounded-lg bg-sky-500/10 p-2 text-xs text-sky-700 dark:text-sky-300">{notice}</div>}
         </section>
 
         <section className="space-y-3 rounded-xl border p-4">

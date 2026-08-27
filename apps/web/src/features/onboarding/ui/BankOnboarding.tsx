@@ -18,6 +18,11 @@ interface InboxConnection {
   id: string;
   email: string;
   status: 'ACTIVE' | 'REAUTH_REQUIRED' | 'ERROR' | 'REVOKED';
+  lastSyncSummary?: SyncSummary | null;
+  lastSuccessfulSyncAt?: string | null;
+  lastErrorCode?: string | null;
+  failedEvents?: number;
+  currentJob?: { status: 'PENDING' | 'PROCESSING' | 'FAILED' | 'SUCCEEDED'; errorCode?: string | null } | null;
 }
 
 interface SyncSummary {
@@ -41,7 +46,7 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [googleUnavailable, setGoogleUnavailable] = useState(false);
-  const [summary, setSummary] = useState<SyncSummary | null>(null);
+  const [notice, setNotice] = useState('');
 
   const headers = useMemo(
     () => ({ Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' }),
@@ -83,7 +88,7 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
       const response = await fetch(`/api/v1/inbox-connections/${connection.id}/sync`, { method: 'POST', headers });
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error?.message || 'No pudimos sincronizar Gmail.');
-      setSummary(body.data);
+      setNotice('Sincronización en cola. Puedes seguir usando la aplicación; el proceso continúa en segundo plano.');
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'No pudimos sincronizar Gmail.');
@@ -94,20 +99,19 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
 
   useEffect(() => {
     let active = true;
-    void load().then((connections) => {
+    void load().then(() => {
       if (!active) return;
       const query = new URLSearchParams(window.location.search);
       if (query.get('gmail') === 'connected') {
         window.history.replaceState({}, '', '/onboarding');
-        const connected = connections.find((item) => item.status === 'ACTIVE');
-        if (connected) void sync(connected);
+        setNotice('Gmail conectado. Estamos importando tus movimientos en segundo plano.');
       } else if (query.get('gmail') === 'error') {
         setError('Google no pudo completar la conexión. Puedes intentarlo otra vez o usar reenvío.');
         window.history.replaceState({}, '', '/onboarding');
       }
     });
     return () => { active = false; };
-  }, [load, sync]);
+  }, [load]);
 
   const connectGoogle = async () => {
     setBusy('google');
@@ -164,6 +168,7 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
     ? `${bankConnection.ingestionAddress.aliasToken}@${bankConnection.ingestionAddress.domain}`
     : '';
   const activeInbox = inboxConnections.find((item) => item.status === 'ACTIVE');
+  const summary = activeInbox?.lastSyncSummary || null;
   const reconnectNeeded = inboxConnections.some((item) => item.status === 'REAUTH_REQUIRED');
 
   const copyAddress = async () => {
@@ -197,6 +202,8 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
                   <Check className="h-5 w-5 shrink-0" />
                   <div><p className="font-semibold">Gmail conectado</p><p className="mt-1 text-xs opacity-80">{activeInbox.email} · acceso de solo lectura a los correos bancarios compatibles.</p></div>
                 </div>
+                {notice && <div className="rounded-xl bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-300">{notice}</div>}
+                {(activeInbox.failedEvents || 0) > 0 && <div className="flex gap-2 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"><AlertCircle className="h-4 w-4 shrink-0" /><span>{activeInbox.failedEvents} correo{activeInbox.failedEvents === 1 ? '' : 's'} necesita{activeInbox.failedEvents === 1 ? '' : 'n'} reprocesamiento. La conexión sigue activa, pero la última sincronización fue parcial.</span></div>}
                 {summary && <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-xl bg-muted p-3"><p className="text-lg font-bold">{summary.scanned}</p><p className="text-[10px] text-muted-foreground">revisados</p></div>
                   <div className="rounded-xl bg-muted p-3"><p className="text-lg font-bold">{summary.parsed}</p><p className="text-[10px] text-muted-foreground">reconocidos</p></div>

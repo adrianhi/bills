@@ -305,7 +305,6 @@ export class GmailConnectionService {
           prisma.ingestionJob.findFirst({
             where: {
               inboxConnectionId: connection.id,
-              status: { in: ['PENDING', 'PROCESSING', 'FAILED'] },
             },
             orderBy: { createdAt: 'desc' },
             select: {

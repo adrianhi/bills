@@ -25,6 +25,8 @@ export interface StatsSummary {
   totalTransactions: number;
   approvedCount: number;
   rejectedCount: number;
+  reversedCount?: number;
+  pendingCount?: number;
   currency: string;
   dailyAverage: number;
   averageTicket?: number;

@@ -260,6 +260,21 @@ export function App() {
     refreshAll();
   }, [refreshAll]);
 
+  useEffect(() => {
+    if (!authToken || !onboardingComplete || legalAcceptanceRequired) return;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshAll();
+    };
+    const timer = window.setInterval(refreshWhenVisible, 30_000);
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [authToken, onboardingComplete, legalAcceptanceRequired, refreshAll]);
+
   // Save edited transaction
   const handleSaveTransaction = async (
     id: string,

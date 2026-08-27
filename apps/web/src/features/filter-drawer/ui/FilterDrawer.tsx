@@ -71,8 +71,10 @@ const CATEGORIES = [
 
 const STATUSES = [
   { id: '', label: 'Todos los Estados' },
-  { id: 'Aprobada', label: '✅ Aprobadas' },
-  { id: 'Rechazada', label: '❌ Rechazadas' },
+  { id: 'APPROVED', label: '✅ Aprobadas' },
+  { id: 'DECLINED', label: '❌ Rechazadas' },
+  { id: 'REVERSED', label: '↩️ Reversadas' },
+  { id: 'PENDING', label: '⏳ Pendientes' },
 ];
 
 export const FilterDrawer: React.FC<FilterDrawerProps> = ({
@@ -293,7 +295,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
             <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Estado
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {STATUSES.map((st) => {
                 const isSelected = statusFilter === st.id;
                 return (

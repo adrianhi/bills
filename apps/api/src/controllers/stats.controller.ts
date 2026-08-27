@@ -10,6 +10,7 @@ type StatsTransaction = {
   category: string;
   merchant: string;
   status: string;
+  statusCode: 'PENDING' | 'APPROVED' | 'DECLINED' | 'REVERSED';
   transactionType: string;
   source: string;
   institutionCode: string;
@@ -33,10 +34,6 @@ function resolveDateFilter(month?: string, startDate?: string, endDate?: string)
   return filter;
 }
 
-function isRejected(transaction: Pick<StatsTransaction, 'status'>) {
-  return /rechazad|declinad|denegad/i.test(transaction.status || '');
-}
-
 function isIncome(transaction: Pick<StatsTransaction, 'transactionType' | 'category' | 'source'>) {
   return (
     /recibida/i.test(transaction.transactionType || '') ||
@@ -45,13 +42,16 @@ function isIncome(transaction: Pick<StatsTransaction, 'transactionType' | 'categ
   );
 }
 
-function summarize(transactions: StatsTransaction[], requestedCurrency: string) {
+export function summarize(transactions: StatsTransaction[], requestedCurrency: string) {
   let totalSpentDOP = 0;
   let totalSpentUSD = 0;
   let totalIncomeDOP = 0;
   let totalIncomeUSD = 0;
   let approvedCount = 0;
   let rejectedCount = 0;
+  let reversedCount = 0;
+  let pendingCount = 0;
+  let approvedExpenseCount = 0;
   const byCategoryMap: Record<string, { total: number; count: number }> = {};
   const byMerchantMap: Record<string, { total: number; totalDOP: number; totalUSD: number; count: number }> = {};
   const byInstitutionMap: Record<string, { total: number; count: number }> = {};
@@ -59,35 +59,42 @@ function summarize(transactions: StatsTransaction[], requestedCurrency: string) 
 
   for (const transaction of transactions) {
     const amount = Number(transaction.amount);
-    const rejected = isRejected(transaction);
     const income = isIncome(transaction);
     const matchesCurrency = transaction.currency.toUpperCase() === requestedCurrency;
 
-    if (rejected) rejectedCount += 1;
+    if (transaction.statusCode === 'DECLINED') rejectedCount += 1;
+    else if (transaction.statusCode === 'REVERSED') reversedCount += 1;
+    else if (transaction.statusCode === 'PENDING') pendingCount += 1;
     else approvedCount += 1;
+    if (transaction.statusCode !== 'APPROVED') continue;
+
     if (income) {
       if (transaction.currency === 'USD') totalIncomeUSD += amount;
       else totalIncomeDOP += amount;
-    } else if (transaction.currency === 'USD') totalSpentUSD += amount;
-    else totalSpentDOP += amount;
+    } else {
+      if (matchesCurrency) approvedExpenseCount += 1;
+      if (transaction.currency === 'USD') totalSpentUSD += amount;
+      else totalSpentDOP += amount;
+    }
+    if (income) continue;
 
     const institutionName = TransactionService.getOrganization(transaction.institutionCode);
     byInstitutionMap[institutionName] ||= { total: 0, count: 0 };
     byInstitutionMap[institutionName].count += 1;
-    if (matchesCurrency && !rejected && !income) byInstitutionMap[institutionName].total += amount;
+    if (matchesCurrency && !income) byInstitutionMap[institutionName].total += amount;
 
     byCategoryMap[transaction.category] ||= { total: 0, count: 0 };
     byCategoryMap[transaction.category].count += 1;
-    if (matchesCurrency && !rejected && !income) byCategoryMap[transaction.category].total += amount;
+    if (matchesCurrency && !income) byCategoryMap[transaction.category].total += amount;
 
     byMerchantMap[transaction.merchant] ||= { total: 0, totalDOP: 0, totalUSD: 0, count: 0 };
     const merchant = byMerchantMap[transaction.merchant];
     merchant.count += 1;
     if (transaction.currency === 'USD') merchant.totalUSD += amount;
     else merchant.totalDOP += amount;
-    if (matchesCurrency && !rejected && !income) merchant.total += amount;
+    if (matchesCurrency && !income) merchant.total += amount;
 
-    if (matchesCurrency && !rejected && !income) {
+    if (matchesCurrency && !income) {
       const date = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'America/Santo_Domingo',
         year: 'numeric',
@@ -143,8 +150,10 @@ function summarize(transactions: StatsTransaction[], requestedCurrency: string) 
     totalIncomeUSD: round(totalIncomeUSD),
     approvedCount,
     rejectedCount,
+    reversedCount,
+    pendingCount,
     dailyAverage: round(totalAmount / Math.max(dailyTrend.length, 1)),
-    averageTicket: approvedCount > 0 ? round(totalAmount / approvedCount) : 0,
+    averageTicket: approvedExpenseCount > 0 ? round(totalAmount / approvedExpenseCount) : 0,
     byCategory,
     byOrganization,
     topMerchants,
@@ -158,6 +167,7 @@ const transactionSelection = {
   category: true,
   merchant: true,
   status: true,
+  statusCode: true,
   transactionType: true,
   source: true,
   institutionCode: true,
