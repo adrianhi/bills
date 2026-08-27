@@ -10,6 +10,7 @@ import { config } from './config';
 import apiRoutes from './routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { ResendWebhookController } from './controllers/resend-webhook.controller';
+import { GmailPubSubController } from './controllers/gmail-pubsub.controller';
 
 function resolvePublicDir(): string {
   const candidates = [
@@ -74,6 +75,11 @@ export function createApp(): Express {
     '/webhooks/resend',
     express.raw({ type: 'application/json', limit: '1mb' }),
     ResendWebhookController.handle
+  );
+  app.post(
+    '/api/v1/webhooks/google/gmail',
+    express.json({ limit: '256kb' }),
+    GmailPubSubController.handle
   );
   app.use(
     rateLimit({

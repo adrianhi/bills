@@ -81,5 +81,15 @@ export function validateRuntimeConfig() {
   if (hasGoogleId !== hasGoogleSecret) {
     errors.push('GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must be configured together');
   }
+  const googlePushValues = [
+    config.googlePubSubTopic,
+    config.googlePubSubPushAudience,
+    config.googlePubSubPushServiceAccount,
+  ];
+  if (googlePushValues.some(Boolean) && !googlePushValues.every(Boolean)) {
+    errors.push(
+      'GOOGLE_PUBSUB_TOPIC, GOOGLE_PUBSUB_PUSH_AUDIENCE and GOOGLE_PUBSUB_PUSH_SERVICE_ACCOUNT must be configured together'
+    );
+  }
   if (errors.length) throw new Error(`Invalid runtime configuration: ${errors.join(', ')}`);
 }
