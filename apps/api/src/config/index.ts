@@ -32,10 +32,6 @@ export const config = {
     Math.max(parseInt(process.env.GMAIL_INITIAL_SYNC_DAYS || '90', 10), 1),
     365
   ),
-  gmailSyncMaxMessages: Math.min(
-    Math.max(parseInt(process.env.GMAIL_SYNC_MAX_MESSAGES || '100', 10), 1),
-    500
-  ),
   googlePubSubTopic: process.env.GOOGLE_PUBSUB_TOPIC || '',
   googlePubSubPushAudience: process.env.GOOGLE_PUBSUB_PUSH_AUDIENCE || '',
   googlePubSubPushServiceAccount: process.env.GOOGLE_PUBSUB_PUSH_SERVICE_ACCOUNT || '',

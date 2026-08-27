@@ -11,6 +11,7 @@ type JobPayload = {
   bank?: string;
   errors?: string[];
   parserVersion?: string;
+  statuses?: Array<'FAILED' | 'IGNORED'>;
 };
 
 function errorCode(error: unknown) {
@@ -99,7 +100,7 @@ export class IngestionJobService {
   public static enqueueReplay(
     workspaceId: string,
     inboxConnectionId: string,
-    filters: Pick<JobPayload, 'bank' | 'errors' | 'parserVersion'> = {}
+    filters: Pick<JobPayload, 'bank' | 'errors' | 'parserVersion' | 'statuses'> = {}
   ) {
     return this.enqueue({
       workspaceId,
@@ -154,13 +155,19 @@ export class IngestionJobService {
     }
   }
 
-  public static async processNext() {
+  public static async processNext(onlyJobIds: string[] = []) {
     const now = new Date();
     const candidate = await prisma.ingestionJob.findFirst({
       where: {
-        status: { in: ['PENDING', 'FAILED'] },
-        nextAttemptAt: { lte: now },
-        OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }],
+        ...(onlyJobIds.length ? { id: { in: onlyJobIds } } : {}),
+        OR: [
+          {
+            status: { in: ['PENDING', 'FAILED'] },
+            nextAttemptAt: { lte: now },
+            OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }],
+          },
+          { status: 'PROCESSING', leaseUntil: { lte: now } },
+        ],
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -203,6 +210,7 @@ export class IngestionJobService {
               bank: payload.bank,
               errors: payload.errors,
               parserVersion: payload.parserVersion,
+              statuses: payload.statuses,
             }
           );
           break;

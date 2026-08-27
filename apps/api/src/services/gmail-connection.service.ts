@@ -67,6 +67,7 @@ export type GmailReplayFilters = {
   bank?: string;
   errors?: string[];
   parserVersion?: string;
+  statuses?: Array<'FAILED' | 'IGNORED'>;
 };
 
 function emptySummary(): SyncSummary {
@@ -429,6 +430,7 @@ export class GmailConnectionService {
     messageId: string;
     summary: SyncSummary;
     allowReplay?: boolean;
+    replayStatuses?: Array<'FAILED' | 'PENDING' | 'IGNORED'>;
     retainedEmail?: NormalizedEmail | null;
   }) {
     const providerEventId = `gmail:${input.connection.id}:${input.messageId}`;
@@ -436,7 +438,8 @@ export class GmailConnectionService {
     let eventId = existing?.id || '';
 
     if (existing) {
-      if (!input.allowReplay || !['FAILED', 'PENDING'].includes(existing.status)) {
+      const replayStatuses = input.replayStatuses || ['FAILED', 'PENDING'];
+      if (!input.allowReplay || !replayStatuses.includes(existing.status as 'FAILED' | 'PENDING' | 'IGNORED')) {
         input.summary.duplicates += 1;
         return;
       }
@@ -590,6 +593,9 @@ export class GmailConnectionService {
 
   private static async finishSync(connectionId: string, cursor: string | null | undefined, summary: SyncSummary) {
     const now = new Date();
+    const unresolvedFailures = await prisma.ingestionEvent.count({
+      where: { inboxConnectionId: connectionId, provider: 'GOOGLE_GMAIL', status: 'FAILED' },
+    });
     await prisma.inboxConnection.update({
       where: { id: connectionId },
       data: {
@@ -598,7 +604,7 @@ export class GmailConnectionService {
         lastSyncedAt: now,
         lastSuccessfulSyncAt: now,
         lastSyncSummary: summary,
-        lastErrorCode: summary.failed > 0 ? 'PARTIAL_SYNC_FAILURE' : null,
+        lastErrorCode: summary.failed > 0 || unresolvedFailures > 0 ? 'PARTIAL_SYNC_FAILURE' : null,
         syncLeaseUntil: null,
         nextReconcileAt: new Date(now.getTime() + config.gmailReconcileIntervalMinutes * 60_000),
       },
@@ -716,7 +722,7 @@ export class GmailConnectionService {
         workspaceId,
         inboxConnectionId: connectionId,
         provider: 'GOOGLE_GMAIL',
-        status: 'FAILED',
+        status: { in: filters.statuses?.length ? filters.statuses : ['FAILED'] },
         ...(filters.bank ? { parserCode: filters.bank.toUpperCase() } : {}),
         ...(filters.errors?.length ? { errorCode: { in: filters.errors } } : {}),
         ...(filters.parserVersion ? { parserVersion: filters.parserVersion } : {}),
@@ -726,36 +732,42 @@ export class GmailConnectionService {
     });
     const summary = emptySummary();
     summary.scanned = events.length;
-    for (const event of events) {
-      let retainedEmail: NormalizedEmail | null = null;
-      if (event.rawContent) {
-        try {
-          const parsed = JSON.parse(SecretCryptoService.decrypt(event.rawContent)) as Record<string, unknown>;
-          retainedEmail = {
-            id: String(parsed.id || event.providerEmailId || event.id),
-            messageId: String(parsed.messageId || parsed.id || event.providerEmailId || event.id),
-            from: String(parsed.from || ''),
-            to: Array.isArray(parsed.to) ? parsed.to.map(String) : [],
-            subject: String(parsed.subject || ''),
-            html: typeof parsed.html === 'string' ? parsed.html : null,
-            text: typeof parsed.text === 'string' ? parsed.text : null,
-            headers: parsed.headers && typeof parsed.headers === 'object' ? parsed.headers as Record<string, string> : null,
-            receivedAt: parsed.receivedAt ? new Date(String(parsed.receivedAt)) : event.createdAt,
-          };
-        } catch {
-          retainedEmail = null;
+    for (let index = 0; index < events.length; index += config.gmailSyncConcurrency) {
+      const chunk = events.slice(index, index + config.gmailSyncConcurrency);
+      await Promise.all(chunk.map(async (event) => {
+        let retainedEmail: NormalizedEmail | null = null;
+        if (event.rawContent) {
+          try {
+            const parsed = JSON.parse(SecretCryptoService.decrypt(event.rawContent)) as Record<string, unknown>;
+            retainedEmail = {
+              id: String(parsed.id || event.providerEmailId || event.id),
+              messageId: String(parsed.messageId || parsed.id || event.providerEmailId || event.id),
+              from: String(parsed.from || ''),
+              to: Array.isArray(parsed.to) ? parsed.to.map(String) : [],
+              subject: String(parsed.subject || ''),
+              html: typeof parsed.html === 'string' ? parsed.html : null,
+              text: typeof parsed.text === 'string' ? parsed.text : null,
+              headers: parsed.headers && typeof parsed.headers === 'object' ? parsed.headers as Record<string, string> : null,
+              receivedAt: parsed.receivedAt ? new Date(String(parsed.receivedAt)) : event.createdAt,
+            };
+          } catch {
+            retainedEmail = null;
+          }
         }
-      }
-      if (!event.providerEmailId) continue;
-      await this.processMessage({
-        workspaceId,
-        connection,
-        accessToken,
-        messageId: event.providerEmailId,
-        summary,
-        allowReplay: true,
-        retainedEmail,
-      });
+        if (!event.providerEmailId) return;
+        await this.processMessage({
+          workspaceId,
+          connection,
+          accessToken,
+          messageId: event.providerEmailId,
+          summary,
+          allowReplay: true,
+          replayStatuses: filters.statuses?.includes('IGNORED')
+            ? ['FAILED', 'PENDING', 'IGNORED']
+            : ['FAILED', 'PENDING'],
+          retainedEmail,
+        });
+      }));
     }
     await this.finishSync(connection.id, connection.syncCursor, summary);
     return summary;

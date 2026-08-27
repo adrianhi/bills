@@ -26,6 +26,8 @@
     "db:truncate": "npm run db:truncate --prefix apps/api",
     "beta:invite": "npm run beta:invite --prefix apps/api --",
     "gmail:replay": "npm run gmail:replay --prefix apps/api --",
+    "gmail:process-jobs": "npm run gmail:process-jobs --prefix apps/api --",
+    "gmail:verify-recovery": "npm run gmail:verify-recovery --prefix apps/api --",
     "db:sync-from-supabase": "node scripts/sync-supabase-to-local.js",
     "db:clean-supabase": "node scripts/clean-supabase.js",
     "build:workflow": "node scripts/build-workflow.js"

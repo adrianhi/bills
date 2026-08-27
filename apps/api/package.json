@@ -17,6 +17,8 @@
     "db:truncate": "tsx src/scripts/truncate.ts",
     "beta:invite": "tsx src/scripts/create-beta-invite.ts",
     "gmail:replay": "tsx src/scripts/replay-gmail-failures.ts",
+    "gmail:process-jobs": "tsx src/scripts/process-ingestion-jobs.ts",
+    "gmail:verify-recovery": "tsx src/scripts/verify-gmail-recovery.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

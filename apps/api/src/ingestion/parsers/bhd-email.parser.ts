@@ -30,11 +30,31 @@ function normalizedHeader(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 }
 
+function balancedTableBodies(html: string) {
+  const tokens = Array.from(html.matchAll(/<\/?table\b[^>]*>/gi));
+  const starts: Array<{ contentStart: number }> = [];
+  const tables: string[] = [];
+
+  for (const token of tokens) {
+    const index = token.index ?? 0;
+    if (!/^<\s*\//.test(token[0])) {
+      starts.push({ contentStart: index + token[0].length });
+      continue;
+    }
+    const start = starts.pop();
+    if (start) tables.push(html.slice(start.contentStart, index));
+  }
+
+  // Inner layout tables are shorter than their wrappers. Inspecting them first prevents a
+  // containing <td> from swallowing the first header cell of the transaction table.
+  return tables.sort((left, right) => left.length - right.length);
+}
+
 function extractTransactionTable(html?: string | null) {
   if (!html) return null;
   const required = ['fecha', 'moneda', 'monto', 'comercio', 'estado', 'tipo'];
-  for (const tableMatch of html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)) {
-    const rows = Array.from(tableMatch[1].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)).map((row) =>
+  for (const table of balancedTableBodies(html)) {
+    const rows = Array.from(table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)).map((row) =>
       Array.from(row[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)).map((cell) => decodeCell(cell[1]))
     );
     for (let index = 0; index < rows.length - 1; index += 1) {
@@ -64,12 +84,14 @@ function parseNumericAmount(raw: string) {
 }
 
 function extractAmount(content: string) {
-  const match = content.match(/(?:Monto|Valor|Importe|RD\$|DOP|US\$|USD)\s*:?[\s$]*(?:RD\$|DOP|US\$|USD)?\s*([\d.,]+)/i);
+  const match = content.match(
+    /(?:Monto|Valor|Importe|RD\s*\$|DOP|US\s*\$|USD)\s*:?[\s$]*(?:RD\s*\$|DOP|US\s*\$|USD)?\s*([\d.,]+)/i
+  );
   if (!match) return null;
   const amount = parseNumericAmount(match[1]);
   if (!Number.isFinite(amount) || amount <= 0) return null;
   const context = match[0].toUpperCase();
-  return { amount, currency: /US\$|USD/.test(context) ? 'USD' : 'DOP' };
+  return { amount, currency: /US\s*\$|USD/.test(context) ? 'USD' : 'DOP' };
 }
 
 function extractField(content: string, labels: string[]) {
@@ -99,7 +121,7 @@ function safeId(value: string) {
 
 export class BhdEmailParser implements BankEmailParser {
   public readonly institutionCode = 'BHD';
-  public readonly version = '1.1.0';
+  public readonly version = '1.4.0';
 
   public canParse(email: NormalizedEmail) {
     const sender = email.from.toLowerCase();
@@ -115,13 +137,20 @@ export class BhdEmailParser implements BankEmailParser {
     const content = `${email.subject} ${email.text || ''} ${htmlToText(email.html || '')}`
       .replace(/\s+/g, ' ')
       .trim();
+    const table = extractTransactionTable(email.html);
 
     if (/promoci[oó]n|conoce nuestras ofertas|EVA/i.test(content) && !/Monto\s*:|transacci[oó]n|transferencia/i.test(content)) {
       return { status: 'ignored', reason: 'PROMOTIONAL_EMAIL' };
     }
+    if (/estado\s+de\s+cuenta|resumen\s+de\s+cuenta/i.test(email.subject)) {
+      return { status: 'ignored', reason: 'ACCOUNT_STATEMENT' };
+    }
+    const hasExplicitAmount = Boolean(table) || /\b(?:Monto|Valor|Importe)\s*:?\s*(?:RD\s*\$|DOP|US\s*\$|USD)?\s*\d/i.test(content);
+    if (/promoci[oó]n|oferta|conoce\s+(?:m[aá]s|nuestras)/i.test(content) && !hasExplicitAmount) {
+      return { status: 'ignored', reason: 'PROMOTIONAL_EMAIL' };
+    }
     if (/en proceso/i.test(email.subject)) return { status: 'ignored', reason: 'PENDING_NOTIFICATION' };
 
-    const table = extractTransactionTable(email.html);
     const tableAmount = table?.monto ? parseNumericAmount(table.monto) : NaN;
     const tableCurrency = (table?.moneda || '').toUpperCase();
     const amountValue = Number.isFinite(tableAmount) && tableAmount > 0
