@@ -262,16 +262,11 @@ export function App() {
 
   useEffect(() => {
     if (!authToken || !onboardingComplete || legalAcceptanceRequired) return;
-    const refreshWhenVisible = () => {
+    const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') refreshAll();
-    };
-    const timer = window.setInterval(refreshWhenVisible, 30_000);
-    window.addEventListener('focus', refreshWhenVisible);
-    document.addEventListener('visibilitychange', refreshWhenVisible);
+    }, 10 * 60 * 1000);
     return () => {
       window.clearInterval(timer);
-      window.removeEventListener('focus', refreshWhenVisible);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [authToken, onboardingComplete, legalAcceptanceRequired, refreshAll]);
 
