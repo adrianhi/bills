@@ -291,23 +291,14 @@ export class TransactionService {
     });
 
     for (const cand of candidates) {
-      const candRaw = (cand.rawMerchant || '').toLowerCase();
-      const newRaw = (data.rawMerchant || '').toLowerCase();
-      const candMerch = (cand.merchant || '').toLowerCase();
-      const newMerch = (data.merchant || '').toLowerCase();
-
       const isSameCardOrAccount = !data.cardLast4 || !cand.cardLast4 || data.cardLast4 === cand.cardLast4;
-      const comparableRaw = candRaw.length >= 3 && newRaw.length >= 3;
-      const comparableMerchant = candMerch.length >= 3 && newMerch.length >= 3;
-      const isSimilarMerchant =
-        (comparableRaw && (candRaw.includes(newRaw.slice(0, 10)) || newRaw.includes(candRaw.slice(0, 10)))) ||
-        (comparableMerchant && (candMerch.includes(newMerch.slice(0, 10)) || newMerch.includes(candMerch.slice(0, 10))));
-
       const isBothTransfers =
         (/transferencia|recibida|enviada/i.test(cand.transactionType || '') || /transferencia|recibida|enviada/i.test(cand.category || '')) &&
         (/transferencia|recibida|enviada/i.test(data.transactionType || '') || /transferencia|recibida|enviada/i.test(data.category || ''));
 
-      if (isSameCardOrAccount && (isSimilarMerchant || isBothTransfers)) {
+      // Only transfer notification pairs are eligible for fuzzy merging. Two card purchases at
+      // the same merchant, card and amount can be legitimate and must remain separate.
+      if (isSameCardOrAccount && isBothTransfers) {
         // Choose the longer / more complete merchant name (e.g. "Yeisaly Collado Rosario" over truncated "Yeisaly Collado Rosari")
         const betterMerchant =
           (data.merchant && data.merchant.length > (cand.merchant?.length || 0))

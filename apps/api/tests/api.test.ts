@@ -212,6 +212,32 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     expect(current.body.data.statusCode).toBe('REVERSED');
   });
 
+  it('keeps two legitimate nearby card purchases as separate transactions', async () => {
+    const base = {
+      rawMerchant: 'UBER RIDES',
+      amount: 313.34,
+      currency: 'DOP',
+      cardLast4: '0380',
+      statusCode: 'APPROVED',
+      transactionType: 'Compra',
+      institutionCode: 'BHD',
+      ingestionChannel: 'GMAIL_OAUTH',
+    };
+    const first = await request(app).post('/api/v1/transactions').set(auth(userA)).send({
+      ...base,
+      externalId: 'nearby-card-purchase-1',
+      transactionDate: '2026-08-26T15:00:00.000Z',
+    });
+    const second = await request(app).post('/api/v1/transactions').set(auth(userA)).send({
+      ...base,
+      externalId: 'nearby-card-purchase-2',
+      transactionDate: '2026-08-26T15:05:00.000Z',
+    });
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(second.body.data.id).not.toBe(first.body.data.id);
+  });
+
   it('does not expose another workspace transaction by ID', async () => {
     const response = await request(app)
       .get(`/api/v1/transactions/${transactionAId}`)
