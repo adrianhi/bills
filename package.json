@@ -4,7 +4,8 @@
   "private": true,
   "description": "Banco BHD & Multi-Bank Expense Tracker Monorepo",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "overrides": {
     "@prisma/config": {
@@ -17,9 +18,15 @@
     "dev:api": "npm run dev --prefix apps/api",
     "build:web": "npm run build --prefix apps/web",
     "build:api": "npm run build --prefix apps/api",
-    "build": "npm run build:web && npm run build:api",
+    "build:contracts": "npm run build --workspace=@bills/contracts",
+    "build": "npm run build:contracts && npm run build:web && npm run build:api",
     "start": "node apps/api/dist/server.js",
-    "test": "npm run test --prefix apps/api",
+    "test": "npm run build:contracts && npm run test --prefix apps/api && npm run test --prefix apps/web",
+    "test:e2e": "npm run test:e2e --prefix apps/web",
+    "test:integration": "node scripts/run-api-integration-tests.js",
+    "check:architecture": "node scripts/check-architecture.js",
+    "verify": "npm run check:architecture && npm run test && npm run build && npm run lint --prefix apps/web && npm run test:e2e",
+    "verify:full": "npm run verify && npm run test:integration",
     "prisma:generate": "npm run prisma:generate --prefix apps/api",
     "prisma:push": "npm run prisma:push --prefix apps/api",
     "prisma:studio": "npm run prisma:studio --prefix apps/api",
@@ -46,5 +53,8 @@
   "license": "MIT",
   "devDependencies": {
     "deepmerge-ts": "^8.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   Dialog, 
   DialogContent, 
@@ -9,7 +9,8 @@ import {
   Input
 } from '@/shared/ui';
 import { Plus, Trash2, SlidersHorizontal } from 'lucide-react';
-import type { CategoryRule } from '@/entities/transaction';
+import { COMMON_CATEGORIES } from '@/shared/config/financial-options';
+import { useRulesManager } from '../model/useRulesManager';
 
 interface RulesManagerModalProps {
   isOpen: boolean;
@@ -17,97 +18,23 @@ interface RulesManagerModalProps {
   authToken: string | null;
 }
 
-const COMMON_CATEGORIES = [
-  'Supermercado',
-  'Restaurantes & Delivery',
-  'Servicios Financieros',
-  'Transferencias',
-  'Transporte',
-  'Combustible',
-  'Servicios',
-  'Suscripciones',
-  'Salud & Farmacia',
-  'Compras Online',
-  'Hogar',
-  'Ropa & Moda',
-  'Entretenimiento',
-  'Tecnología',
-  'Otros',
-];
-
 export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
   isOpen,
   onClose,
   authToken,
 }) => {
-  const [rules, setRules] = useState<CategoryRule[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [pattern, setPattern] = useState('');
-  const [normalizedMerchant, setNormalizedMerchant] = useState('');
-  const [category, setCategory] = useState(COMMON_CATEGORIES[0]);
-  const [submitting, setSubmitting] = useState(false);
-
-  const fetchRules = async () => {
-    setLoading(true);
-    try {
-      if (!authToken) return;
-      const res = await fetch('/api/v1/rules', {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setRules(json.data || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchRules();
-    }
-  }, [isOpen, authToken]);
+  const model = useRulesManager(isOpen, Boolean(authToken));
+  const { rules, loading, pattern, setPattern, normalizedMerchant, setNormalizedMerchant,
+    category, setCategory, submitting } = model;
 
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pattern || !normalizedMerchant) return;
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/v1/rules', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ pattern, normalizedMerchant, category }),
-      });
-      if (res.ok) {
-        setPattern('');
-        setNormalizedMerchant('');
-        fetchRules();
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSubmitting(false);
-    }
+    await model.createRule();
   };
 
   const handleDeleteRule = async (id: string) => {
-    try {
-      const res = await fetch(`/api/v1/rules/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (res.ok) {
-        setRules(rules.filter((r) => r.id !== id));
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    model.deleteRule(id);
   };
 
   return (

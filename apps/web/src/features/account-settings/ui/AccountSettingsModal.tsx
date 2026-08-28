@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
   Download,
@@ -18,28 +17,7 @@ import {
   DialogTitle,
   Input,
 } from "@/shared/ui";
-
-interface Connection {
-  id: string;
-  email: string;
-  status: string;
-  lastSyncedAt?: string | null;
-  lastSuccessfulSyncAt?: string | null;
-  nextReconcileAt?: string | null;
-  watchExpiresAt?: string | null;
-  lastErrorCode?: string | null;
-  failedEvents?: number;
-  lastSyncSummary?: {
-    scanned: number;
-    created: number;
-    ignored: number;
-    failed: number;
-  } | null;
-  currentJob?: {
-    status: "PENDING" | "PROCESSING" | "FAILED" | "SUCCEEDED";
-    errorCode?: string | null;
-  } | null;
-}
+import { useAccountSettings } from "../model/useAccountSettings";
 
 interface AccountSettingsModalProps {
   authToken: string;
@@ -54,116 +32,9 @@ export function AccountSettingsModal({
   onClose,
   onAccountDeleted,
 }: AccountSettingsModalProps) {
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [busy, setBusy] = useState("");
-  const [confirmation, setConfirmation] = useState("");
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const headers = {
-    Authorization: `Bearer ${authToken}`,
-    "Content-Type": "application/json",
-  };
-
-  const load = useCallback(async () => {
-    const response = await fetch("/api/v1/inbox-connections", {
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    const body = await response.json().catch(() => null);
-    if (response.ok) setConnections(body.data || []);
-  }, [authToken]);
-
-  useEffect(() => {
-    if (isOpen) {
-      void load();
-      if (new URLSearchParams(window.location.search).has("gmail")) {
-        window.history.replaceState({}, "", "/");
-      }
-    }
-  }, [isOpen, load]);
-
-  const startGoogle = async () => {
-    setBusy("google");
-    setError("");
-    const response = await fetch("/api/v1/inbox-connections/google/start", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ returnTo: "/?settings=connections" }),
-    });
-    const body = await response.json().catch(() => null);
-    if (response.ok) window.location.assign(body.data.authorizationUrl);
-    else {
-      setError(body?.error?.message || "No se pudo iniciar la conexión.");
-      setBusy("");
-    }
-  };
-
-  const sync = async (id: string) => {
-    setBusy(`sync:${id}`);
-    setError("");
-    const response = await fetch(`/api/v1/inbox-connections/${id}/sync`, {
-      method: "POST",
-      headers,
-    });
-    const body = await response.json().catch(() => null);
-    if (!response.ok)
-      setError(body?.error?.message || "No se pudo sincronizar.");
-    else setNotice("Sincronización en cola; continuará en segundo plano.");
-    await load();
-    setBusy("");
-  };
-
-  const disconnect = async (id: string) => {
-    setBusy(`disconnect:${id}`);
-    setError("");
-    const response = await fetch(`/api/v1/inbox-connections/${id}`, {
-      method: "DELETE",
-      headers,
-    });
-    const body = await response.json().catch(() => null);
-    if (!response.ok)
-      setError(body?.error?.message || "No se pudo desconectar.");
-    await load();
-    setBusy("");
-  };
-
-  const exportData = async () => {
-    setBusy("export");
-    setError("");
-    const response = await fetch("/api/v1/me/data-export", {
-      method: "POST",
-      headers,
-    });
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      setError(body?.error?.message || "No se pudo exportar tu información.");
-    } else {
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `bills-account-export-${new Date().toISOString().slice(0, 10)}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-    }
-    setBusy("");
-  };
-
-  const deleteAccount = async () => {
-    setBusy("delete");
-    setError("");
-    const response = await fetch("/api/v1/me", {
-      method: "DELETE",
-      headers,
-      body: JSON.stringify({ confirmation: "DELETE_MY_ACCOUNT" }),
-    });
-    const body = await response.json().catch(() => null);
-    if (!response.ok) {
-      setError(body?.error?.message || "No se pudo eliminar tu cuenta.");
-      setBusy("");
-      return;
-    }
-    onAccountDeleted();
-  };
+  const model = useAccountSettings(isOpen, Boolean(authToken), onAccountDeleted);
+  const { connections, confirmation, setConfirmation, notice, error, busy,
+    startGoogle, sync, disconnect, exportData, deleteAccount } = model;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { AlertCircle, ArrowRight, CheckCircle2, Loader2, Mail, ShieldCheck } from 'lucide-react';
 import { Button, Card, CardContent, Input } from '@/shared/ui';
-import { isSupabaseConfigured, supabase } from '@/shared/lib';
+import { isSupabaseConfigured } from '@/shared/lib';
+import { useSignInActions } from '../model/useSignInActions';
 
 interface AuthScreenProps {
   checkingSession?: boolean;
@@ -10,39 +11,12 @@ interface AuthScreenProps {
 
 export function AuthScreen({ checkingSession = false, setupError }: AuthScreenProps) {
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState<'google' | 'email' | null>(null);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const { loading, error, message, signInWithGoogle, sendMagicLink: requestMagicLink } = useSignInActions();
 
-  const callbackUrl = `${window.location.origin}/auth/callback`;
-
-  const signInWithGoogle = async () => {
-    if (!supabase) return;
-    setLoading('google');
-    setError('');
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: callbackUrl },
-    });
-    if (authError) {
-      setError(authError.message);
-      setLoading(null);
-    }
-  };
-
-  const sendMagicLink = async (event: React.FormEvent) => {
+  const submitMagicLink = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!supabase || !email.trim()) return;
-    setLoading('email');
-    setError('');
-    setMessage('');
-    const { error: authError } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: { emailRedirectTo: callbackUrl },
-    });
-    if (authError) setError(authError.message);
-    else setMessage('Revisa tu correo. Te enviamos un enlace seguro para entrar.');
-    setLoading(null);
+    if (!email.trim()) return;
+    await requestMagicLink(email);
   };
 
   if (checkingSession) {
@@ -80,7 +54,7 @@ export function AuthScreen({ checkingSession = false, setupError }: AuthScreenPr
                   variant="outline"
                   className="w-full h-11 gap-2 font-semibold"
                   disabled={Boolean(loading)}
-                  onClick={signInWithGoogle}
+                  onClick={() => void signInWithGoogle()}
                 >
                   {loading === 'google' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4 text-emerald-500" />}
                   Continuar con Google
@@ -92,7 +66,7 @@ export function AuthScreen({ checkingSession = false, setupError }: AuthScreenPr
                   <span className="h-px flex-1 bg-border" />
                 </div>
 
-                <form onSubmit={sendMagicLink} className="space-y-3">
+                <form onSubmit={submitMagicLink} className="space-y-3">
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input

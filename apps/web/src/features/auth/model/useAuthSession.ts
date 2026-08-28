@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/shared/lib';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { configureHttpAuth } from '@/shared/api';
+import { authService } from '../api/auth.service';
 
 export function useAuthSession() {
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -7,16 +8,25 @@ export function useAuthSession() {
   const [setupError, setSetupError] = useState('');
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [legalAcceptanceRequired, setLegalAcceptanceRequired] = useState(false);
-
+  const tokenRef = useRef<string | null>(null);
   const activatingTokenRef = useRef<string | null>(null);
 
-  const handleLock = useCallback(async () => {
+  const clearSession = useCallback(() => {
+    tokenRef.current = null;
     setAuthToken(null);
     setOnboardingComplete(false);
     setLegalAcceptanceRequired(false);
     setSetupError('');
-    await supabase?.auth.signOut();
   }, []);
+
+  const handleLock = useCallback(async () => {
+    clearSession();
+    await authService.signOut();
+  }, [clearSession]);
+
+  useEffect(() => {
+    configureHttpAuth({ getToken: () => tokenRef.current, onUnauthorized: clearSession });
+  }, [clearSession]);
 
   useEffect(() => {
     let active = true;
@@ -25,35 +35,24 @@ export function useAuthSession() {
       if (!active) return;
       if (!token) {
         activatingTokenRef.current = null;
-        setAuthToken(null);
+        clearSession();
         setCheckingSession(false);
         return;
       }
-
       if (activatingTokenRef.current === token) return;
       activatingTokenRef.current = token;
-
+      tokenRef.current = token;
       setCheckingSession(true);
       setSetupError('');
       try {
-        const response = await fetch('/api/v1/me/bootstrap', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          const body = await response.json().catch(() => null);
-          throw new Error(body?.error?.message || 'No se pudo preparar tu espacio personal.');
-        }
-        const body = await response.json().catch(() => null);
-        if (active) {
-          setAuthToken(token);
-          setLegalAcceptanceRequired(Boolean(body?.data?.legalAcceptanceRequired));
-          setOnboardingComplete(Boolean(body?.data?.onboardingComplete));
-          setSetupError('');
-        }
+        const bootstrap = await authService.bootstrap(token);
+        if (!active) return;
+        setAuthToken(token);
+        setLegalAcceptanceRequired(bootstrap.legalAcceptanceRequired);
+        setOnboardingComplete(bootstrap.onboardingComplete);
       } catch (error) {
         if (active) {
-          setAuthToken(null);
+          clearSession();
           setSetupError(error instanceof Error ? error.message : 'No se pudo iniciar la sesión.');
         }
       } finally {
@@ -62,23 +61,23 @@ export function useAuthSession() {
       }
     };
 
-    if (!supabase) {
-      setCheckingSession(false);
-      return () => {
-        active = false;
-      };
-    }
-
-    supabase.auth.getSession().then(({ data }) => activateSession(data.session?.access_token));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    authService.getSession()
+      .then((session) => activateSession(session?.access_token))
+      .catch((error: unknown) => {
+        if (active) {
+          setSetupError(error instanceof Error ? error.message : 'No se pudo comprobar la sesión.');
+          setCheckingSession(false);
+        }
+      });
+    const subscription = authService.onSessionChange((_event, session) => {
       void activateSession(session?.access_token);
     });
 
     return () => {
       active = false;
-      listener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
-  }, []);
+  }, [clearSession]);
 
   return {
     authToken,

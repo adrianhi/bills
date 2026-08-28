@@ -1,3 +1,5 @@
+import type { StatsSummaryDto } from '@bills/contracts';
+
 export interface CategoryBreakdown {
   category: string;
   total: number;
@@ -18,25 +20,4 @@ export interface OrganizationBreakdown {
   percentage: number;
 }
 
-export interface StatsSummary {
-  period: string;
-  totalAmount: number;
-  totalIncome?: number;
-  totalTransactions: number;
-  approvedCount: number;
-  rejectedCount: number;
-  reversedCount?: number;
-  pendingCount?: number;
-  currency: string;
-  dailyAverage: number;
-  averageTicket?: number;
-  comparison?: {
-    previousTotalAmount: number;
-    previousTotalIncome: number;
-    expenseChangePercent: number | null;
-    incomeChangePercent: number | null;
-  };
-  byCategory: CategoryBreakdown[];
-  byOrganization?: OrganizationBreakdown[];
-  dailyTrend: DailyTrendItem[];
-}
+export type StatsSummary = StatsSummaryDto;

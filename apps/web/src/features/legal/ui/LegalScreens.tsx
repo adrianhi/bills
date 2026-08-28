@@ -1,17 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, FileText, Loader2, ShieldCheck } from 'lucide-react';
 import { Button, Card, CardContent } from '@/shared/ui';
-
-export interface LegalDocument {
-  type: 'TERMS' | 'PRIVACY' | 'GOOGLE_API_DISCLOSURE' | 'DATA_DELETION';
-  version: string;
-  title: string;
-  slug: string;
-  effectiveAt: string;
-  content: string;
-  required: boolean;
-  accepted: boolean;
-}
+import type { LegalDocument } from '../api/legal.service';
+import { useAcceptLegal, useLegalDocuments } from '../model/useLegalDocuments';
 
 const routeTypes: Record<string, LegalDocument['type']> = {
   '/legal/terms': 'TERMS',
@@ -39,22 +31,13 @@ function Content({ value }: { value: string }) {
   );
 }
 
-export function LegalDocumentPage({ path = window.location.pathname }: { path?: string }) {
-  const [documents, setDocuments] = useState<LegalDocument[]>([]);
-  const [error, setError] = useState('');
-  const requestedType = routeTypes[path] || 'TERMS';
+export function LegalDocumentPage({ path }: { path?: string }) {
+  const { slug } = useParams();
+  const resolvedPath = path ?? `/legal/${slug ?? 'terms'}`;
+  const requestedType = routeTypes[resolvedPath] || 'TERMS';
+  const query = useLegalDocuments('public');
 
-  useEffect(() => {
-    fetch('/api/v1/legal/current')
-      .then(async (response) => {
-        const body = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(body?.error?.message || 'No pudimos cargar este documento.');
-        setDocuments(body.data || []);
-      })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : 'No pudimos cargar este documento.'));
-  }, []);
-
-  const document = documents.find((item) => item.type === requestedType);
+  const document = query.data?.find((item) => item.type === requestedType);
   return (
     <div className="min-h-screen bg-background px-4 py-8 text-foreground sm:py-12">
       <main className="mx-auto max-w-3xl">
@@ -63,7 +46,7 @@ export function LegalDocumentPage({ path = window.location.pathname }: { path?: 
         </a>
         <Card className="border-border/60 shadow-xl">
           <CardContent className="p-6 sm:p-10">
-            {error ? <p className="text-destructive">{error}</p> : !document ? (
+            {query.error ? <p className="text-destructive">{query.error.message}</p> : !document ? (
               <div className="flex min-h-52 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-emerald-500" /></div>
             ) : (
               <>
@@ -91,46 +74,10 @@ interface LegalAcceptanceScreenProps {
 }
 
 export function LegalAcceptanceScreen({ authToken, onAccepted, onLogout }: LegalAcceptanceScreenProps) {
-  const [documents, setDocuments] = useState<LegalDocument[]>([]);
   const [confirmed, setConfirmed] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const required = useMemo(() => documents.filter((item) => item.required), [documents]);
-
-  useEffect(() => {
-    fetch('/api/v1/legal/me/current', { headers: { Authorization: `Bearer ${authToken}` } })
-      .then(async (response) => {
-        const body = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(body?.error?.message || 'No pudimos cargar los documentos legales.');
-        setDocuments(body.data || []);
-      })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : 'No pudimos cargar los documentos legales.'))
-      .finally(() => setLoading(false));
-  }, [authToken]);
-
-  const accept = async () => {
-    setSaving(true);
-    setError('');
-    try {
-      const response = await fetch('/api/v1/legal/accept', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documents: required.map(({ type, version }) => ({ type, version })),
-          source: required.some((item) => item.accepted) ? 'RECONSENT' : 'SIGNUP',
-          locale: 'es-DO',
-        }),
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.error?.message || 'No pudimos guardar tu aceptación.');
-      onAccepted();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'No pudimos guardar tu aceptación.');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const query = useLegalDocuments('user', Boolean(authToken));
+  const mutation = useAcceptLegal(onAccepted);
+  const required = useMemo(() => (query.data ?? []).filter((item) => item.required), [query.data]);
 
   return (
     <div className="min-h-screen bg-background px-4 py-10">
@@ -141,7 +88,7 @@ export function LegalAcceptanceScreen({ authToken, onAccepted, onLogout }: Legal
           <p className="mt-2 text-sm text-muted-foreground">Lee y acepta los documentos vigentes antes de conectar una fuente financiera.</p>
         </div>
         <Card className="border-border/60 shadow-xl"><CardContent className="space-y-5 p-6">
-          {loading ? <div className="flex min-h-32 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-emerald-500" /></div> : (
+          {query.isLoading ? <div className="flex min-h-32 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-emerald-500" /></div> : (
             <>
               <div className="space-y-3">
                 {required.map((document) => (
@@ -155,9 +102,9 @@ export function LegalAcceptanceScreen({ authToken, onAccepted, onLogout }: Legal
                 <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 h-4 w-4 accent-emerald-600" />
                 <span>He leído y acepto los Términos y Condiciones y la Política de Privacidad vigentes.</span>
               </label>
-              {error && <p className="text-xs text-destructive">{error}</p>}
-              <Button className="w-full gap-2" disabled={!confirmed || saving || required.length < 2} onClick={accept}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Aceptar y continuar
+              {(query.error || mutation.error) && <p className="text-xs text-destructive">{query.error?.message || mutation.error?.message}</p>}
+              <Button className="w-full gap-2" disabled={!confirmed || mutation.isPending || required.length < 2} onClick={() => mutation.mutate(required)}>
+                {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Aceptar y continuar
               </Button>
               <button className="w-full text-center text-xs text-muted-foreground hover:underline" onClick={onLogout}>No acepto; cerrar sesión</button>
             </>

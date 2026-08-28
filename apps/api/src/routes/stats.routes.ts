@@ -1,17 +1,18 @@
 import { Router } from 'express';
-import { StatsController } from '../controllers/stats.controller';
+import { appContainer } from '../app-container';
+import { asyncHandler } from '../shared/http/async-handler';
 import { requireAuth, requireWorkspace } from '../middlewares/auth.middleware';
 import { requireCurrentLegalAcceptance } from '../middlewares/legal.middleware';
 
 const router = Router();
 const protectedRoute = [requireAuth, requireCurrentLegalAcceptance, requireWorkspace];
 
-router.get('/stats/summary', ...protectedRoute, StatsController.getSummary);
-router.get('/categories', ...protectedRoute, StatsController.listCategories);
+router.get('/stats/summary', ...protectedRoute, asyncHandler(appContainer.analyticsController.summary));
+router.get('/categories', ...protectedRoute, asyncHandler(appContainer.analyticsController.categories));
 
 // Category rules management
-router.get('/rules', ...protectedRoute, StatsController.listRules);
-router.post('/rules', ...protectedRoute, StatsController.createRule);
-router.delete('/rules/:id', ...protectedRoute, StatsController.deleteRule);
+router.get('/rules', ...protectedRoute, asyncHandler(appContainer.categoryRuleController.list));
+router.post('/rules', ...protectedRoute, asyncHandler(appContainer.categoryRuleController.create));
+router.delete('/rules/:id', ...protectedRoute, asyncHandler(appContainer.categoryRuleController.remove));
 
 export default router;

@@ -1,6 +1,7 @@
 import { createApp } from './app';
 import { config, validateRuntimeConfig } from './config';
 import { connectDB } from './config/database';
+import { logger } from './shared/observability/logger';
 
 async function bootstrap() {
   validateRuntimeConfig();
@@ -8,17 +9,13 @@ async function bootstrap() {
   const app = createApp();
 
   const server = app.listen(config.port, () => {
-    console.log(`🚀 bills. multi-bank API is running!`);
-    console.log(`🌐 Dashboard & API: http://localhost:${config.port}`);
-    console.log(`📡 Authenticated API: http://localhost:${config.port}/api/v1`);
-    console.log(`📊 Export Endpoint: GET http://localhost:${config.port}/api/v1/transactions/export?format=csv`);
-    console.log(`🔒 Authentication: Supabase JWT`);
+    logger.info('http_server_started', { port: config.port, apiBase: '/api/v1' });
   });
 
   const shutdown = async () => {
-    console.log('\n🛑 Gracefully shutting down...');
+    logger.info('http_server_stopping');
     server.close(() => {
-      console.log('✅ HTTP server closed.');
+      logger.info('http_server_stopped');
       process.exit(0);
     });
   };
@@ -29,7 +26,7 @@ async function bootstrap() {
 
 if (process.env.NODE_ENV !== 'test') {
   bootstrap().catch((err) => {
-    console.error('Fatal bootstrap error:', err);
+    logger.error('http_server_bootstrap_failed', { errorName: err instanceof Error ? err.name : 'UnknownError' });
     process.exit(1);
   });
 }

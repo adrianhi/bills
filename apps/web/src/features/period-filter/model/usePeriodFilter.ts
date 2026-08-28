@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { PeriodSelection } from '../ui/PeriodFilter';
+import type { PeriodSelection } from '@/entities/period';
 
 export const formatReadableMonth = (monthStr: string) => {
   if (!monthStr) return '';

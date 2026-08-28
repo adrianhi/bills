@@ -26,6 +26,17 @@ const CATEGORY_COLORS = [
   '#ef4444', // Red
 ];
 
+function CategoryTooltip({ active, payload, currency }: any) {
+  if (!active || !payload?.length) return null;
+  const item = payload[0].payload;
+  return <div className="rounded-xl border bg-popover/95 p-3 text-xs shadow-xl backdrop-blur">
+    <div className="flex items-center gap-2 font-semibold text-popover-foreground"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} /><span>{item.name}</span></div>
+    <div className="mt-1.5 flex items-baseline justify-between gap-4 text-muted-foreground"><span>Total:</span><span className="font-bold text-foreground">{formatCurrency(item.value, currency)}</span></div>
+    <div className="flex items-baseline justify-between gap-4 text-muted-foreground"><span>Transacciones:</span><span className="font-medium text-foreground">{item.count}</span></div>
+    <div className="flex items-baseline justify-between gap-4 text-muted-foreground"><span>Porcentaje:</span><span className="font-semibold text-primary">{item.percentage}%</span></div>
+  </div>;
+}
+
 export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ stats, currency }) => {
   const data = React.useMemo(() => {
     if (!stats || !stats.byCategory || stats.byCategory.length === 0) return [];
@@ -37,38 +48,6 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
       color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
     }));
   }, [stats]);
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      return (
-        <div className="rounded-xl border bg-popover/95 p-3 text-xs shadow-xl backdrop-blur">
-          <div className="flex items-center gap-2 font-semibold text-popover-foreground">
-            <span
-              className="h-3 w-3 rounded-full"
-              style={{ backgroundColor: item.color }}
-            />
-            <span>{item.name}</span>
-          </div>
-          <div className="mt-1.5 flex items-baseline justify-between gap-4 text-muted-foreground">
-            <span>Total:</span>
-            <span className="font-bold text-foreground">
-              {formatCurrency(item.value, currency)}
-            </span>
-          </div>
-          <div className="flex items-baseline justify-between gap-4 text-muted-foreground">
-            <span>Transacciones:</span>
-            <span className="font-medium text-foreground">{item.count}</span>
-          </div>
-          <div className="flex items-baseline justify-between gap-4 text-muted-foreground">
-            <span>Porcentaje:</span>
-            <span className="font-semibold text-primary">{item.percentage}%</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <Card className="border-border/60 shadow-sm flex flex-col justify-between">
@@ -103,7 +82,7 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
                       <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" />
                     ))}
                   </Pie>
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CategoryTooltip currency={currency} />} />
                 </PieChart>
               </ResponsiveContainer>
             </div>

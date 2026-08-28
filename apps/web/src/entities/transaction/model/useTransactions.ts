@@ -1,6 +1,11 @@
-import { useState, useCallback, useRef } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { TransactionFilters } from '@bills/contracts';
+import type { PeriodSelection } from '@/entities/period';
+import { downloadBlob } from '@/shared/lib';
+import { transactionService } from '../api/transaction.service';
+import { transactionKeys } from '../api/query-keys';
 import type { Transaction } from './types';
-import type { PeriodSelection } from '@/features/period-filter';
 
 interface UseTransactionsProps {
   authToken: string | null;
@@ -8,15 +13,8 @@ interface UseTransactionsProps {
   onUnauthorized?: () => void;
 }
 
-export function useTransactions({
-  authToken,
-  periodSelection,
-  onUnauthorized,
-}: UseTransactionsProps) {
-  const onUnauthorizedRef = useRef(onUnauthorized);
-  onUnauthorizedRef.current = onUnauthorized;
-
-  // Filters State
+export function useTransactions({ authToken, periodSelection }: UseTransactionsProps) {
+  const queryClient = useQueryClient();
   const [currency, setCurrency] = useState('DOP');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -24,72 +22,38 @@ export function useTransactions({
   const [organizationFilter, setOrganizationFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const limit = 20;
 
-  // Data State
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [totalTransactions, setTotalTransactions] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-
-  const { startDate, endDate, month } = periodSelection;
-
-  // Fetch Transactions
-  const fetchTransactions = useCallback(async () => {
-    if (!authToken) return;
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(limit),
-        currency,
-      });
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-      if (month && !startDate) params.append('month', month);
-      if (search) params.append('search', search);
-      if (categoryFilter) params.append('category', categoryFilter);
-      if (statusFilter) params.append('status', statusFilter);
-      if (organizationFilter) params.append('organization', organizationFilter);
-      if (typeFilter) params.append('transactionType', typeFilter);
-
-      const res = await fetch(`/api/v1/transactions?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setTransactions(json.data || []);
-        setTotalTransactions(
-          json.pagination?.totalItems ??
-          json.pagination?.total ??
-          json.summary?.totalTransactions ??
-          json.data?.length ??
-          0
-        );
-      } else if (res.status === 401 && onUnauthorizedRef.current) {
-        onUnauthorizedRef.current();
-      }
-    } catch (err) {
-      console.error('Error fetching transactions:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    authToken,
+  const filters = useMemo<TransactionFilters>(() => ({
     page,
     limit,
     currency,
-    startDate,
-    endDate,
-    month,
-    search,
-    categoryFilter,
-    statusFilter,
-    organizationFilter,
-    typeFilter,
-  ]);
+    month: periodSelection.startDate ? undefined : periodSelection.month,
+    startDate: periodSelection.startDate,
+    endDate: periodSelection.endDate,
+    search: search || undefined,
+    category: categoryFilter || undefined,
+    status: statusFilter || undefined,
+    organization: organizationFilter || undefined,
+    transactionType: typeFilter || undefined,
+  }), [page, currency, periodSelection, search, categoryFilter, statusFilter, organizationFilter, typeFilter]);
 
-  // Reset Filters
+  const query = useQuery({
+    queryKey: transactionKeys.list(filters),
+    queryFn: ({ signal }) => transactionService.list(filters, signal),
+    enabled: Boolean(authToken),
+    refetchInterval: authToken ? 30_000 : false,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: transactionService.update,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      await queryClient.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+
   const handleResetFilters = useCallback(() => {
     setSearch('');
     setCategoryFilter('');
@@ -99,84 +63,32 @@ export function useTransactions({
     setPage(1);
   }, []);
 
-  // Save edited transaction
-  const handleSaveTransaction = useCallback(
-    async (id: string, merchant: string, category: string, notes: string, onSaved?: () => void) => {
-      if (!authToken) return;
-      const res = await fetch(`/api/v1/transactions/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ merchant, category, notes }),
-      });
-      if (res.ok) {
-        if (onSaved) onSaved();
-        else void fetchTransactions();
-      }
-    },
-    [authToken, fetchTransactions]
-  );
+  const handleSaveTransaction = useCallback(async (
+    id: string,
+    merchant: string,
+    category: string,
+    notes: string,
+    onSaved?: () => void,
+  ) => {
+    await updateMutation.mutateAsync({ id, merchant, category, notes });
+    onSaved?.();
+  }, [updateMutation]);
 
-  // Export to CSV
   const handleExportCsv = useCallback(async () => {
-    if (!authToken) return;
-    const params = new URLSearchParams({
-      currency,
-      format: 'csv',
-    });
-    if (periodSelection.startDate) params.append('startDate', periodSelection.startDate);
-    if (periodSelection.endDate) params.append('endDate', periodSelection.endDate);
-    if (periodSelection.month && !periodSelection.startDate) params.append('month', periodSelection.month);
-    if (search) params.append('search', search);
-    if (categoryFilter) params.append('category', categoryFilter);
-    if (organizationFilter) params.append('organization', organizationFilter);
-    if (typeFilter) params.append('transactionType', typeFilter);
-
-    const response = await fetch(`/api/v1/transactions/export?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    if (response.status === 401 && onUnauthorized) {
-      onUnauthorized();
-      return;
-    }
-    if (!response.ok) return;
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `bills-export-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }, [authToken, currency, periodSelection, search, categoryFilter, organizationFilter, typeFilter, onUnauthorized]);
+    const blob = await transactionService.exportCsv(filters);
+    downloadBlob(blob, `bills-export-${new Date().toISOString().slice(0, 10)}.csv`);
+  }, [filters]);
 
   return {
-    currency,
-    setCurrency,
-    search,
-    setSearch,
-    categoryFilter,
-    setCategoryFilter,
-    statusFilter,
-    setStatusFilter,
-    organizationFilter,
-    setOrganizationFilter,
-    typeFilter,
-    setTypeFilter,
-    page,
-    setPage,
-    limit,
-    transactions,
-    totalTransactions,
-    loading,
-    editingTransaction,
-    setEditingTransaction,
-    fetchTransactions,
-    handleResetFilters,
-    handleSaveTransaction,
-    handleExportCsv,
+    currency, setCurrency, search, setSearch, categoryFilter, setCategoryFilter,
+    statusFilter, setStatusFilter, organizationFilter, setOrganizationFilter,
+    typeFilter, setTypeFilter, page, setPage, limit,
+    transactions: query.data?.data ?? [],
+    totalTransactions: query.data?.pagination.totalItems ?? query.data?.pagination.total ?? 0,
+    loading: query.isLoading || query.isFetching,
+    error: query.error,
+    editingTransaction, setEditingTransaction,
+    fetchTransactions: query.refetch,
+    handleResetFilters, handleSaveTransaction, handleExportCsv,
   };
 }
