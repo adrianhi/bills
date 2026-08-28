@@ -8,8 +8,8 @@ export const organizationOptions = [
 ];
 export const movementTypeOptions = [
   { id: '', label: 'Todos los Tipos' }, { id: 'recibida', label: '📥 Ingresos / Recibidas' },
-  { id: 'compra', label: '💳 Compras con Tarjeta' }, { id: 'transferencia', label: '↗️ Transf. Enviadas' },
-  { id: 'pago', label: '🧾 Pagos de Servicios' }, { id: 'retiro', label: '🏧 Retiros de Cajero' },
+  { id: 'compra', label: '💳 Compras con Tarjeta' }, { id: 'enviada', label: '↗️ Transf. Enviadas' },
+  { id: 'servicio', label: '🧾 Pagos de Servicios' }, { id: 'retiro', label: '🏧 Retiros de Cajero' },
 ];
 export const categoryOptions = [
   { id: '', label: 'Todas las Categorías', icon: ShoppingBag }, { id: 'Supermercado', label: 'Supermercado', icon: ShoppingCart },

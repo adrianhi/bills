@@ -53,6 +53,10 @@ export const config = {
   legalContactAddress: process.env.LEGAL_CONTACT_ADDRESS || '',
   legalAuditSalt: process.env.LEGAL_AUDIT_SALT || '',
   requireBetaInvite: process.env.REQUIRE_BETA_INVITE === 'true',
+  processRole: ['all', 'web', 'worker'].includes(process.env.PROCESS_ROLE || '')
+    ? (process.env.PROCESS_ROLE as 'all' | 'web' | 'worker')
+    : 'all',
+  maintenanceSecret: process.env.MAINTENANCE_SECRET || '',
 };
 
 export function validateRuntimeConfig() {

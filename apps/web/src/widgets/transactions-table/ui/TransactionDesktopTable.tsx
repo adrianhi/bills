@@ -20,6 +20,7 @@ const GroupHeader = ({ group, hideBalances }: { group: TransactionGroup; hideBal
         </div>
         {hideBalances ? <span className="text-muted-foreground">••••••</span> : (
           <div className="flex items-center gap-3">
+            <span className="font-normal text-muted-foreground">En esta página:</span>
             {group.totalExpenseDOP > 0 && <span>Gasto: -{formatCurrency(group.totalExpenseDOP, 'DOP')}</span>}
             {group.totalIncomeDOP > 0 && <span className="text-emerald-600 dark:text-emerald-400">Ingreso: +{formatCurrency(group.totalIncomeDOP, 'DOP')}</span>}
           </div>

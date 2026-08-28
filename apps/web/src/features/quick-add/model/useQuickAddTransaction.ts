@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { transactionService } from '@/entities/transaction/api/transaction.service';
 import { transactionKeys } from '@/entities/transaction/api/query-keys';
@@ -22,6 +22,7 @@ function currentLocalDateTime() {
 
 export function useQuickAddTransaction(onSuccess: () => void, onClose: () => void) {
   const queryClient = useQueryClient();
+  const externalIdRef = useRef(`manual_${crypto.randomUUID()}`);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('DOP');
   const [movementType, setMovementType] = useState('recibida');
@@ -51,6 +52,7 @@ export function useQuickAddTransaction(onSuccess: () => void, onClose: () => voi
       setAmount('');
       setMerchant('');
       setNotes('');
+      externalIdRef.current = `manual_${crypto.randomUUID()}`;
       setFieldErrors({});
       setGeneralError('');
       onSuccess();
@@ -75,9 +77,14 @@ export function useQuickAddTransaction(onSuccess: () => void, onClose: () => voi
 
   const handleTypeChange = (type: string) => {
     setMovementType(type);
-    if (type === 'recibida') setCategory('Ingresos / Transferencias');
-    else if (type === 'servicio') setCategory('Servicios');
-    else if (type === 'compra' && category === 'Ingresos / Transferencias') setCategory('Supermercado');
+    const defaultCategory: Record<string, string> = {
+      recibida: 'Ingresos / Transferencias',
+      compra: 'Supermercado',
+      enviada: 'Transferencias',
+      servicio: 'Servicios',
+      retiro: 'Servicios Financieros',
+    };
+    setCategory(defaultCategory[type] ?? 'Otros');
   };
 
   const validate = (): boolean => {
@@ -94,12 +101,12 @@ export function useQuickAddTransaction(onSuccess: () => void, onClose: () => voi
       errors.merchant = movementType === 'recibida'
         ? 'Ingresa el nombre de quien te transfirió'
         : 'Ingresa el nombre del comercio o beneficiario';
-    } else if (merchant.trim().length > 100) {
-      errors.merchant = 'El nombre no puede superar 100 caracteres';
+    } else if (merchant.trim().length > 200) {
+      errors.merchant = 'El nombre no puede superar 200 caracteres';
     }
 
-    if (notes.trim().length > 250) {
-      errors.notes = 'Las notas no pueden superar 250 caracteres';
+    if (notes.trim().length > 500) {
+      errors.notes = 'Las notas no pueden superar 500 caracteres';
     }
 
     const parsedDate = new Date(dateTime);
@@ -118,7 +125,7 @@ export function useQuickAddTransaction(onSuccess: () => void, onClose: () => voi
     const institution = FINANCIAL_INSTITUTIONS.find((item) => item.id === organization);
 
     await mutation.mutateAsync({
-      externalId: `manual_${Date.now()}_${crypto.randomUUID().slice(0, 5)}`,
+      externalId: externalIdRef.current,
       amount: parsedAmount,
       currency,
       rawMerchant: merchant.trim(),

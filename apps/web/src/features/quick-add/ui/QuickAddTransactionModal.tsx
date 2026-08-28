@@ -175,12 +175,12 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
               <label className="text-xs font-semibold text-foreground">
                 {movementType === 'recibida' ? '¿Quién te transfirió? (Emisor)' : 'Comercio o Beneficiario'}
               </label>
-              <span className="text-[10px] text-muted-foreground">{merchant.length}/100</span>
+              <span className="text-[10px] text-muted-foreground">{merchant.length}/200</span>
             </div>
             <Input
               placeholder={movementType === 'recibida' ? 'Ej: Juan Pérez / Carlos Méndez' : 'Ej: Supermercado Bravo / Netflix'}
               value={merchant}
-              maxLength={100}
+              maxLength={200}
               onChange={(e) => setMerchant(e.target.value)}
               className={`h-10 text-xs ${model.fieldErrors.merchant ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             />
@@ -225,12 +225,12 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <label className="text-xs font-semibold text-muted-foreground">Nota / Comentario (Opcional)</label>
-              <span className="text-[10px] text-muted-foreground">{notes.length}/250</span>
+              <span className="text-[10px] text-muted-foreground">{notes.length}/500</span>
             </div>
             <Input
               placeholder="Ej: Pago de almuerzo pendiente"
               value={notes}
-              maxLength={250}
+              maxLength={500}
               onChange={(e) => setNotes(e.target.value)}
               className={`h-9 text-xs ${model.fieldErrors.notes ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             />

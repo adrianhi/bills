@@ -12,13 +12,20 @@ export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAc
   const [notice, setNotice] = useState('');
   const query = useQuery({
     queryKey: ['inbox-connections'], queryFn: ({ signal }) => connectionService.listInboxConnections(signal),
-    enabled: isOpen && authenticated, refetchInterval: isOpen ? 30_000 : false,
+    enabled: isOpen && authenticated,
+    refetchInterval: (currentQuery) => {
+      if (!isOpen) return false;
+      const connections = currentQuery.state.data ?? [];
+      return connections.some((item) => item.currentJob?.status === 'PENDING' || item.currentJob?.status === 'PROCESSING')
+        ? 2_500
+        : false;
+    },
   });
   useEffect(() => {
     if (isOpen && searchParams.has('gmail')) setSearchParams({}, { replace: true });
   }, [isOpen, searchParams, setSearchParams]);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['inbox-connections'] });
-  const google = useMutation({ mutationFn: () => connectionService.startGoogle('/?settings=connections'), onSuccess: ({ authorizationUrl }) => window.location.assign(authorizationUrl) });
+  const google = useMutation({ mutationFn: () => connectionService.startGoogle('/app/mas?settings=connections'), onSuccess: ({ authorizationUrl }) => window.location.assign(authorizationUrl) });
   const syncMutation = useMutation({ mutationFn: connectionService.sync, onSuccess: async () => { setNotice('Sincronización en cola; continuará en segundo plano.'); await refresh(); } });
   const disconnectMutation = useMutation({ mutationFn: connectionService.disconnect, onSuccess: refresh });
   const exportMutation = useMutation({ mutationFn: accountService.exportData, onSuccess: (blob) => downloadBlob(blob, `bills-account-export-${new Date().toISOString().slice(0, 10)}.json`) });

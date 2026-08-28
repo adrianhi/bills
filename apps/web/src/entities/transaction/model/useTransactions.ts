@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TransactionFilters } from '@bills/contracts';
 import type { PeriodSelection } from '@/entities/period';
@@ -11,12 +11,14 @@ interface UseTransactionsProps {
   authToken: string | null;
   periodSelection: PeriodSelection;
   onUnauthorized?: () => void;
+  enabled?: boolean;
 }
 
-export function useTransactions({ authToken, periodSelection }: UseTransactionsProps) {
+export function useTransactions({ authToken, periodSelection, enabled = true }: UseTransactionsProps) {
   const queryClient = useQueryClient();
   const [currency, setCurrency] = useState('DOP');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [organizationFilter, setOrganizationFilter] = useState('');
@@ -25,6 +27,11 @@ export function useTransactions({ authToken, periodSelection }: UseTransactionsP
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const limit = 20;
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
   const filters = useMemo<TransactionFilters>(() => ({
     page,
     limit,
@@ -32,18 +39,18 @@ export function useTransactions({ authToken, periodSelection }: UseTransactionsP
     month: periodSelection.startDate ? undefined : periodSelection.month,
     startDate: periodSelection.startDate,
     endDate: periodSelection.endDate,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     category: categoryFilter || undefined,
     status: statusFilter || undefined,
     organization: organizationFilter || undefined,
     transactionType: typeFilter || undefined,
-  }), [page, currency, periodSelection, search, categoryFilter, statusFilter, organizationFilter, typeFilter]);
+  }), [page, currency, periodSelection, debouncedSearch, categoryFilter, statusFilter, organizationFilter, typeFilter]);
 
   const query = useQuery({
     queryKey: transactionKeys.list(filters),
     queryFn: ({ signal }) => transactionService.list(filters, signal),
-    enabled: Boolean(authToken),
-    refetchInterval: authToken ? 30_000 : false,
+    enabled: Boolean(authToken) && enabled,
+    placeholderData: (previous) => previous,
   });
 
   const updateMutation = useMutation({
@@ -85,7 +92,8 @@ export function useTransactions({ authToken, periodSelection }: UseTransactionsP
     typeFilter, setTypeFilter, page, setPage, limit,
     transactions: query.data?.data ?? [],
     totalTransactions: query.data?.pagination.totalItems ?? query.data?.pagination.total ?? 0,
-    loading: query.isLoading || query.isFetching,
+    loading: query.isLoading,
+    refreshing: query.isFetching && !query.isLoading,
     error: query.error,
     editingTransaction, setEditingTransaction,
     fetchTransactions: query.refetch,

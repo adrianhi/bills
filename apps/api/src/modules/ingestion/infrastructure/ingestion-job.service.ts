@@ -53,7 +53,7 @@ export class IngestionJobService {
       workspaceId,
       inboxConnectionId,
       type: 'GMAIL_INITIAL_BACKFILL',
-      dedupeKey: `gmail-initial:${inboxConnectionId}`,
+      dedupeKey: `gmail-initial:${inboxConnectionId}:${crypto.randomUUID()}`,
     });
   }
 
@@ -173,7 +173,17 @@ export class IngestionJobService {
     });
     if (!candidate) return false;
 
-    if (candidate.attempts >= candidate.maxAttempts) return false;
+    if (candidate.attempts >= candidate.maxAttempts) {
+      await prisma.ingestionJob.update({
+        where: { id: candidate.id },
+        data: {
+          status: 'FAILED',
+          leaseUntil: null,
+          nextAttemptAt: new Date('9999-12-31T23:59:59.999Z'),
+        },
+      });
+      return true;
+    }
     const claimed = await prisma.ingestionJob.updateMany({
       where: {
         id: candidate.id,
@@ -184,13 +194,21 @@ export class IngestionJobService {
       data: {
         status: 'PROCESSING',
         attempts: { increment: 1 },
-        leaseUntil: new Date(now.getTime() + 15 * 60_000),
+        leaseUntil: new Date(now.getTime() + 60_000),
         startedAt: now,
         errorCode: null,
         errorMessage: null,
       },
     });
     if (claimed.count !== 1) return true;
+
+    const heartbeat = setInterval(() => {
+      void prisma.ingestionJob.updateMany({
+        where: { id: candidate.id, status: 'PROCESSING' },
+        data: { leaseUntil: new Date(Date.now() + 60_000) },
+      }).catch(() => undefined);
+    }, 15_000);
+    heartbeat.unref();
 
     try {
       let result: unknown;
@@ -250,6 +268,8 @@ export class IngestionJobService {
         where: { id: candidate.inboxConnectionId },
         data: { lastErrorCode: errorCode(error) },
       });
+    } finally {
+      clearInterval(heartbeat);
     }
     return true;
   }

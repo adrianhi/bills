@@ -35,6 +35,9 @@ interface TransactionTableProps {
   onEdit: (transaction: Transaction) => void;
   onExport?: () => void;
   loading: boolean;
+  refreshing?: boolean;
+  error?: Error | null;
+  onRetry?: () => void;
   hideBalances?: boolean;
 }
 
@@ -52,7 +55,7 @@ export const TransactionTable = ({
   transactions, total, page, setPage, limit, search, setSearch, categoryFilter,
   setCategoryFilter, statusFilter, setStatusFilter, organizationFilter,
   setOrganizationFilter, typeFilter, setTypeFilter, onResetFilters, onEdit,
-  onExport, loading, hideBalances = false,
+  onExport, loading, refreshing = false, error, onRetry, hideBalances = false,
 }: TransactionTableProps) => {
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const totalPages = Math.ceil(total / limit) || 1;
@@ -72,7 +75,12 @@ export const TransactionTable = ({
   };
 
   return (
-    <Card className="overflow-hidden border-border/60 shadow-sm">
+    <Card className="relative overflow-hidden border-border/60 shadow-sm">
+      {refreshing && (
+        <div className="absolute inset-x-0 top-0 z-20 h-0.5 overflow-hidden bg-primary/15" aria-label="Actualizando movimientos">
+          <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+        </div>
+      )}
       <TransactionTableHeader total={total} filters={filters} onFilterChange={updateFilter} onReset={onResetFilters} onOpenFilters={() => setIsFilterDrawerOpen(true)} />
       <FilterDrawer
         isOpen={isFilterDrawerOpen}
@@ -90,7 +98,8 @@ export const TransactionTable = ({
         onExport={onExport}
       />
       <CardContent className="p-0">
-        {loading ? <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">Cargando transacciones...</div>
+        {loading ? <div className="space-y-3 p-4" aria-label="Cargando movimientos">{Array.from({ length: 5 }, (_, index) => <div key={index} className="h-16 animate-pulse rounded-xl bg-muted" />)}</div>
+          : error && transactions.length === 0 ? <div className="flex h-64 flex-col items-center justify-center gap-3 p-6 text-center"><p className="text-sm font-semibold">No pudimos cargar tus movimientos</p><p className="max-w-sm text-xs text-muted-foreground">Tus datos siguen seguros. Revisa tu conexión e inténtalo otra vez.</p>{onRetry && <button type="button" onClick={onRetry} className="min-h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Reintentar</button>}</div>
           : filteredTransactions.length === 0 ? <div className="flex h-64 flex-col items-center justify-center p-6 text-center text-muted-foreground"><Layers className="mb-2 h-10 w-10 opacity-30" /><p className="text-sm font-semibold">No se encontraron transacciones</p><p className="mt-1 text-xs">Prueba cambiando el mes o los filtros de búsqueda.</p></div>
             : <><TransactionMobileList groups={groups} hideBalances={hideBalances} onEdit={onEdit} /><TransactionDesktopTable groups={groups} hideBalances={hideBalances} onEdit={onEdit} /></>}
       </CardContent>

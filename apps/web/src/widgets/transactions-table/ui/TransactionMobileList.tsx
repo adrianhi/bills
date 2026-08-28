@@ -22,7 +22,7 @@ export const TransactionMobileList = ({ groups, hideBalances, onEdit }: {
             <span className="text-[11px] font-medium text-muted-foreground">• {group.subtitle}</span>
           </div>
           {hideBalances ? <span className="text-xs font-bold text-muted-foreground">••••••</span> : (
-            <div className="flex items-center gap-1.5 text-xs font-bold">
+            <div className="flex items-center gap-1.5 text-xs font-bold" title="Subtotal de los movimientos cargados en esta página">
               {group.totalExpenseDOP > 0 && <span>-{formatCurrency(group.totalExpenseDOP, 'DOP')}</span>}
               {group.totalIncomeDOP > 0 && <span className="text-emerald-600 dark:text-emerald-400">+{formatCurrency(group.totalIncomeDOP, 'DOP')}</span>}
               {group.totalExpenseDOP === 0 && group.totalIncomeDOP === 0 && group.totalExpenseUSD > 0 && <span>-${group.totalExpenseUSD.toFixed(2)}</span>}

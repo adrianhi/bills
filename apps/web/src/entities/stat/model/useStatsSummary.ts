@@ -9,9 +9,10 @@ interface UseStatsSummaryProps {
   periodSelection: PeriodSelection;
   organizationFilter?: string;
   onUnauthorized?: () => void;
+  enabled?: boolean;
 }
 
-export function useStatsSummary({ authToken, currency, periodSelection, organizationFilter }: UseStatsSummaryProps) {
+export function useStatsSummary({ authToken, currency, periodSelection, organizationFilter, enabled = true }: UseStatsSummaryProps) {
   const filters = useMemo<StatsFilters>(() => ({
     currency,
     month: periodSelection.startDate ? undefined : periodSelection.month,
@@ -23,13 +24,14 @@ export function useStatsSummary({ authToken, currency, periodSelection, organiza
   const query = useQuery({
     queryKey: ['stats', 'summary', filters],
     queryFn: ({ signal }) => statsService.summary(filters, signal),
-    enabled: Boolean(authToken),
-    refetchInterval: authToken ? 30_000 : false,
+    enabled: Boolean(authToken) && enabled,
+    placeholderData: (previous) => previous,
   });
 
   return {
     stats: query.data ?? null,
-    loadingStats: query.isLoading || query.isFetching,
+    loadingStats: query.isLoading,
+    refreshingStats: query.isFetching && !query.isLoading,
     fetchStats: query.refetch,
     error: query.error,
   };

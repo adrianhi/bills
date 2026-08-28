@@ -337,6 +337,7 @@ model IngestionEvent {
   rawContent          String?              @map("raw_content") @db.Text
   rawContentExpiresAt DateTime?            @map("raw_content_expires_at")
   nextAttemptAt       DateTime?            @map("next_attempt_at")
+  leaseUntil          DateTime?            @map("lease_until")
   processedAt         DateTime?            @map("processed_at")
   workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   bankConnection      BankConnection?      @relation(fields: [bankConnectionId], references: [id], onDelete: SetNull)
@@ -344,7 +345,7 @@ model IngestionEvent {
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
 
-  @@index([status, nextAttemptAt])
+  @@index([status, nextAttemptAt, leaseUntil])
   @@index([workspaceId, createdAt])
   @@index([inboxConnectionId, createdAt])
   @@map("ingestion_events")

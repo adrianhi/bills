@@ -1,53 +1,25 @@
 import { createApp } from './app';
 import { config, validateRuntimeConfig } from './config';
 import { connectDB, disconnectDB } from './config/database';
-import { IngestionWorker } from './ingestion/ingestion-worker';
-import { IngestionJobService } from './services/ingestion-job.service';
+import { ingestionRunner } from './ingestion/ingestion-runner';
 import { logger } from './shared/observability/logger';
 
 async function bootstrap() {
   validateRuntimeConfig();
   await connectDB();
   const app = createApp();
-
   const server = app.listen(config.port, () => {
-    logger.info('http_server_started', { port: config.port, apiBase: '/api/v1' });
+    logger.info('http_server_started', { port: config.port, apiBase: '/api/v1', processRole: config.processRole });
   });
 
-  const worker = new IngestionWorker();
-  let workerRunning = true;
-  let nextScheduleAt = 0;
-  let nextPurgeAt = 0;
+  if (config.processRole === 'all' || config.processRole === 'worker') ingestionRunner.start();
 
-  const runWorkerLoop = async () => {
-    while (workerRunning) {
-      try {
-        const now = Date.now();
-        if (now >= nextScheduleAt) {
-          await IngestionJobService.scheduleDue();
-          nextScheduleAt = now + 60_000;
-        }
-        const processedGmail = await IngestionJobService.processNext();
-        const processedResend = await worker.processNext();
-        if (!processedGmail && !processedResend) {
-          await new Promise((resolve) => setTimeout(resolve, 3_000));
-        }
-        if (now >= nextPurgeAt) {
-          await worker.purgeExpiredRawContent();
-          nextPurgeAt = now + 60 * 60_000;
-        }
-      } catch (err) {
-        logger.error('embedded_worker_cycle_failed', { errorName: err instanceof Error ? err.name : 'UnknownError' });
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
-      }
-    }
-  };
-
-  void runWorkerLoop();
-
+  let shuttingDown = false;
   const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     logger.info('http_server_stopping');
-    workerRunning = false;
+    await ingestionRunner.stop();
     server.close(async () => {
       await disconnectDB();
       logger.info('http_server_stopped');
@@ -55,8 +27,8 @@ async function bootstrap() {
     });
   };
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', () => void shutdown());
+  process.on('SIGTERM', () => void shutdown());
 }
 
 if (process.env.NODE_ENV !== 'test') {

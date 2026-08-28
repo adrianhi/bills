@@ -99,24 +99,30 @@ export function AccountSettingsModal({
                   )}
                 </div>
                 <div className="mt-3 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1"
-                    disabled={Boolean(busy)}
-                    onClick={() => void sync(connection.id)}
-                  >
-                    {busy === `sync:${connection.id}` ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-3 w-3" />
-                    )}{" "}
-                    Sincronizar
-                  </Button>
+                  {connection.status === 'ACTIVE' ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="min-h-11 gap-1"
+                      disabled={Boolean(busy) || connection.currentJob?.status === 'PENDING' || connection.currentJob?.status === 'PROCESSING'}
+                      onClick={() => void sync(connection.id)}
+                    >
+                      {busy === `sync:${connection.id}` || connection.currentJob?.status === 'PENDING' || connection.currentJob?.status === 'PROCESSING' ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3" />
+                      )}{" "}
+                      {connection.currentJob?.status === 'PENDING' || connection.currentJob?.status === 'PROCESSING' ? 'Sincronizando…' : 'Sincronizar'}
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="min-h-11 gap-1" disabled={Boolean(busy)} onClick={startGoogle}>
+                      {busy === 'google' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />} Reconectar Gmail
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="gap-1 text-muted-foreground"
+                    className="min-h-11 gap-1 text-muted-foreground"
                     disabled={Boolean(busy)}
                     onClick={() => void disconnect(connection.id)}
                   >

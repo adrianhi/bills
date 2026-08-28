@@ -54,14 +54,13 @@ La recuperación contra Gmail/Supabase real quedó verificada con movimientos BH
 
 La ruta SaaS es `Gmail API → API/cola PostgreSQL → ParserRegistry → adaptador bancario → PostgreSQL`. n8n no participa. Resend conserva su worker independiente como alternativa de reenvío.
 
-API y worker deben ejecutarse como dos procesos del mismo release:
+En Render gratuito, API y runner se ejecutan en un único proceso del mismo release:
 
 ```powershell
 npm run start
-npm run worker --prefix apps/api
 ```
 
-El worker agenda reconciliaciones, renueva `users.watch`, procesa notificaciones y reintenta fallos. En desarrollo funciona sin URL pública mediante la reconciliación; Pub/Sub requiere HTTPS accesible.
+`PROCESS_ROLE=all` es el modo predeterminado. El runner agenda reconciliaciones, renueva `users.watch`, procesa Gmail y Resend en vías paralelas y reintenta fallos con leases. Un cron autenticado puede llamar cada diez minutos a `POST /api/v1/internal/maintenance/tick` para despertar el servicio y avanzar trabajo. Si luego hay presupuesto para procesos separados, `PROCESS_ROLE=web|worker` conserva esa opción. En desarrollo funciona sin URL pública mediante la reconciliación; Pub/Sub requiere HTTPS accesible.
 
 Después de desplegar `20260827010000_gmail_reliability`:
 
