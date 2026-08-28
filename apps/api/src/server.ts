@@ -1,6 +1,8 @@
 import { createApp } from './app';
 import { config, validateRuntimeConfig } from './config';
-import { connectDB } from './config/database';
+import { connectDB, disconnectDB } from './config/database';
+import { IngestionWorker } from './ingestion/ingestion-worker';
+import { IngestionJobService } from './services/ingestion-job.service';
 import { logger } from './shared/observability/logger';
 
 async function bootstrap() {
@@ -12,9 +14,42 @@ async function bootstrap() {
     logger.info('http_server_started', { port: config.port, apiBase: '/api/v1' });
   });
 
+  const worker = new IngestionWorker();
+  let workerRunning = true;
+  let nextScheduleAt = 0;
+  let nextPurgeAt = 0;
+
+  const runWorkerLoop = async () => {
+    while (workerRunning) {
+      try {
+        const now = Date.now();
+        if (now >= nextScheduleAt) {
+          await IngestionJobService.scheduleDue();
+          nextScheduleAt = now + 60_000;
+        }
+        const processedGmail = await IngestionJobService.processNext();
+        const processedResend = await worker.processNext();
+        if (!processedGmail && !processedResend) {
+          await new Promise((resolve) => setTimeout(resolve, 3_000));
+        }
+        if (now >= nextPurgeAt) {
+          await worker.purgeExpiredRawContent();
+          nextPurgeAt = now + 60 * 60_000;
+        }
+      } catch (err) {
+        logger.error('embedded_worker_cycle_failed', { errorName: err instanceof Error ? err.name : 'UnknownError' });
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+      }
+    }
+  };
+
+  void runWorkerLoop();
+
   const shutdown = async () => {
     logger.info('http_server_stopping');
-    server.close(() => {
+    workerRunning = false;
+    server.close(async () => {
+      await disconnectDB();
       logger.info('http_server_stopped');
       process.exit(0);
     });
