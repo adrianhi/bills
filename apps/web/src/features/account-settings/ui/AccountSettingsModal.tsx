@@ -203,7 +203,7 @@ export function AccountSettingsModal({
           <Button
             variant="destructive"
             className="w-full gap-2"
-            disabled={confirmation !== "ELIMINAR" || busy === "delete"}
+            disabled={confirmation.trim().toUpperCase() !== "ELIMINAR" || busy === "delete"}
             onClick={deleteAccount}
           >
             {busy === "delete" ? (

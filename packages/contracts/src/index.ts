@@ -119,4 +119,51 @@ export const categoryRuleSchema = z.object({
 });
 export type CategoryRuleDto = z.infer<typeof categoryRuleSchema>;
 
+export const createTransactionInputSchema = z.object({
+  externalId: z.string().trim().min(1, 'El identificador externo es requerido').max(200),
+  cardLast4: z.string().trim().max(10).optional().nullable(),
+  cardType: z.string().trim().max(100).optional().nullable(),
+  rawMerchant: z.string().trim().min(1, 'El nombre del comercio o emisor es requerido').max(200),
+  merchant: z.string().trim().max(200).optional().nullable(),
+  category: z.string().trim().max(100).optional().nullable(),
+  amount: z.coerce.number({ invalid_type_error: 'El monto debe ser numérico' })
+    .positive('El monto debe ser mayor a 0')
+    .max(100_000_000, 'El monto excede el límite permitido'),
+  currency: z.string().trim().min(3).max(3).default('DOP').transform((val) => val.toUpperCase()),
+  status: z.string().trim().default('Aprobada'),
+  statusCode: transactionStatusSchema.optional(),
+  bankReference: z.string().trim().max(180).optional().nullable(),
+  transactionType: z.string().trim().default('Compra'),
+  transactionDate: z.coerce.date({ invalid_type_error: 'Fecha de transacción inválida' }),
+  source: z.string().trim().default('MANUAL'),
+  institutionCode: z.string().trim().min(2).max(32).optional().transform((val) => val?.toUpperCase()),
+  ingestionChannel: z.enum(['EMAIL_FORWARD', 'MANUAL', 'CSV_IMPORT', 'GMAIL_OAUTH']).default('MANUAL'),
+  notes: z.string().trim().max(500, 'Las notas no pueden superar 500 caracteres').optional().nullable(),
+});
+export type CreateTransactionInput = z.infer<typeof createTransactionInputSchema>;
+
+export const batchCreateTransactionsInputSchema = z.object({
+  transactions: z.array(createTransactionInputSchema).min(1, 'Al menos una transacción es requerida'),
+});
+export type BatchCreateTransactionsInput = z.infer<typeof batchCreateTransactionsInputSchema>;
+
+export const updateTransactionInputSchema = z.object({
+  merchant: z.string().trim().min(1, 'El comercio no puede estar vacío').max(200).optional(),
+  category: z.string().trim().min(1, 'La categoría no puede estar vacía').max(100).optional(),
+  notes: z.string().trim().max(500, 'Las notas no pueden superar 500 caracteres').optional().nullable(),
+  status: z.string().trim().max(50).optional(),
+  statusCode: transactionStatusSchema.optional(),
+});
+export type UpdateTransactionInput = z.infer<typeof updateTransactionInputSchema>;
+
+export const createCategoryRuleInputSchema = z.object({
+  pattern: z.string().trim().min(2, 'El patrón debe tener al menos 2 caracteres').max(60, 'El patrón no puede superar 60 caracteres').transform((val) => val.toUpperCase()),
+  normalizedMerchant: z.string().trim().min(1, 'El nombre limpio es requerido').max(60, 'El nombre limpio no puede superar 60 caracteres'),
+  category: z.string().trim().min(1, 'La categoría es requerida').max(60, 'La categoría no puede superar 60 caracteres'),
+  priority: z.number().int().min(0).max(1000).default(0),
+  isActive: z.boolean().default(true),
+});
+export type CreateCategoryRuleInput = z.infer<typeof createCategoryRuleInputSchema>;
+
 export const successResponseSchema = z.object({ success: z.literal(true) }).passthrough();
+
