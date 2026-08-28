@@ -18,6 +18,7 @@ import {
   Input 
 } from '@/shared/ui';
 import { COMMON_CATEGORIES, FINANCIAL_INSTITUTIONS } from '@/shared/config/financial-options';
+import { formatCurrency } from '@/shared/lib';
 import { useQuickAddTransaction } from '../model/useQuickAddTransaction';
 
 interface QuickAddTransactionModalProps {
@@ -100,7 +101,14 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
 
           {/* 2. Monto & Moneda (Large Mobile Input) */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground">Monto</label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold text-foreground">Monto</label>
+              {amount && !Number.isNaN(Number(amount)) && Number(amount) > 0 && (
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(Number(amount), currency)}
+                </span>
+              )}
+            </div>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <span className="absolute left-3 top-2.5 text-sm font-bold text-muted-foreground">
@@ -113,8 +121,7 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="pl-11 h-11 text-base font-bold"
-                  required
+                  className={`pl-11 h-11 text-base font-bold ${model.fieldErrors.amount ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                   autoFocus
                 />
               </div>
@@ -141,6 +148,9 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
                 </button>
               </div>
             </div>
+            {model.fieldErrors.amount && (
+              <p className="text-[11px] font-medium text-destructive">{model.fieldErrors.amount}</p>
+            )}
           </div>
 
           {/* 3. Entidad / Banco */}
@@ -161,16 +171,22 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
 
           {/* 4. Emisor o Comercio */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground">
-              {movementType === 'recibida' ? '¿Quién te transfirió? (Emisor)' : 'Comercio o Beneficiario'}
-            </label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold text-foreground">
+                {movementType === 'recibida' ? '¿Quién te transfirió? (Emisor)' : 'Comercio o Beneficiario'}
+              </label>
+              <span className="text-[10px] text-muted-foreground">{merchant.length}/200</span>
+            </div>
             <Input
               placeholder={movementType === 'recibida' ? 'Ej: Juan Pérez / Carlos Méndez' : 'Ej: Supermercado Bravo / Netflix'}
               value={merchant}
+              maxLength={200}
               onChange={(e) => setMerchant(e.target.value)}
-              className="h-10 text-xs"
-              required
+              className={`h-10 text-xs ${model.fieldErrors.merchant ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             />
+            {model.fieldErrors.merchant && (
+              <p className="text-[11px] font-medium text-destructive">{model.fieldErrors.merchant}</p>
+            )}
           </div>
 
           {/* 5. Categoría */}
@@ -196,19 +212,31 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
               type="datetime-local"
               value={dateTime}
               onChange={(e) => setDateTime(e.target.value)}
-              className="w-full h-10 px-3 rounded-xl border border-input bg-background text-foreground text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer"
+              className={`w-full h-10 px-3 rounded-xl border border-input bg-background text-foreground text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer ${
+                model.fieldErrors.dateTime ? 'border-destructive focus:ring-destructive' : ''
+              }`}
             />
+            {model.fieldErrors.dateTime && (
+              <p className="text-[11px] font-medium text-destructive">{model.fieldErrors.dateTime}</p>
+            )}
           </div>
 
           {/* 7. Nota Opcional */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground">Nota / Comentario (Opcional)</label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold text-muted-foreground">Nota / Comentario (Opcional)</label>
+              <span className="text-[10px] text-muted-foreground">{notes.length}/500</span>
+            </div>
             <Input
               placeholder="Ej: Pago de almuerzo pendiente"
               value={notes}
+              maxLength={500}
               onChange={(e) => setNotes(e.target.value)}
-              className="h-9 text-xs"
+              className={`h-9 text-xs ${model.fieldErrors.notes ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             />
+            {model.fieldErrors.notes && (
+              <p className="text-[11px] font-medium text-destructive">{model.fieldErrors.notes}</p>
+            )}
           </div>
 
           <DialogFooter className="pt-2 gap-2">

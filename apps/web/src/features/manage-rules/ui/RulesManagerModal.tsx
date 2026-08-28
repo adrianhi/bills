@@ -49,26 +49,38 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
 
         {/* Add New Rule Form */}
         <form onSubmit={handleCreateRule} className="rounded-xl border bg-muted/40 p-3.5 space-y-3">
-          <span className="text-xs font-bold text-foreground">Crear Nueva Regla</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-foreground">Crear Nueva Regla</span>
+            {pattern && (
+              <span className="text-[10px] text-muted-foreground font-mono">
+                Patrón: {pattern.toUpperCase()}
+              </span>
+            )}
+          </div>
+          {model.error && (
+            <div className="p-2 rounded-lg bg-destructive/10 text-destructive text-xs font-semibold">
+              {model.error}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Input
               placeholder="Patrón (ej: PEDIDOSYA)"
               value={pattern}
+              maxLength={60}
               onChange={(e) => setPattern(e.target.value)}
-              className="text-xs h-8"
-              required
+              className="text-xs h-8 uppercase font-mono"
             />
             <Input
               placeholder="Nombre Limpio (ej: PedidosYa)"
               value={normalizedMerchant}
+              maxLength={60}
               onChange={(e) => setNormalizedMerchant(e.target.value)}
               className="text-xs h-8"
-              required
             />
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs cursor-pointer"
             >
               {COMMON_CATEGORIES.map((c) => (
                 <option key={c} value={c}>

@@ -21,7 +21,7 @@ export const PeriodFilter = ({ currentSelection, onApply }: PeriodFilterProps) =
   const model = usePeriodFilterDialog(onApply);
   return (
     <>
-      <button type="button" onClick={() => model.setIsOpen(true)} className="flex max-w-full cursor-pointer select-none items-center gap-2 truncate rounded-xl border border-border/80 bg-card/80 px-3 py-1.5 text-xs font-semibold shadow-sm transition-all hover:bg-accent/40 active:scale-95" title="Cambiar fecha o lapso de tiempo">
+      <button type="button" onClick={() => model.setIsOpen(true)} className="flex min-h-11 max-w-full cursor-pointer select-none items-center gap-2 truncate rounded-xl border border-border/80 bg-card/80 px-3 py-1.5 text-xs font-semibold shadow-sm transition-all hover:bg-accent/40 active:scale-95" title="Cambiar fecha o lapso de tiempo">
         <Calendar className="h-4 w-4 flex-shrink-0 text-emerald-500" /><span className="truncate">{currentSelection.label || 'Seleccionar Período'}</span><ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
       </button>
       <Dialog open={model.isOpen} onOpenChange={model.setIsOpen}>

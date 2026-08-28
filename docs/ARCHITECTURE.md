@@ -37,8 +37,10 @@ React UI → feature hook/action → entity service → Axios → API controller
 
 ```text
 Gmail Push / Resend → verified provider adapter → durable event/job
-  → worker → parser registry → transaction application → PostgreSQL
+  → IngestionRunner → parser registry → transaction application → PostgreSQL
 ```
+
+`IngestionRunner` procesa las vías Gmail y Resend en paralelo y usa leases en PostgreSQL. En Render corre dentro del único proceso web (`PROCESS_ROLE=all`); Docker puede separar API y worker mediante `PROCESS_ROLE=web|worker` sin duplicar consumidores. Un cron externo puede despertar y avanzar la cola llamando con Bearer token a `POST /api/v1/internal/maintenance/tick`.
 
 Solo `APPROVED` contribuye a gasto, ingreso, ticket promedio, subtotales y gráficas. `REVERSED`, `DECLINED` y `PENDING` permanecen visibles y auditables.
 

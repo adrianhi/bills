@@ -1,37 +1,15 @@
 import { z } from 'zod';
-import { transactionStatusSchema } from '@bills/contracts';
+import {
+  createTransactionInputSchema,
+  batchCreateTransactionsInputSchema,
+  updateTransactionInputSchema,
+  createCategoryRuleInputSchema,
+  transactionStatusSchema,
+} from '@bills/contracts';
 
-export const CreateTransactionSchema = z.object({
-  externalId: z.string().min(1, 'externalId is required'),
-  cardLast4: z.string().max(10).optional().nullable(),
-  cardType: z.string().max(100).optional().nullable(),
-  rawMerchant: z.string().min(1, 'rawMerchant is required'),
-  merchant: z.string().optional().nullable(),
-  category: z.string().optional().nullable(),
-  amount: z.coerce.number().positive('amount must be a positive number'),
-  currency: z.string().default('DOP').transform((val) => val.toUpperCase()),
-  status: z.string().default('Aprobada'),
-  statusCode: transactionStatusSchema.optional(),
-  bankReference: z.string().max(180).optional().nullable(),
-  transactionType: z.string().default('Compra'),
-  transactionDate: z.coerce.date(),
-  source: z.string().default('BHD_EMAIL'),
-  institutionCode: z.string().min(2).max(32).optional().transform((val) => val?.toUpperCase()),
-  ingestionChannel: z.enum(['EMAIL_FORWARD', 'MANUAL', 'CSV_IMPORT', 'GMAIL_OAUTH']).optional(),
-  notes: z.string().optional().nullable(),
-});
-
-export const BatchCreateTransactionsSchema = z.object({
-  transactions: z.array(CreateTransactionSchema).min(1, 'At least one transaction required'),
-});
-
-export const UpdateTransactionSchema = z.object({
-  merchant: z.string().min(1).optional(),
-  category: z.string().min(1).optional(),
-  notes: z.string().optional().nullable(),
-  status: z.string().optional(),
-  statusCode: transactionStatusSchema.optional(),
-});
+export const CreateTransactionSchema = createTransactionInputSchema;
+export const BatchCreateTransactionsSchema = batchCreateTransactionsInputSchema;
+export const UpdateTransactionSchema = updateTransactionInputSchema;
 
 export const TransactionQuerySchema = z.object({
   month: z
@@ -73,13 +51,7 @@ export const ExportQuerySchema = z.object({
   search: z.string().optional(),
 });
 
-export const CreateCategoryRuleSchema = z.object({
-  pattern: z.string().min(1, 'Pattern is required'),
-  normalizedMerchant: z.string().min(1, 'Normalized merchant name is required'),
-  category: z.string().min(1, 'Category is required'),
-  priority: z.number().int().default(0),
-  isActive: z.boolean().default(true),
-});
+export const CreateCategoryRuleSchema = createCategoryRuleInputSchema;
 
 export type CreateTransactionInput = z.infer<typeof CreateTransactionSchema>;
 export type BatchCreateTransactionsInput = z.infer<typeof BatchCreateTransactionsSchema>;

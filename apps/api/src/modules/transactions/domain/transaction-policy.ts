@@ -39,14 +39,20 @@ export function resolveInstitutionCode(explicit?: string, source?: string): stri
 
 export interface DateRange { gte?: Date; lte?: Date }
 
+const santoDomingoBoundary = (date: string, endOfDay = false) =>
+  new Date(`${date}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}-04:00`);
+
 export function resolveDateRange(month?: string, startDate?: string, endDate?: string): DateRange {
   if (startDate || endDate) return {
-    ...(startDate ? { gte: new Date(startDate.length === 10 ? `${startDate}T00:00:00.000Z` : startDate) } : {}),
-    ...(endDate ? { lte: new Date(endDate.length === 10 ? `${endDate}T23:59:59.999Z` : endDate) } : {}),
+    ...(startDate ? { gte: startDate.length === 10 ? santoDomingoBoundary(startDate) : new Date(startDate) } : {}),
+    ...(endDate ? { lte: endDate.length === 10 ? santoDomingoBoundary(endDate, true) : new Date(endDate) } : {}),
   };
   if (month && /^\d{4}-\d{2}$/.test(month)) {
     const [year, value] = month.split('-').map(Number);
-    return { gte: new Date(Date.UTC(year, value - 1, 1)), lte: new Date(Date.UTC(year, value, 0, 23, 59, 59, 999)) };
+    const start = `${year}-${String(value).padStart(2, '0')}-01`;
+    const nextMonth = new Date(Date.UTC(year, value, 1));
+    const next = `${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth() + 1).padStart(2, '0')}-01`;
+    return { gte: santoDomingoBoundary(start), lte: new Date(santoDomingoBoundary(next).getTime() - 1) };
   }
   return {};
 }

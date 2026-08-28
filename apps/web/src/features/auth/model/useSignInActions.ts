@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { authService } from '../api/auth.service';
+import { isValidEmail } from '@/shared/lib';
 
 export function useSignInActions() {
   const [loading, setLoading] = useState<'google' | 'email' | null>(null);
@@ -26,6 +27,13 @@ export function useSignInActions() {
     error,
     message,
     signInWithGoogle: () => execute('google', () => authService.signInWithGoogle(callbackUrl)),
-    sendMagicLink: (email: string) => execute('email', () => authService.sendMagicLink(email, callbackUrl)),
+    sendMagicLink: (email: string) => {
+      const cleanEmail = email.trim().toLowerCase();
+      if (!isValidEmail(cleanEmail)) {
+        setError('Ingresa un correo electrónico válido (ejemplo: usuario@dominio.com)');
+        return Promise.resolve();
+      }
+      return execute('email', () => authService.sendMagicLink(cleanEmail, callbackUrl));
+    },
   };
 }

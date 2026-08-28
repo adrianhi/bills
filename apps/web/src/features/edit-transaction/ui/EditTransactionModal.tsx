@@ -45,20 +45,38 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [merchant, setMerchant] = useState(() => transaction?.merchant || transaction?.rawMerchant || '');
   const [category, setCategory] = useState(() => transaction?.category || 'Otros');
   const [notes, setNotes] = useState(() => transaction?.notes || '');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState('');
   const [saving, setSaving] = useState(false);
 
   if (!transaction) return null;
 
   const orgMeta = getOrganizationMeta(transaction.source, transaction.merchant);
 
+  const validate = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!merchant.trim()) {
+      errors.merchant = 'El nombre del comercio es requerido';
+    } else if (merchant.trim().length > 100) {
+      errors.merchant = 'El nombre no puede superar 100 caracteres';
+    }
+    if (notes.trim().length > 250) {
+      errors.notes = 'Las notas no pueden superar 250 caracteres';
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) return;
+    setGeneralError('');
     setSaving(true);
     try {
-      await onSave(transaction.id, merchant, category, notes);
+      await onSave(transaction.id, merchant.trim(), category, notes.trim());
       onClose();
     } catch (err) {
-      console.error(err);
+      setGeneralError(err instanceof Error ? err.message : 'Error al actualizar la transacción');
     } finally {
       setSaving(false);
     }
@@ -72,7 +90,12 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         </DialogHeader>
 
         <form onSubmit={handleSave} className="space-y-4 py-2">
-          
+          {generalError && (
+            <div className="p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs font-semibold">
+              {generalError}
+            </div>
+          )}
+
           {/* Summary Box */}
           <div className="rounded-xl border bg-muted/40 p-3.5 text-xs space-y-1.5">
             <div className="flex justify-between items-center">
@@ -101,13 +124,23 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
           {/* Merchant Name */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold">Nombre del Comercio / Beneficiario</label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold">Nombre del Comercio / Beneficiario</label>
+              <span className="text-[10px] text-muted-foreground">{merchant.length}/100</span>
+            </div>
             <Input
               value={merchant}
-              onChange={(e) => setMerchant(e.target.value)}
+              maxLength={100}
+              onChange={(e) => {
+                setMerchant(e.target.value);
+                if (fieldErrors.merchant) setFieldErrors((prev) => ({ ...prev, merchant: '' }));
+              }}
               placeholder="Ej: Supermercados Bravo o Billy Noel"
-              required
+              className={fieldErrors.merchant ? 'border-destructive focus-visible:ring-destructive' : ''}
             />
+            {fieldErrors.merchant && (
+              <p className="text-[11px] font-medium text-destructive">{fieldErrors.merchant}</p>
+            )}
           </div>
 
           {/* Category Selector */}
@@ -128,12 +161,23 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold">Notas / Comentarios (Opcional)</label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold">Notas / Comentarios (Opcional)</label>
+              <span className="text-[10px] text-muted-foreground">{notes.length}/250</span>
+            </div>
             <Input
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              maxLength={250}
+              onChange={(e) => {
+                setNotes(e.target.value);
+                if (fieldErrors.notes) setFieldErrors((prev) => ({ ...prev, notes: '' }));
+              }}
               placeholder="Ej: Compra de despensa o pago de cena"
+              className={fieldErrors.notes ? 'border-destructive focus-visible:ring-destructive' : ''}
             />
+            {fieldErrors.notes && (
+              <p className="text-[11px] font-medium text-destructive">{fieldErrors.notes}</p>
+            )}
           </div>
 
           <DialogFooter className="pt-2">

@@ -5,16 +5,23 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency = 'DOP'): string {
-  const isUSD = currency.toUpperCase() === 'USD';
-  const prefix = isUSD ? '$' : 'RD$ ';
-  return `${prefix}${amount.toLocaleString('en-US', {
+export function formatCurrency(amount: number | null | undefined, currency = 'DOP'): string {
+  if (amount === null || amount === undefined || Number.isNaN(amount)) return '-';
+  const isNegative = amount < 0;
+  const abs = Math.abs(amount);
+  const code = (currency || 'DOP').toUpperCase();
+  let prefix = 'RD$ ';
+  if (code === 'USD') prefix = '$ ';
+  else if (code === 'EUR') prefix = '€ ';
+
+  const formatted = abs.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`;
+  });
+  return `${isNegative ? '-' : ''}${prefix}${formatted}`;
 }
 
-export function formatDate(dateString: string | Date): string {
+export function formatDate(dateString: string | Date | null | undefined): string {
   if (!dateString) return '-';
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
   if (isNaN(date.getTime())) return String(dateString);
@@ -27,6 +34,52 @@ export function formatDate(dateString: string | Date): string {
     minute: '2-digit',
     hour12: true,
   }).format(date);
+}
+
+export function formatRelativeDate(dateString: string | Date | null | undefined): string {
+  if (!dateString) return '-';
+  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+  if (isNaN(date.getTime())) return String(dateString);
+
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  const timeStr = new Intl.DateTimeFormat('es-DO', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+
+  if (isToday) return `Hoy, ${timeStr}`;
+  if (isYesterday) return `Ayer, ${timeStr}`;
+
+  return new Intl.DateTimeFormat('es-DO', {
+    day: '2-digit',
+    month: 'short',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+}
+
+export function parseNumericInput(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(/\s+/g, '').replace(/,/g, '.');
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== 'string') return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
 }
 
 export interface OrganizationMeta {

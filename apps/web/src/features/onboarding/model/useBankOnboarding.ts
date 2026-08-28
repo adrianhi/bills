@@ -23,6 +23,12 @@ export function useBankOnboarding(authenticated: boolean, onComplete: () => void
       ]);
       return { institutions, banks, inboxes };
     },
+    refetchInterval: (currentQuery) => {
+      const inboxes = currentQuery.state.data?.inboxes ?? [];
+      return inboxes.some((item) => item.currentJob?.status === 'PENDING' || item.currentJob?.status === 'PROCESSING')
+        ? 2_500
+        : false;
+    },
   });
 
   useEffect(() => {
@@ -45,7 +51,9 @@ export function useBankOnboarding(authenticated: boolean, onComplete: () => void
   const forwardingAddress = bankConnection?.ingestionAddress
     ? `${bankConnection.ingestionAddress.aliasToken}@${bankConnection.ingestionAddress.domain}` : '';
   const activeInbox = query.data?.inboxes.find((item) => item.status === 'ACTIVE');
-  const reconnectNeeded = query.data?.inboxes.some((item) => item.status === 'REAUTH_REQUIRED') ?? false;
+  const reconnectNeeded = query.data?.inboxes.some((item) => item.status === 'REAUTH_REQUIRED' || item.status === 'ERROR' || item.status === 'REVOKED') ?? false;
+  const syncState = activeInbox?.currentJob?.status ?? null;
+  const isSyncing = syncState === 'PENDING' || syncState === 'PROCESSING';
   const error = useMemo(() => query.error || syncMutation.error || googleMutation.error || forwardingMutation.error || completeMutation.error,
     [query.error, syncMutation.error, googleMutation.error, forwardingMutation.error, completeMutation.error]);
 
@@ -57,6 +65,7 @@ export function useBankOnboarding(authenticated: boolean, onComplete: () => void
 
   return {
     institutions: query.data?.institutions ?? [], activeInbox, reconnectNeeded, forwardingAddress,
+    syncState, isSyncing,
     loading: query.isLoading, busy: googleMutation.isPending ? 'google' : syncMutation.isPending ? 'sync' :
       forwardingMutation.isPending ? 'forwarding' : completeMutation.isPending ? 'complete' : null,
     error: oauthError || error?.message || '',

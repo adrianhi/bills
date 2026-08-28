@@ -25,9 +25,9 @@ Supabase Auth ── token ──> React/Vite ── Bearer ──> Express API
 Gmail ── OAuth readonly ───────────────────────────┤
 Correo bancario ── forward ─> Resend ── firma ────┤
                                                    ▼
-                                      ingestion_events (PostgreSQL)
+                             ingestion_events / ingestion_jobs (PostgreSQL)
                                                    │
-                                                worker
+                              IngestionRunner (mismo proceso de API en Render)
                                                    │
                                   ParserRegistry -> BHD | Qik | siguiente banco
                                                    │
@@ -53,7 +53,7 @@ En otra terminal:
 npm run dev:web
 ```
 
-Y para procesar correos entrantes:
+La API inicia también el runner de ingesta por defecto (`PROCESS_ROLE=all`), por lo que no debes arrancar otro worker al mismo tiempo. Para desarrollar los procesos por separado usa `PROCESS_ROLE=web` en la API y, en otra terminal:
 
 ```bash
 npm run dev:worker --prefix apps/api
@@ -95,9 +95,20 @@ GOOGLE_OAUTH_CLIENT_ID=...
 GOOGLE_OAUTH_CLIENT_SECRET=...
 GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/v1/oauth/google/callback
 INGESTION_ENCRYPTION_KEY=base64_de_32_bytes
+PROCESS_ROLE=all
+MAINTENANCE_SECRET=un_secreto_largo_y_aleatorio
 ```
 
 Habilita Gmail API, registra exactamente el redirect URI y agrega los testers en la audiencia de Google Cloud. En modo `Testing`, los grants con `gmail.readonly` expiran a los siete días. La salida pública exige verificación de alcance restringido y, al procesarse datos mediante el servidor, normalmente una evaluación de seguridad. Consulta el checklist completo en [docs/SAAS-PLAN.md](docs/SAAS-PLAN.md).
+
+En Render configura el cron existente cada diez minutos contra el mismo servicio:
+
+```text
+POST https://TU-SERVICIO.onrender.com/api/v1/internal/maintenance/tick
+Authorization: Bearer <MAINTENANCE_SECRET>
+```
+
+El endpoint agenda reconciliaciones y procesa trabajo durante una ventana corta; no expone datos financieros.
 
 Para la ingesta por correo:
 
@@ -118,7 +129,7 @@ Los contenidos crudos solo se conservan si un parseo falla, cifrados con AES-256
 
 ## Resend y túnel de desarrollo
 
-1. Levanta API y worker.
+1. Levanta la API; con `PROCESS_ROLE=all` también procesa la cola.
 2. Expón el puerto 3000 con ngrok.
 3. En Resend crea el webhook `email.received` apuntando a `https://TU-TUNEL.ngrok.app/webhooks/resend`.
 4. Copia el nuevo signing secret a `RESEND_WEBHOOK_SECRET` y reinicia la API.
@@ -152,7 +163,7 @@ npx prisma migrate resolve --applied 00000000000000_legacy_baseline --schema app
 
 No se ejecuta ninguna migración remota automáticamente desde el servidor.
 
-El proyecto Supabase actual ya tiene las seis migraciones registradas y aplicadas. En despliegues siguientes basta ejecutar `prisma migrate deploy`; no vuelvas a resolver el baseline salvo al preparar otra base legacy que carezca de historial Prisma.
+Cuando el proyecto Supabase tenga las migraciones registradas y aplicadas, en despliegues siguientes basta ejecutar `prisma migrate deploy`; no vuelvas a resolver el baseline salvo al preparar otra base legacy que carezca de historial Prisma.
 
 ## Beta por invitación
 
@@ -179,7 +190,7 @@ Las pruebas de integración destructivas están bloqueadas salvo que `DATABASE_U
 docker compose up -d --build
 ```
 
-Compose levanta PostgreSQL, ejecuta migraciones en un contenedor separado, inicia API y worker. El flujo n8n anterior queda disponible solo como compatibilidad:
+Compose levanta PostgreSQL, ejecuta migraciones en un contenedor separado e inicia API (`PROCESS_ROLE=web`) y worker (`PROCESS_ROLE=worker`). En Render gratuito se usa un único servicio con `PROCESS_ROLE=all`. El flujo n8n anterior queda disponible solo como compatibilidad:
 
 ```bash
 docker compose --profile legacy-n8n up -d n8n

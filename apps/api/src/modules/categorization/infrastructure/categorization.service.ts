@@ -140,9 +140,11 @@ export class CategorizationService {
           orderBy: { priority: 'desc' },
         });
 
+        const normalizedText = textToMatch.toLocaleUpperCase('es-DO');
         for (const rule of customRules) {
-          const regex = new RegExp(rule.pattern, 'i');
-          if (regex.test(textToMatch)) {
+          // User rules are literal fragments, never executable regular expressions.
+          // This keeps malformed or adversarial patterns out of the shared Node process.
+          if (normalizedText.includes(rule.pattern.toLocaleUpperCase('es-DO'))) {
             return {
               merchant: rule.normalizedMerchant || explicitMerchant || this.cleanRawMerchant(rawMerchant),
               category: rule.category,

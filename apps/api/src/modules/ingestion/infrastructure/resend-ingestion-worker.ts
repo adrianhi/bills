@@ -33,9 +33,20 @@ export class IngestionWorker {
     const candidate = await prisma.ingestionEvent.findFirst({
       where: {
         provider: 'RESEND',
-        status: { in: ['PENDING', 'FAILED'] },
         attempts: { lt: MAX_ATTEMPTS },
-        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+        OR: [
+          {
+            status: { in: ['PENDING', 'FAILED'] },
+            AND: [
+              { OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] },
+              { OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }] },
+            ],
+          },
+          {
+            status: 'PROCESSING',
+            OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }],
+          },
+        ],
       },
       include: { bankConnection: true },
       orderBy: { createdAt: 'asc' },
@@ -43,10 +54,29 @@ export class IngestionWorker {
     if (!candidate) return false;
 
     const claimed = await prisma.ingestionEvent.updateMany({
-      where: { id: candidate.id, status: candidate.status, attempts: candidate.attempts },
-      data: { status: 'PROCESSING', attempts: { increment: 1 }, errorCode: null, errorMessage: null },
+      where: {
+        id: candidate.id,
+        status: candidate.status,
+        attempts: candidate.attempts,
+        OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }],
+      },
+      data: {
+        status: 'PROCESSING',
+        attempts: { increment: 1 },
+        leaseUntil: new Date(now.getTime() + 60_000),
+        errorCode: null,
+        errorMessage: null,
+      },
     });
     if (claimed.count === 0) return true;
+
+    const heartbeat = setInterval(() => {
+      void prisma.ingestionEvent.updateMany({
+        where: { id: candidate.id, status: 'PROCESSING' },
+        data: { leaseUntil: new Date(Date.now() + 60_000) },
+      }).catch(() => undefined);
+    }, 15_000);
+    heartbeat.unref();
 
     let emailForRetention: NormalizedEmail | null = null;
     try {
@@ -92,6 +122,7 @@ export class IngestionWorker {
             parserVersion: result.parserVersion,
             errorCode: result.reason,
             processedAt: new Date(),
+            leaseUntil: null,
             rawContent: null,
             rawContentExpiresAt: null,
           },
@@ -107,6 +138,7 @@ export class IngestionWorker {
             parserCode: result.parserCode,
             parserVersion: result.parserVersion,
             processedAt: new Date(),
+            leaseUntil: null,
             rawContent: null,
             rawContentExpiresAt: null,
           },
@@ -133,12 +165,14 @@ export class IngestionWorker {
           where: { id: candidate.id },
           data: {
             status: 'FAILED',
+            leaseUntil: null,
             errorCode: code,
             errorMessage: code,
             nextAttemptAt:
               attempts < MAX_ATTEMPTS ? new Date(Date.now() + Math.pow(2, attempts) * 30_000) : null,
-            rawContent: retainable,
-            rawContentExpiresAt: retainable ? new Date(Date.now() + FAILED_CONTENT_TTL_MS) : null,
+            rawContent: retainable ?? candidate.rawContent,
+            rawContentExpiresAt: candidate.rawContentExpiresAt
+              ?? (retainable ? new Date(Date.now() + FAILED_CONTENT_TTL_MS) : null),
           },
         }),
         ...(candidate.bankConnection
@@ -151,6 +185,8 @@ export class IngestionWorker {
           : []),
       ]);
       return true;
+    } finally {
+      clearInterval(heartbeat);
     }
   }
 

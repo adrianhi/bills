@@ -87,7 +87,9 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment: *app-environment
+    environment:
+      <<: *app-environment
+      PROCESS_ROLE: web
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -103,7 +105,9 @@ services:
     container_name: bills_worker
     command: ["node", "apps/api/dist/worker.js"]
     restart: unless-stopped
-    environment: *app-environment
+    environment:
+      <<: *app-environment
+      PROCESS_ROLE: worker
     depends_on:
       migrate:
         condition: service_completed_successfully

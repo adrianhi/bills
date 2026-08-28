@@ -4,18 +4,23 @@ import { useTransactions } from '@/entities/transaction';
 import { usePeriodFilter } from '@/features/period-filter';
 import { useThemeAndPrivacy } from '@/shared/hooks/useThemeAndPrivacy';
 
-export function useDashboardController(authToken: string, onLock: () => void) {
+type DashboardSection = 'home' | 'transactions' | 'analytics' | 'more';
+
+export function useDashboardController(authToken: string, onLock: () => void, section: DashboardSection) {
   const theme = useThemeAndPrivacy();
   const { periodSelection, handleApplyPeriod } = usePeriodFilter();
-  const transactions = useTransactions({ authToken, periodSelection, onUnauthorized: onLock });
+  const transactionsEnabled = section === 'home' || section === 'transactions';
+  const statsEnabled = section === 'home' || section === 'analytics';
+  const transactions = useTransactions({ authToken, periodSelection, onUnauthorized: onLock, enabled: transactionsEnabled });
   const statsQuery = useStatsSummary({
     authToken, currency: transactions.currency, periodSelection,
-    organizationFilter: transactions.organizationFilter, onUnauthorized: onLock,
+    onUnauthorized: onLock, enabled: statsEnabled,
   });
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const refreshAll = () => {
-    void transactions.fetchTransactions(); void statsQuery.fetchStats();
+    if (transactionsEnabled) void transactions.fetchTransactions();
+    if (statsEnabled) void statsQuery.fetchStats();
   };
   const saveTransaction = async (id: string, merchant: string, category: string, notes: string) => {
     await transactions.handleSaveTransaction(id, merchant, category, notes);
@@ -27,6 +32,9 @@ export function useDashboardController(authToken: string, onLock: () => void) {
     onApplyPeriod: (selection: Parameters<typeof handleApplyPeriod>[0]) => handleApplyPeriod(selection, () => transactions.setPage(1)),
     ...transactions,
     stats: statsQuery.stats,
+    statsError: statsQuery.error,
+    loadingStats: statsQuery.loadingStats,
+    refreshingStats: statsQuery.refreshingStats,
     onRefresh: refreshAll,
     onExport: transactions.handleExportCsv,
     onResetFilters: transactions.handleResetFilters,

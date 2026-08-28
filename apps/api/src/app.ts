@@ -11,6 +11,7 @@ import apiRoutes from './routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { ResendWebhookController } from './controllers/resend-webhook.controller';
 import { GmailPubSubController } from './controllers/gmail-pubsub.controller';
+import { logger } from './shared/observability/logger';
 
 function resolvePublicDir(): string {
   const candidates = [
@@ -92,8 +93,22 @@ export function createApp(): Express {
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  if (config.nodeEnv !== 'test') {
+  if (config.nodeEnv === 'development') {
     app.use(morgan('dev'));
+  } else if (config.nodeEnv !== 'test') {
+    app.use((req: Request, res: Response, next) => {
+      const startedAt = Date.now();
+      res.on('finish', () => {
+        logger.info('http_request_completed', {
+          requestId: req.requestId,
+          method: req.method,
+          path: req.path,
+          statusCode: res.statusCode,
+          durationMs: Date.now() - startedAt,
+        });
+      });
+      next();
+    });
   }
 
   // Health checks
@@ -108,7 +123,16 @@ export function createApp(): Express {
 
   // Serve Web UI Dashboard
   const publicDir = resolvePublicDir();
-  app.use(express.static(publicDir));
+  app.use(express.static(publicDir, {
+    etag: true,
+    setHeaders(res, filePath) {
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else if (filePath.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  }));
 
   // Mount API routes
   app.use('/api', apiRoutes);

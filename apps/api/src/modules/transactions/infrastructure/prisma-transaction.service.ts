@@ -13,7 +13,7 @@ import {
   transactionStatusLabel,
   type TransactionStatusCodeName,
 } from '../../../domain/transaction-status';
-import { institutionDisplayName, resolveInstitutionCode } from '../domain/transaction-policy';
+import { institutionDisplayName, resolveDateRange, resolveInstitutionCode } from '../domain/transaction-policy';
 
 export class TransactionService {
   private static statusEventData(
@@ -426,29 +426,8 @@ export class TransactionService {
   ): Prisma.TransactionWhereInput {
     const where: Prisma.TransactionWhereInput = { workspaceId };
 
-    // Date filtering (startDate / endDate take precedence over month)
-    if (query.startDate || query.endDate) {
-      where.transactionDate = {};
-      if (query.startDate) {
-        const s = query.startDate.length === 10 ? new Date(`${query.startDate}T00:00:00.000Z`) : new Date(query.startDate);
-        where.transactionDate.gte = s;
-      }
-      if (query.endDate) {
-        const e = query.endDate.length === 10 ? new Date(`${query.endDate}T23:59:59.999Z`) : new Date(query.endDate);
-        where.transactionDate.lte = e;
-      }
-    } else if (query.month) {
-      const [yearStr, monthStr] = query.month.split('-');
-      const year = parseInt(yearStr, 10);
-      const month = parseInt(monthStr, 10);
-      const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
-      const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-
-      where.transactionDate = {
-        gte: startOfMonth,
-        lte: endOfMonth,
-      };
-    }
+    const dateRange = resolveDateRange(query.month, query.startDate, query.endDate);
+    if (dateRange.gte || dateRange.lte) where.transactionDate = dateRange;
 
     if (query.category) {
       where.category = {

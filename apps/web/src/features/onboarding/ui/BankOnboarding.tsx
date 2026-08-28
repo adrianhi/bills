@@ -11,6 +11,7 @@ interface BankOnboardingProps {
 export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardingProps) {
   const model = useBankOnboarding(Boolean(authToken), onComplete);
   const { institutions, activeInbox, reconnectNeeded, forwardingAddress, loading, busy,
+    syncState, isSyncing,
     error, notice, googleUnavailable, copied, copyAddress, connectGoogle, sync,
     createForwarding, complete } = model;
   const summary = activeInbox?.lastSyncSummary || null;
@@ -39,6 +40,15 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
                   <Check className="h-5 w-5 shrink-0" />
                   <div><p className="font-semibold">Gmail conectado</p><p className="mt-1 text-xs opacity-80">{activeInbox.email} · acceso de solo lectura a los correos bancarios compatibles.</p></div>
                 </div>
+                {isSyncing && (
+                  <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-4" role="status" aria-live="polite">
+                    <div className="flex items-center gap-3"><Loader2 className="h-5 w-5 shrink-0 animate-spin text-sky-600" /><div><p className="text-sm font-semibold text-sky-800 dark:text-sky-200">{syncState === 'PENDING' ? 'Preparando tu primera sincronización' : 'Importando tus movimientos'}</p><p className="mt-1 text-xs text-sky-700/80 dark:text-sky-300/80">Puedes entrar a la aplicación; este proceso continuará en segundo plano.</p></div></div>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sky-500/15"><div className="h-full w-2/3 animate-pulse rounded-full bg-sky-500" /></div>
+                  </div>
+                )}
+                {syncState === 'FAILED' && (
+                  <div className="flex gap-2 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300" role="alert"><AlertCircle className="h-4 w-4 shrink-0" /><span>No pudimos completar la última sincronización. Puedes reintentarlo sin duplicar movimientos.</span></div>
+                )}
                 {notice && <div className="rounded-xl bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-300">{notice}</div>}
                 {(activeInbox.failedEvents || 0) > 0 && <div className="flex gap-2 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"><AlertCircle className="h-4 w-4 shrink-0" /><span>{activeInbox.failedEvents} correo{activeInbox.failedEvents === 1 ? '' : 's'} necesita{activeInbox.failedEvents === 1 ? '' : 'n'} reprocesamiento. La conexión sigue activa, pero la última sincronización fue parcial.</span></div>}
                 {summary && <div className="grid grid-cols-3 gap-2 text-center">
@@ -46,10 +56,10 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
                   <div className="rounded-xl bg-muted p-3"><p className="text-lg font-bold">{summary.parsed}</p><p className="text-[10px] text-muted-foreground">reconocidos</p></div>
                   <div className="rounded-xl bg-muted p-3"><p className="text-lg font-bold text-emerald-600">{summary.created}</p><p className="text-[10px] text-muted-foreground">agregados</p></div>
                 </div>}
-                <Button variant="outline" className="w-full gap-2" disabled={busy === 'sync'} onClick={() => sync(activeInbox)}>
-                  {busy === 'sync' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Sincronizar de nuevo
+                <Button variant="outline" className="min-h-11 w-full gap-2" disabled={busy === 'sync' || isSyncing} onClick={() => sync(activeInbox)}>
+                  {busy === 'sync' || isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} {isSyncing ? 'Sincronizando…' : syncState === 'FAILED' ? 'Reintentar sincronización' : 'Sincronizar de nuevo'}
                 </Button>
-                <Button className="w-full gap-2" disabled={Boolean(busy)} onClick={() => complete()}>
+                <Button className="min-h-11 w-full gap-2" disabled={Boolean(busy)} onClick={() => complete()}>
                   {busy === 'complete' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Ir a mi dashboard
                 </Button>
               </div>

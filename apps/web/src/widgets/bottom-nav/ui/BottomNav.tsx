@@ -1,119 +1,103 @@
-import React from 'react';
-import { 
-  LayoutDashboard, 
-  BarChart3, 
-  Receipt, 
-  Plus
-} from 'lucide-react';
-
-export type ActiveSection = 'overview' | 'analytics' | 'transactions';
+import { Plus } from 'lucide-react';
+import { APP_SECTIONS, type AppSection } from '../model/navigation';
 
 interface BottomNavProps {
-  activeSection: ActiveSection;
-  onSelectSection: (section: ActiveSection) => void;
+  activeSection: AppSection;
+  onSelectSection: (section: AppSection) => void;
   onQuickAdd: () => void;
   activeFiltersCount?: number;
 }
 
-export const BottomNav: React.FC<BottomNavProps> = ({
+type NavigationItem = (typeof APP_SECTIONS)[number];
+
+function NavItem({
+  item,
+  active,
+  activeFiltersCount,
+  onSelect,
+}: {
+  item: NavigationItem;
+  active: boolean;
+  activeFiltersCount: number;
+  onSelect: (section: AppSection) => void;
+}) {
+  const Icon = item.icon;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item.id)}
+      className={`group relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-0.5 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+        active ? 'text-primary' : 'text-foreground/65 hover:text-foreground dark:text-foreground/60'
+      }`}
+      aria-current={active ? 'page' : undefined}
+    >
+      <span
+        className={`relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 ${
+          active
+            ? 'bg-primary/[0.12] shadow-[0_0_18px_hsl(var(--primary)/0.2)] ring-1 ring-primary/20'
+            : 'group-hover:bg-foreground/5'
+        }`}
+      >
+        <Icon className="h-[1.15rem] w-[1.15rem]" aria-hidden="true" />
+        {item.id === 'transactions' && activeFiltersCount > 0 && (
+          <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold leading-none text-primary-foreground ring-2 ring-white/70 dark:ring-slate-950/70">
+            {activeFiltersCount > 9 ? '9+' : activeFiltersCount}
+          </span>
+        )}
+      </span>
+      <span className="max-w-full truncate leading-tight">{item.label}</span>
+    </button>
+  );
+}
+
+export function BottomNav({
   activeSection,
   onSelectSection,
   onQuickAdd,
   activeFiltersCount = 0,
-}) => {
+}: BottomNavProps) {
+  const leadingItems = APP_SECTIONS.slice(0, 2);
+  const trailingItems = APP_SECTIONS.slice(2);
+
   return (
-    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 md:hidden pointer-events-none">
-      <div 
-        className="pointer-events-auto flex items-center gap-3.5 sm:gap-5 px-5 py-2.5 rounded-full bg-white/85 dark:bg-card/85 backdrop-blur-3xl saturate-150 border border-white/40 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.18)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.55)] transition-all duration-300"
-      >
-        
-        {/* 1. Inicio / Overview (Top of page) */}
-        <button
-          onClick={() => onSelectSection('overview')}
-          className="flex flex-col items-center justify-center min-w-[50px] transition-transform active:scale-95 cursor-pointer group"
-          title="Inicio"
-        >
-          <div className={`flex items-center justify-center h-7 w-7 rounded-full transition-all duration-300 ${
-            activeSection === 'overview'
-              ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 ring-2 ring-emerald-500/30'
-              : 'text-foreground/80 dark:text-foreground/70 group-hover:text-foreground'
-          }`}>
-            <LayoutDashboard className="h-4 w-4" />
-          </div>
-          <span className={`text-[10px] mt-0.5 tracking-tight transition-colors ${
-            activeSection === 'overview'
-              ? 'font-bold text-emerald-600 dark:text-emerald-400'
-              : 'font-medium text-muted-foreground group-hover:text-foreground'
-          }`}>
-            Inicio
-          </span>
-        </button>
+    <nav
+      className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-[430px] -translate-x-1/2 lg:hidden"
+      aria-label="Navegación principal"
+    >
+      <div className="grid h-[4.5rem] grid-cols-[minmax(0,1fr)_minmax(0,1fr)_4rem_minmax(0,1fr)_minmax(0,1fr)] items-center rounded-full border border-white/60 bg-white/70 px-2 shadow-[0_16px_44px_rgba(15,23,42,0.22)] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10 dark:bg-slate-950/70 dark:shadow-[0_18px_50px_rgba(0,0,0,0.55)] supports-[backdrop-filter]:bg-white/62 supports-[backdrop-filter]:dark:bg-slate-950/62">
+        {leadingItems.map((item) => (
+          <NavItem
+            key={item.id}
+            item={item}
+            active={item.id === activeSection}
+            activeFiltersCount={activeFiltersCount}
+            onSelect={onSelectSection}
+          />
+        ))}
 
-        {/* 2. Analítica / Gráficos (Middle of page) */}
         <button
-          onClick={() => onSelectSection('analytics')}
-          className="flex flex-col items-center justify-center min-w-[50px] transition-transform active:scale-95 cursor-pointer group"
-          title="Analítica y Gráficos"
-        >
-          <div className={`flex items-center justify-center h-7 w-7 rounded-full transition-all duration-300 ${
-            activeSection === 'analytics'
-              ? 'text-amber-600 dark:text-amber-400 bg-amber-500/15 ring-2 ring-amber-500/30'
-              : 'text-foreground/80 dark:text-foreground/70 group-hover:text-foreground'
-          }`}>
-            <BarChart3 className="h-4 w-4" />
-          </div>
-          <span className={`text-[10px] mt-0.5 tracking-tight transition-colors ${
-            activeSection === 'analytics'
-              ? 'font-bold text-amber-600 dark:text-amber-400'
-              : 'font-medium text-muted-foreground group-hover:text-foreground'
-          }`}>
-            Analítica
-          </span>
-        </button>
-
-        {/* 3. Movimientos & Filtros (Bottom of page) */}
-        <button
-          onClick={() => onSelectSection('transactions')}
-          className="flex flex-col items-center justify-center min-w-[50px] transition-transform active:scale-95 cursor-pointer group relative"
-          title="Movimientos y Filtros"
-        >
-          <div className={`relative flex items-center justify-center h-7 w-7 rounded-full transition-all duration-300 ${
-            activeSection === 'transactions'
-              ? 'text-sky-600 dark:text-sky-400 bg-sky-500/15 ring-2 ring-sky-500/30'
-              : 'text-foreground/80 dark:text-foreground/70 group-hover:text-foreground'
-          }`}>
-            <Receipt className="h-4 w-4" />
-            {activeFiltersCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-sky-500 ring-2 ring-background" />
-            )}
-          </div>
-          <span className={`text-[10px] mt-0.5 tracking-tight transition-colors ${
-            activeSection === 'transactions'
-              ? 'font-bold text-sky-600 dark:text-sky-400'
-              : 'font-medium text-muted-foreground group-hover:text-foreground'
-          }`}>
-            Movimientos
-          </span>
-        </button>
-
-        {/* Subtle Vertical Divider (Apple Style) */}
-        <div className="h-8 w-[1px] bg-border/60 dark:bg-white/10" />
-
-        {/* 4. Action Button: Nuevo Movimiento (Apple Style Action) */}
-        <button
+          type="button"
           onClick={onQuickAdd}
-          className="flex flex-col items-center justify-center transition-transform active:scale-90 cursor-pointer group"
-          title="Registrar Nuevo Movimiento"
+          className="relative -top-2 flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-bold text-primary transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          aria-label="Registrar un nuevo movimiento"
         >
-          <div className="flex items-center justify-center h-9 w-9 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/25 border border-emerald-400/30">
-            <Plus className="h-5 w-5 stroke-[2.5]" />
-          </div>
-          <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 tracking-tight">
-            Nuevo
+          <span className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-300/40 bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 text-white shadow-[0_10px_24px_rgba(16,185,129,0.38)] ring-4 ring-white/65 dark:border-emerald-300/20 dark:ring-slate-950/65">
+            <Plus className="h-6 w-6 stroke-[2.5]" aria-hidden="true" />
           </span>
+          <span className="leading-tight">Nuevo</span>
         </button>
 
+        {trailingItems.map((item) => (
+          <NavItem
+            key={item.id}
+            item={item}
+            active={item.id === activeSection}
+            activeFiltersCount={activeFiltersCount}
+            onSelect={onSelectSection}
+          />
+        ))}
       </div>
     </nav>
   );
-};
+}

@@ -36,8 +36,8 @@ export const usePeriodFilterDialog = (onApply: (selection: PeriodSelection) => v
     const options: Record<PeriodPreset, PeriodSelection> = {
       today: { startDate: today, endDate: today, label: `Hoy (${readableDate(today)})` },
       yesterday: { startDate: yesterday, endDate: yesterday, label: `Ayer (${readableDate(yesterday)})` },
-      '7d': { startDate: daysAgo(7), endDate: today, label: 'Últimos 7 días' },
-      '30d': { startDate: daysAgo(30), endDate: today, label: 'Últimos 30 días' },
+      '7d': { startDate: daysAgo(6), endDate: today, label: 'Últimos 7 días' },
+      '30d': { startDate: daysAgo(29), endDate: today, label: 'Últimos 30 días' },
       this_month: { month: currentMonth(), label: readableMonth(currentMonth()) },
       last_month: { month: currentMonth(-1), label: readableMonth(currentMonth(-1)) },
       all: { label: 'Todo el Histórico' },

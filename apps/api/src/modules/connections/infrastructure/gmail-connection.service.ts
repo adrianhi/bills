@@ -13,7 +13,7 @@ const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GMAIL_API_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
 const GMAIL_READONLY_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
-const FAILED_CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const FAILED_CONTENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface GoogleTokenResponse {
   access_token: string;
@@ -249,7 +249,9 @@ export class GmailConnectionService {
               : existing.encryptedRefreshToken,
             tokenExpiresAt,
             scopes: (tokens.scope || GMAIL_READONLY_SCOPE).split(' ').filter(Boolean),
-            syncCursor: profile.historyId || existing.syncCursor,
+            // Keep the last imported cursor when access is restored. Advancing it
+            // here would skip messages received while the connection was revoked.
+            syncCursor: existing.syncCursor || profile.historyId,
             lastErrorCode: null,
             grantedAt: new Date(),
             revokedAt: null,
@@ -545,7 +547,8 @@ export class GmailConnectionService {
           errorCode: result.reason,
           errorMessage: result.reason,
           rawContent: this.retain(normalized),
-          rawContentExpiresAt: new Date(Date.now() + FAILED_CONTENT_TTL_MS),
+          rawContentExpiresAt: existing?.rawContentExpiresAt
+            ?? new Date(Date.now() + FAILED_CONTENT_TTL_MS),
           nextAttemptAt: null,
         },
       });
@@ -562,9 +565,10 @@ export class GmailConnectionService {
           errorCode: code,
           errorMessage: code,
           rawContent: normalized ? this.retain(normalized) : existing?.rawContent,
-          rawContentExpiresAt: normalized || existing?.rawContent
-            ? new Date(Date.now() + FAILED_CONTENT_TTL_MS)
-            : null,
+          rawContentExpiresAt: existing?.rawContentExpiresAt
+            ?? (normalized || existing?.rawContent
+              ? new Date(Date.now() + FAILED_CONTENT_TTL_MS)
+              : null),
           nextAttemptAt: null,
         },
       });
