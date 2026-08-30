@@ -46,7 +46,7 @@ describe('Qik email adapter contract', () => {
         subject: 'Recibiste una transferencia',
         text: 'Remitente: ANA PEREZ Monto: DOP 5,000.00 Referencia: QK654321',
       }),
-      { ingestionChannel: 'EMAIL_FORWARD' }
+      { ingestionChannel: 'GMAIL_OAUTH' }
     );
     expect(result.status).toBe('parsed');
     if (result.status !== 'parsed') return;

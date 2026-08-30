@@ -137,7 +137,7 @@ export const createTransactionInputSchema = z.object({
   transactionDate: z.coerce.date({ invalid_type_error: 'Fecha de transacción inválida' }),
   source: z.string().trim().default('MANUAL'),
   institutionCode: z.string().trim().min(2).max(32).optional().transform((val) => val?.toUpperCase()),
-  ingestionChannel: z.enum(['EMAIL_FORWARD', 'MANUAL', 'CSV_IMPORT', 'GMAIL_OAUTH']).default('MANUAL'),
+  ingestionChannel: z.enum(['MANUAL', 'CSV_IMPORT', 'GMAIL_OAUTH']).default('MANUAL'),
   notes: z.string().trim().max(500, 'Las notas no pueden superar 500 caracteres').optional().nullable(),
 });
 export type CreateTransactionInput = z.infer<typeof createTransactionInputSchema>;

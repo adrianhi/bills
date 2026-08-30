@@ -71,7 +71,22 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     await cleanDatabase();
     await prisma.financialInstitution.createMany({
       data: [
-        { code: 'BHD', displayName: 'Banco BHD', status: 'PILOT' },
+        {
+          code: 'BHD', displayName: 'Banco BHD', status: 'PILOT',
+          senderPatterns: ['alertas@bhdleon.com.do'],
+        },
+        {
+          code: 'QIK', displayName: 'Qik', status: 'PILOT',
+          senderPatterns: ['notificaciones@qik.do'],
+        },
+        {
+          code: 'BANRESERVAS', displayName: 'Banreservas', status: 'PILOT',
+          senderPatterns: ['notificaciones@banreservas.com', 'notificacionestubancoapp@banreservas.com'],
+        },
+        {
+          code: 'POPULAR', displayName: 'Banco Popular', status: 'COMING_SOON',
+          senderPatterns: ['notificaciones@popularenlinea.com'],
+        },
         { code: 'CASH', displayName: 'Manual / Efectivo', status: 'ACTIVE' },
       ],
     });
@@ -99,7 +114,7 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
       currency: 'DOP',
       transactionDate: '2026-08-18T19:14:00.000Z',
       institutionCode: 'BHD',
-      ingestionChannel: 'EMAIL_FORWARD',
+      ingestionChannel: 'GMAIL_OAUTH',
     };
     const createdA = await request(app).post('/api/v1/transactions').set(auth(userA)).send(payload);
     const createdB = await request(app).post('/api/v1/transactions').set(auth(userB)).send(payload);
@@ -130,6 +145,64 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     const response = await request(app).get('/api/v1/transactions');
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe('AUTH_REQUIRED');
+  });
+
+  it('persists an explicit, normalized multi-bank selection for Gmail', async () => {
+    const membership = await prisma.workspaceMember.findFirstOrThrow({
+      where: { profileId: userA.id },
+      select: { workspaceId: true },
+    });
+    const connection = await prisma.inboxConnection.create({
+      data: {
+        workspaceId: membership.workspaceId,
+        provider: 'GOOGLE',
+        providerAccountId: 'gmail-selection-test',
+        email: userA.email,
+        status: 'ACTIVE',
+      },
+    });
+
+    const updated = await request(app)
+      .put(`/api/v1/inbox-connections/${connection.id}/institutions`)
+      .set(auth(userA))
+      .send({ institutionCodes: ['bhd', 'BANRESERVAS', 'BHD'] });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.selectedInstitutionCodes).toEqual(['BHD', 'BANRESERVAS']);
+    expect(updated.body.data.queuedJobIds).toHaveLength(2);
+
+    const listed = await request(app).get('/api/v1/inbox-connections').set(auth(userA));
+    expect(listed.status).toBe(200);
+    expect(listed.body.data[0].selectedInstitutionCodes).toEqual(['BANRESERVAS', 'BHD']);
+    expect(listed.body.data[0].requiresBankSelection).toBe(false);
+  });
+
+  it('rejects empty, unsupported and coming-soon bank selections', async () => {
+    const connection = await prisma.inboxConnection.findFirstOrThrow({
+      where: { providerAccountId: 'gmail-selection-test' },
+    });
+    const empty = await request(app)
+      .put(`/api/v1/inbox-connections/${connection.id}/institutions`)
+      .set(auth(userA))
+      .send({ institutionCodes: [] });
+    expect(empty.status).toBe(400);
+    expect(empty.body.error.code).toBe('VALIDATION_ERROR');
+
+    for (const institutionCode of ['POPULAR', 'UNKNOWN']) {
+      const unavailable = await request(app)
+        .put(`/api/v1/inbox-connections/${connection.id}/institutions`)
+        .set(auth(userA))
+        .send({ institutionCodes: [institutionCode] });
+      expect(unavailable.status).toBe(400);
+      expect(unavailable.body.error.code).toBe('BANK_SELECTION_UNAVAILABLE');
+    }
+  });
+
+  it('does not expose retired forwarding connection endpoints', async () => {
+    const response = await request(app)
+      .post('/api/v1/bank-connections')
+      .set(auth(userA))
+      .send({ institutionCode: 'BHD' });
+    expect(response.status).toBe(404);
   });
 
   it('allows the same bank external ID in separate workspaces', async () => {

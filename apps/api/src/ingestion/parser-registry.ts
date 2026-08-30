@@ -1,8 +1,9 @@
 import type { BankEmailParser, NormalizedEmail } from './types';
 import { BhdEmailParser } from './parsers/bhd-email.parser';
 import { QikEmailParser } from './parsers/qik-email.parser';
+import { BanreservasEmailParser } from './parsers/banreservas-email.parser';
 
-const parsers: BankEmailParser[] = [new BhdEmailParser(), new QikEmailParser()];
+const parsers: BankEmailParser[] = [new BhdEmailParser(), new QikEmailParser(), new BanreservasEmailParser()];
 
 export class ParserRegistry {
   public static forInstitution(institutionCode: string) {

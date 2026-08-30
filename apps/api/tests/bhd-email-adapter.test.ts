@@ -54,7 +54,7 @@ describe('BHD email ingestion adapter', () => {
       rawMerchant: 'COLEGIO LOYOLA',
       transactionType: 'Transferencia Enviada',
       institutionCode: 'BHD',
-      ingestionChannel: 'EMAIL_FORWARD',
+      ingestionChannel: 'GMAIL_OAUTH',
     });
     expect(result.transactions[0].externalId).toContain('M10-1787-1613-5982-7');
     expect(result.transactions[0].transactionDate.toISOString()).toBe('2026-08-19T17:42:00.000Z');

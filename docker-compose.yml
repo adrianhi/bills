@@ -8,9 +8,6 @@ x-app-environment: &app-environment
   SUPABASE_URL: ${SUPABASE_URL:-}
   SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
   LEGACY_OWNER_EMAIL: ${LEGACY_OWNER_EMAIL:-}
-  RESEND_API_KEY: ${RESEND_API_KEY:-}
-  RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
-  RESEND_RECEIVING_DOMAIN: ${RESEND_RECEIVING_DOMAIN:-}
   INGESTION_ENCRYPTION_KEY: ${INGESTION_ENCRYPTION_KEY:-}
   GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
   GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
@@ -21,6 +18,8 @@ x-app-environment: &app-environment
   GMAIL_RECONCILE_INTERVAL_MINUTES: ${GMAIL_RECONCILE_INTERVAL_MINUTES:-5}
   GMAIL_WATCH_RENEWAL_HOURS: ${GMAIL_WATCH_RENEWAL_HOURS:-24}
   GMAIL_SYNC_CONCURRENCY: ${GMAIL_SYNC_CONCURRENCY:-4}
+  GMAIL_INITIAL_SYNC_MONTHS: ${GMAIL_INITIAL_SYNC_MONTHS:-2}
+  GMAIL_BACKFILL_CONCURRENCY: ${GMAIL_BACKFILL_CONCURRENCY:-2}
 
 services:
   postgres:
@@ -89,30 +88,12 @@ services:
       - "3000:3000"
     environment:
       <<: *app-environment
-      PROCESS_ROLE: web
+      PROCESS_ROLE: all
     depends_on:
       migrate:
         condition: service_completed_successfully
 
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
-        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:-}
-        VITE_APP_URL: ${VITE_APP_URL:-http://localhost:3000}
-    container_name: bills_worker
-    command: ["node", "apps/api/dist/worker.js"]
-    restart: unless-stopped
-    environment:
-      <<: *app-environment
-      PROCESS_ROLE: worker
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-
-  # Legacy personal workflow. The SaaS path is Resend -> signed webhook -> worker.
+  # Legacy personal workflow. The SaaS path is Gmail OAuth -> durable PostgreSQL jobs.
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
     container_name: bills_n8n

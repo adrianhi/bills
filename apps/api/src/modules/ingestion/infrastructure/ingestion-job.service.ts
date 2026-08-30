@@ -3,7 +3,8 @@ import type { IngestionJobType, Prisma } from '@prisma/client';
 import { prisma } from '../../../config/database';
 import { config } from '../../../config';
 import { AppError } from '../../../errors/app-error';
-import { GmailConnectionService } from '../../../services/gmail-connection.service';
+import { GmailConnectionService, gmailInitialCutoff } from '../../connections/infrastructure/gmail-connection.service';
+import { InstitutionSelectionService } from '../../connections/infrastructure/institution-selection.service';
 
 type JobPayload = {
   historyId?: string;
@@ -12,6 +13,7 @@ type JobPayload = {
   errors?: string[];
   parserVersion?: string;
   statuses?: Array<'FAILED' | 'IGNORED'>;
+  institutionCode?: string;
 };
 
 function errorCode(error: unknown) {
@@ -66,6 +68,26 @@ export class IngestionJobService {
     });
   }
 
+  public static async enqueueBankBackfill(workspaceId: string, inboxConnectionId: string, institutionCode: string) {
+    const code = institutionCode.trim().toUpperCase();
+    const cutoff = gmailInitialCutoff().toISOString().slice(0, 7);
+    const dedupeKey = `gmail-bank-backfill:${inboxConnectionId}:${code}:${cutoff}`;
+    const existing = await prisma.ingestionJob.findUnique({ where: { dedupeKey } });
+    if (existing && ['PENDING', 'PROCESSING'].includes(existing.status)) return existing;
+    return prisma.ingestionJob.upsert({
+      where: { dedupeKey },
+      create: {
+        workspaceId, inboxConnectionId, type: 'GMAIL_BANK_BACKFILL', dedupeKey,
+        payload: { institutionCode: code },
+      },
+      update: {
+        status: 'PENDING', attempts: 0, nextAttemptAt: new Date(), leaseUntil: null,
+        errorCode: null, errorMessage: null, processedAt: null,
+        payload: { institutionCode: code },
+      },
+    });
+  }
+
   public static async enqueueManual(workspaceId: string, inboxConnectionId: string) {
     const connection = await prisma.inboxConnection.findFirst({
       where: { id: inboxConnectionId, workspaceId, provider: 'GOOGLE', status: { not: 'REVOKED' } },
@@ -73,6 +95,9 @@ export class IngestionJobService {
     });
     if (!connection) {
       throw new AppError(404, 'INBOX_CONNECTION_NOT_FOUND', 'Gmail connection was not found.');
+    }
+    if (!(await InstitutionSelectionService.enabledCodes(inboxConnectionId)).length) {
+      throw new AppError(409, 'BANK_SELECTION_REQUIRED', 'Select at least one bank before synchronizing Gmail.');
     }
     return this.enqueue({
       workspaceId,
@@ -120,12 +145,16 @@ export class IngestionJobService {
         nextReconcileAt: true,
         watchExpiresAt: true,
         _count: {
-          select: { ingestionEvents: { where: { provider: 'GOOGLE_GMAIL', status: 'FAILED' } } },
+          select: {
+            ingestionEvents: { where: { provider: 'GOOGLE_GMAIL', status: 'FAILED' } },
+            institutionSubscriptions: { where: { enabled: true } },
+          },
         },
       },
     });
 
     for (const connection of connections) {
+      if (connection._count.institutionSubscriptions === 0) continue;
       if (!connection.nextReconcileAt || connection.nextReconcileAt <= now) {
         await this.enqueue({
           workspaceId: connection.workspaceId,
@@ -157,8 +186,7 @@ export class IngestionJobService {
 
   public static async processNext(onlyJobIds: string[] = []) {
     const now = new Date();
-    const candidate = await prisma.ingestionJob.findFirst({
-      where: {
+    const candidateWhere: Prisma.IngestionJobWhereInput = {
         ...(onlyJobIds.length ? { id: { in: onlyJobIds } } : {}),
         OR: [
           {
@@ -168,7 +196,18 @@ export class IngestionJobService {
           },
           { status: 'PROCESSING', leaseUntil: { lte: now } },
         ],
-      },
+      };
+    const priorityTypes: IngestionJobType[] = [
+      'GMAIL_HISTORY_SYNC',
+      'GMAIL_RECONCILIATION',
+      'GMAIL_WATCH_RENEWAL',
+      'GMAIL_FAILED_REPLAY',
+    ];
+    const candidate = await prisma.ingestionJob.findFirst({
+      where: { ...candidateWhere, type: { in: priorityTypes } },
+      orderBy: { createdAt: 'asc' },
+    }) || await prisma.ingestionJob.findFirst({
+      where: candidateWhere,
       orderBy: { createdAt: 'asc' },
     });
     if (!candidate) return false;
@@ -213,9 +252,26 @@ export class IngestionJobService {
     try {
       let result: unknown;
       const payload = (candidate.payload as JobPayload | null) || {};
-      switch (candidate.type) {
+      const selectedInstitutions = await InstitutionSelectionService.enabledCodes(candidate.inboxConnectionId);
+      if (!selectedInstitutions.length) {
+        result = { skipped: true, reason: 'BANK_SELECTION_REQUIRED' };
+      } else if (
+        candidate.type === 'GMAIL_BANK_BACKFILL'
+        && payload.institutionCode
+        && !selectedInstitutions.includes(payload.institutionCode.trim().toUpperCase())
+      ) {
+        result = { skipped: true, reason: 'BANK_NOT_SELECTED' };
+      } else switch (candidate.type) {
         case 'GMAIL_INITIAL_BACKFILL':
           result = await GmailConnectionService.syncFull(candidate.workspaceId, candidate.inboxConnectionId, true);
+          break;
+        case 'GMAIL_BANK_BACKFILL':
+          if (!payload.institutionCode) throw new AppError(400, 'BANK_BACKFILL_INVALID', 'Bank backfill is missing its institution.');
+          result = await GmailConnectionService.syncBankBackfill(
+            candidate.workspaceId,
+            candidate.inboxConnectionId,
+            payload.institutionCode
+          );
           break;
         case 'GMAIL_WATCH_RENEWAL':
           result = await GmailConnectionService.registerWatch(candidate.workspaceId, candidate.inboxConnectionId);

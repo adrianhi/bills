@@ -6,24 +6,23 @@ bills. debe permitir que una persona sin conocimientos técnicos cree una cuenta
 
 ## Decisiones vigentes
 
-- BHD es el piloto de precisión y soporte; Qik ya tiene adaptador beta y fixtures sintéticos.
+- BHD, Qik y Banreservas funcionan como pilotos con selección explícita por usuario.
 - Google o magic link autentican mediante Supabase. Conectar Gmail es un consentimiento OAuth distinto y opcional.
 - Gmail de solo lectura es el onboarding principal; la vuelta de Google encola automáticamente el backfill en el servidor aunque el navegador se cierre.
-- El reenvío con alias privado continúa como alternativa universal y los movimientos manuales como recuperación.
+- Gmail OAuth es el único canal automático; los movimientos manuales permanecen como recuperación.
 - Un `workspace` es la frontera de aislamiento. Los identificadores externos son únicos por workspace e institución.
-- Los correos exitosos no conservan cuerpo; los fallidos se cifran y expiran en treinta días para permitir recuperación controlada.
+- Los correos exitosos no conservan cuerpo; los fallidos se cifran y expiran en siete días para permitir recuperación controlada.
 - Ninguna clave secreta llega a Vite. Los tokens OAuth se cifran con AES-256-GCM.
 
 ## Arquitectura multi-banco
 
 ```text
-Gmail OAuth ─┐
-Resend inbound├─> NormalizedEmail ─> ParserRegistry ─> BankEmailParser ─> Transaction
-Manual/CSV ──┘                              │
-                                  BHD | Qik | próximo banco
+Gmail (solo remitentes seleccionados) ─> NormalizedEmail ─> ParserRegistry ─> BankEmailParser ─> Transaction
+Manual/CSV ────────────────────────────────────────────────────────────────────────────────────┘
+                                                            BHD | Qik | Banreservas | próximo banco
 ```
 
-Un adaptador declara dominios/remitentes, detecta si puede interpretar un mensaje y devuelve `parsed`, `ignored` o `unsupported`. La transacción normalizada conserva `institutionCode`, `ingestionChannel`, `externalId`, monto, moneda, fecha, tipo, estado y campos opcionales. Agregar un banco no cambia OAuth, controladores, worker, workspace, métricas ni UI de conexiones.
+Un adaptador declara dominios/remitentes, detecta si puede interpretar un mensaje y devuelve `parsed`, `ignored` o `unsupported`. La transacción normalizada conserva `institutionCode`, `ingestionChannel`, `externalId`, monto, moneda, fecha, tipo, estado y campos opcionales. Agregar un banco no cambia el contrato central de ingestión, workspace, métricas ni transacciones.
 
 ## Estado por fase
 
@@ -35,24 +34,24 @@ Un adaptador declara dominios/remitentes, detecta si puede interpretar un mensaj
 - CORS por allowlist, Helmet, rate limit, request ID y errores estructurados.
 - Migraciones versionadas; no se usa `prisma db push` en producción.
 
-Salida verificada: base PostgreSQL 16 creada desde cero, siete migraciones aplicadas y suite de aislamiento aprobada.
+Salida verificada: base PostgreSQL 16 creada desde cero y suite de aislamiento multi-tenant aprobada.
 
 ### Fase 1 — Ingesta multi-banco continua: implementada; falta activar Pub/Sub externo
 
-- Reenvío Resend firmado, cola persistente, reintentos y parser BHD.
+- Selección persistente de bancos por conexión, cola PostgreSQL y reintentos idempotentes.
 - Registro genérico de adaptadores y parser Qik beta.
 - Gmail OAuth server-side con `state` de un solo uso, refresh token cifrado, revocación y estados de reconexión.
 - Búsqueda limitada a remitentes soportados; backfill paginado sin corte de 100 mensajes e idempotencia por mensaje.
 - Cola PostgreSQL con lease, reintentos y backoff para backfill, History API, reconciliación, renovación de watch y replay.
 - Gmail Push autenticado por JWT OIDC como canal principal, con reconciliación cada cinco minutos como respaldo.
 - Historial auditable de estados y reversas correlacionadas sin crear una segunda transacción visible.
-- BHD piloto visible como producto; catálogo listo para nuevas instituciones.
+- BHD, Qik y Banreservas visibles como pilotos; catálogo listo para nuevas instituciones.
 
-La recuperación contra Gmail/Supabase real quedó verificada con movimientos BHD hasta el 26 de agosto de 2026 y reversas materializadas. Sigue pendiente activar Gmail Push en Google Cloud. Resend necesita un dominio receptor y webhook público para su prueba real.
+La recuperación contra Gmail/Supabase real quedó verificada con movimientos BHD hasta el 26 de agosto de 2026 y reversas materializadas. Sigue pendiente activar Gmail Push en Google Cloud.
 
 ## Operación de Gmail sin n8n
 
-La ruta SaaS es `Gmail API → API/cola PostgreSQL → ParserRegistry → adaptador bancario → PostgreSQL`. n8n no participa. Resend conserva su worker independiente como alternativa de reenvío.
+La ruta SaaS es `Gmail API → API/cola PostgreSQL → ParserRegistry → adaptador bancario → PostgreSQL`. n8n no participa en la ingesta.
 
 En Render gratuito, API y runner se ejecutan en un único proceso del mismo release:
 
@@ -60,9 +59,9 @@ En Render gratuito, API y runner se ejecutan en un único proceso del mismo rele
 npm run start
 ```
 
-`PROCESS_ROLE=all` es el modo predeterminado. El runner agenda reconciliaciones, renueva `users.watch`, procesa Gmail y Resend en vías paralelas y reintenta fallos con leases. Un cron autenticado puede llamar cada diez minutos a `POST /api/v1/internal/maintenance/tick` para despertar el servicio y avanzar trabajo. Si luego hay presupuesto para procesos separados, `PROCESS_ROLE=web|worker` conserva esa opción. En desarrollo funciona sin URL pública mediante la reconciliación; Pub/Sub requiere HTTPS accesible.
+`PROCESS_ROLE=all` es el modo predeterminado. El runner agenda reconciliaciones, renueva `users.watch`, procesa Gmail y reintenta fallos con leases. Un cron autenticado puede llamar cada diez minutos a `POST /api/v1/internal/maintenance/tick` para despertar el servicio y avanzar trabajo. Si luego hay presupuesto para procesos separados, `PROCESS_ROLE=web|worker` conserva esa opción. En desarrollo funciona sin URL pública mediante la reconciliación; Pub/Sub requiere HTTPS accesible.
 
-Después de desplegar `20260827010000_gmail_reliability`:
+Después de desplegar las migraciones pendientes, incluida `20260829010000_banreservas_bank_selection`:
 
 ```powershell
 npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
@@ -70,9 +69,9 @@ npm run gmail:replay -- --provider GOOGLE_GMAIL --bank BHD --errors AMOUNT_NOT_F
 npm run gmail:replay -- --provider GOOGLE_GMAIL --bank BHD --errors AMOUNT_NOT_FOUND,MERCHANT_NOT_FOUND --apply
 ```
 
-El primer comando de replay es `dry-run`. `--apply` solo encola trabajos; el worker usa el contenido cifrado conservado o recupera el mensaje original por `providerEmailId`. Se actualiza el mismo `IngestionEvent` y la idempotencia impide duplicar transacciones.
+El primer comando de replay es `dry-run`. `--apply` solo encola trabajos; el runner usa el contenido cifrado conservado o recupera el mensaje original por `providerEmailId`. Se actualiza el mismo `IngestionEvent` y la idempotencia impide duplicar transacciones.
 
-Para una recuperación administrada sin arrancar el worker general, procesa únicamente los IDs impresos por `--apply`:
+Para una recuperación administrada sin arrancar el runner general, procesa únicamente los IDs impresos por `--apply`:
 
 ```powershell
 npm run gmail:process-jobs -- --ids "job-uuid-1,job-uuid-2"
@@ -110,7 +109,7 @@ Para crear o actualizar Pub/Sub sin usar la consola:
 .\scripts\setup-google-pubsub.ps1 -ProjectId "mi-proyecto" -ApiBaseUrl "https://api.bills.do"
 ```
 
-El script imprime `GOOGLE_PUBSUB_TOPIC`, `GOOGLE_PUBSUB_PUSH_AUDIENCE` y `GOOGLE_PUBSUB_PUSH_SERVICE_ACCOUNT`. Copia esos valores al entorno de API y worker, reinicia ambos y reconecta Gmail una vez para registrar el watch.
+El script imprime `GOOGLE_PUBSUB_TOPIC`, `GOOGLE_PUBSUB_PUSH_AUDIENCE` y `GOOGLE_PUBSUB_PUSH_SERVICE_ACCOUNT`. Copia esos valores al entorno del servicio, reinícialo y reconecta Gmail una vez para registrar el watch.
 
 La salud visible de una conexión incluye última sincronización exitosa, resumen creado/ignorado/fallido, trabajo más reciente, próxima reconciliación, expiración del watch y necesidad de reconexión. Una sincronización parcial nunca se presenta simplemente como “Activa”.
 
@@ -119,7 +118,7 @@ La salud visible de una conexión incluye última sincronización exitosa, resum
 - Inicio con Google o magic link.
 - Consentimiento legal explícito y versionado antes de datos financieros.
 - “Conectar Gmail” como acción principal; retorno y primera sincronización automáticos.
-- Reenvío plegado como alternativa y opción de continuar manualmente.
+- Opción de continuar con movimientos manuales sin conectar Gmail.
 - Finalización de onboarding persistida en el perfil, no en memoria del navegador.
 - Centro de privacidad para sincronizar, reconectar, desconectar, exportar o eliminar la cuenta.
 
@@ -128,7 +127,7 @@ Métrica de salida en beta: mediana de registro a dashboard menor de tres minuto
 ### Fase 3 — Legal, privacidad y derechos: implementada técnicamente; revisión profesional obligatoria antes de cobro
 
 - Términos, privacidad, divulgación específica de Google API y eliminación, públicos y versionados.
-- La versión legal `2026-08-26.1` declara la retención cifrada máxima de treinta días para fallos recuperables y fuerza reaceptación por el cambio material.
+- La versión legal `2026-08-29.1` documenta la selección explícita de bancos y fuerza reaceptación por el cambio material.
 - Aceptación con versión, fecha y evidencia técnica seudonimizada; cambios materiales fuerzan reaceptación.
 - Exportación autenticada y eliminación autoservicio. Desconectar Gmail revoca tokens sin borrar movimientos ya importados.
 - La eliminación borra el workspace personal y conserva solo una prueba seudonimizada del cumplimiento.
@@ -146,7 +145,7 @@ Base normativa revisada:
 ### Fase 4 — Beta operada: siguiente fase de negocio
 
 - Instrumentar activación, tiempo a primer movimiento, éxito por parser, duplicados, latencia de cola y retención W1/W4.
-- Dashboard interno sin cuerpos de correo; alertas de worker, backlog, errores y tokens que requieren reconexión.
+- Dashboard interno sin cuerpos de correo; alertas del runner, backlog, errores y tokens que requieren reconexión.
 - Backups cifrados, restauración ensayada y retención documentada.
 - Proceso de incidentes, soporte y respuesta a solicitudes de titulares.
 - Cinco testers internos, luego 25 y finalmente 50, ampliando solo si precisión y soporte lo permiten.
@@ -195,13 +194,11 @@ Para producción también son obligatorios:
 - `LEGAL_PROVIDER_NAME`, `LEGAL_PROVIDER_ID`, `LEGAL_CONTACT_EMAIL`, `LEGAL_CONTACT_ADDRESS`
 - `APP_URL`, `API_PUBLIC_URL` y `CORS_ORIGIN` con HTTPS/dominios propios
 - `DATABASE_URL` y `DIRECT_URL`
-- Para reenvío: `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `RESEND_RECEIVING_DOMAIN`
 
-Cambiar una URL de ngrok no obliga a rotar la API key de Resend. El signing secret cambia solo si se crea/reemplaza el endpoint de webhook; entonces se actualiza `RESEND_WEBHOOK_SECRET` y se reinicia API/worker.
 
 ## Gate de lanzamiento
 
-- [x] Código multi-tenant, Gmail, reenvío, adaptadores, legal y autoservicio.
+- [x] Código multi-tenant, Gmail OAuth, selección de bancos, adaptadores, legal y autoservicio.
 - [x] Migraciones desde base vacía y pruebas automatizadas locales.
 - [x] Build de API/web y validación TypeScript sin errores bloqueantes.
 - [x] Migración Gmail/reversas desplegada en Supabase.
@@ -210,5 +207,4 @@ Cambiar una URL de ngrok no obliga a rotar la API key de Resend. El signing secr
 - [ ] Completar identidad legal real y revisión con abogado dominicano.
 - [ ] Confirmar política de backups de Supabase y ensayar una restauración antes de invitar testers.
 - [ ] Google Cloud Testing configurado y prueba real de conexión/reconexión a siete días.
-- [ ] Resend/ngrok probado extremo a extremo y purga de fallidos observada.
 - [ ] Prueba de restauración, monitoreo e incidente antes de ampliar la beta.

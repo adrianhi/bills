@@ -7,7 +7,7 @@ import type { IngestionChannelName, NormalizedEmail } from '../../../ingestion/t
 interface ProcessEmailInput {
   workspaceId: string;
   email: NormalizedEmail;
-  ingestionChannel: Extract<IngestionChannelName, 'EMAIL_FORWARD' | 'GMAIL_OAUTH'>;
+  ingestionChannel: Extract<IngestionChannelName, 'GMAIL_OAUTH'>;
   institutionCode?: string;
   bankConnectionId?: string;
   inboxConnectionId?: string;
@@ -22,6 +22,29 @@ export class NormalizedEmailProcessor {
 
     if (!parser) {
       return { status: 'ignored' as const, reason: 'PARSER_NOT_DETECTED' };
+    }
+
+    if (input.ingestionChannel === 'GMAIL_OAUTH') {
+      if (!input.inboxConnectionId) {
+        return { status: 'ignored' as const, reason: 'INBOX_CONNECTION_REQUIRED' };
+      }
+      const subscription = await prisma.inboxInstitutionSubscription.findUnique({
+        where: {
+          inboxConnectionId_institutionCode: {
+            inboxConnectionId: input.inboxConnectionId,
+            institutionCode: parser.institutionCode,
+          },
+        },
+        select: { enabled: true },
+      });
+      if (!subscription?.enabled) {
+        return {
+          status: 'ignored' as const,
+          reason: 'BANK_NOT_SELECTED',
+          parserCode: parser.institutionCode,
+          parserVersion: parser.version,
+        };
+      }
     }
 
     const parseResult = await parser.parse(input.email, {

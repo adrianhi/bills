@@ -2,18 +2,18 @@
 
 Documentación técnica: [arquitectura](docs/ARCHITECTURE.md) · [pruebas y staging](docs/TESTING.md) · [plan SaaS](docs/SAAS-PLAN.md)
 
-Plataforma SaaS de finanzas personales que unifica notificaciones bancarias, normaliza movimientos y ofrece analítica por usuario. **Banco BHD es el piloto**, pero cada institución se integra como un adaptador independiente sobre un contrato común.
+Plataforma SaaS de finanzas personales que unifica notificaciones bancarias, normaliza movimientos y ofrece analítica por usuario. BHD, Qik y Banreservas se integran como adaptadores independientes sobre un contrato común.
 
 ## Estado actual
 
 - Acceso con Google o magic link mediante Supabase Auth.
 - Beta privada por invitación.
 - Un workspace personal aislado por usuario; todas las consultas y mutaciones se filtran por workspace.
-- Onboarding principal con Gmail OAuth de solo lectura y sincronización automática; reenvío privado como alternativa.
-- Ingesta común: Gmail OAuth o Resend Inbound → `NormalizedEmail` → registro de adaptadores → BHD/Qik.
+- Onboarding con selección explícita de uno o varios bancos y Gmail OAuth de solo lectura.
+- Ingesta común: Gmail OAuth → `NormalizedEmail` → registro de adaptadores → BHD/Qik/Banreservas.
 - Términos y privacidad versionados, consentimiento auditable, exportación y eliminación autoservicio.
 - Registro manual, reglas por usuario, dashboard, filtros y exportación autenticada.
-- Catálogo multi-banco: BHD en `PILOT`; Popular, Banreservas, Qik, APAP y Scotiabank en `COMING_SOON`.
+- Catálogo multi-banco: BHD, Qik y Banreservas disponibles como pilotos; las instituciones futuras permanecen visibles pero deshabilitadas.
 
 Consulta el plan, las decisiones y los criterios de salida en [docs/SAAS-PLAN.md](docs/SAAS-PLAN.md).
 
@@ -23,13 +23,12 @@ Consulta el plan, las decisiones y los criterios de salida en [docs/SAAS-PLAN.md
 Supabase Auth ── token ──> React/Vite ── Bearer ──> Express API
                                                    │
 Gmail ── OAuth readonly ───────────────────────────┤
-Correo bancario ── forward ─> Resend ── firma ────┤
                                                    ▼
                              ingestion_events / ingestion_jobs (PostgreSQL)
                                                    │
                               IngestionRunner (mismo proceso de API en Render)
                                                    │
-                                  ParserRegistry -> BHD | Qik | siguiente banco
+                              ParserRegistry -> BHD | Qik | Banreservas | siguiente banco
                                                    │
                                       transactions (workspace_id)
 ```
@@ -64,7 +63,6 @@ URLs locales:
 - Web: `http://localhost:5173`
 - API: `http://localhost:3000`
 - Health: `http://localhost:3000/health`
-- Webhook Resend: `POST http://localhost:3000/webhooks/resend`
 
 ## Variables necesarias
 
@@ -97,6 +95,8 @@ GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/v1/oauth/google/callback
 INGESTION_ENCRYPTION_KEY=base64_de_32_bytes
 PROCESS_ROLE=all
 MAINTENANCE_SECRET=un_secreto_largo_y_aleatorio
+GMAIL_INITIAL_SYNC_MONTHS=2
+GMAIL_BACKFILL_CONCURRENCY=2
 ```
 
 Habilita Gmail API, registra exactamente el redirect URI y agrega los testers en la audiencia de Google Cloud. En modo `Testing`, los grants con `gmail.readonly` expiran a los siete días. La salida pública exige verificación de alcance restringido y, al procesarse datos mediante el servidor, normalmente una evaluación de seguridad. Consulta el checklist completo en [docs/SAAS-PLAN.md](docs/SAAS-PLAN.md).
@@ -110,15 +110,6 @@ Authorization: Bearer <MAINTENANCE_SECRET>
 
 El endpoint agenda reconciliaciones y procesa trabajo durante una ventana corta; no expone datos financieros.
 
-Para la ingesta por correo:
-
-```dotenv
-RESEND_API_KEY=re_...
-RESEND_WEBHOOK_SECRET=whsec_...
-RESEND_RECEIVING_DOMAIN=tu-dominio-temporal-de-recepcion
-INGESTION_ENCRYPTION_KEY=base64_de_32_bytes
-```
-
 Genera la clave de retención localmente:
 
 ```bash
@@ -126,16 +117,6 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
 Los contenidos crudos solo se conservan si un parseo falla, cifrados con AES-256-GCM y por un máximo de siete días. Si no hay clave válida, no se conserva contenido crudo.
-
-## Resend y túnel de desarrollo
-
-1. Levanta la API; con `PROCESS_ROLE=all` también procesa la cola.
-2. Expón el puerto 3000 con ngrok.
-3. En Resend crea el webhook `email.received` apuntando a `https://TU-TUNEL.ngrok.app/webhooks/resend`.
-4. Copia el nuevo signing secret a `RESEND_WEBHOOK_SECRET` y reinicia la API.
-5. Configura el dominio receptor temporal de Resend en `RESEND_RECEIVING_DOMAIN`.
-
-Cambiar la URL de ngrok no exige cambios de código: solo actualiza el endpoint del webhook en Resend. No reutilices el secreto de webhook de otro endpoint.
 
 ## Migraciones: no usar `db push` en producción
 
@@ -190,7 +171,7 @@ Las pruebas de integración destructivas están bloqueadas salvo que `DATABASE_U
 docker compose up -d --build
 ```
 
-Compose levanta PostgreSQL, ejecuta migraciones en un contenedor separado e inicia API (`PROCESS_ROLE=web`) y worker (`PROCESS_ROLE=worker`). En Render gratuito se usa un único servicio con `PROCESS_ROLE=all`. El flujo n8n anterior queda disponible solo como compatibilidad:
+Compose levanta PostgreSQL, ejecuta migraciones en un contenedor separado e inicia la API y el runner Gmail en un único servicio (`PROCESS_ROLE=all`), igual que Render gratuito. El flujo n8n anterior queda disponible solo como compatibilidad:
 
 ```bash
 docker compose --profile legacy-n8n up -d n8n

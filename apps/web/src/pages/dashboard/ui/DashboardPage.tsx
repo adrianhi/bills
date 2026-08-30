@@ -22,6 +22,7 @@ import { PeriodFilter } from '@/features/period-filter';
 import { Button, Card, CardContent } from '@/shared/ui';
 import { formatCurrency, formatDate } from '@/shared/lib';
 import { isReceivedTransfer } from '@/entities/transaction/model/selectors';
+import { connectionService } from '@/entities/connection/api/connection.service';
 import { useDashboardController } from '../model/useDashboardController';
 
 const CategoryBreakdownChart = React.lazy(async () => {
@@ -117,6 +118,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
     if (!sectionFromPath(location.pathname)) navigate('/app/inicio', { replace: true });
   }, [location.pathname, navigate]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    void connectionService.listInboxConnections(controller.signal)
+      .then((connections) => {
+        if (connections.some((connection) => connection.status === 'ACTIVE' && connection.requiresBankSelection)) {
+          setIsSettingsOpen(true);
+        }
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [authToken]);
+
   const activeFiltersCount = [categoryFilter, statusFilter, organizationFilter, typeFilter].filter(Boolean).length;
   const recentTransactions = useMemo(() => transactions.slice(0, 5), [transactions]);
   const selectSection = (section: AppSection) => {
@@ -148,7 +161,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
 
       <Navbar title={SECTION_TITLES[activeSection]} hideBalances={hideBalances} setHideBalances={setHideBalances} onRefresh={onRefresh} onOpenSettings={() => setIsSettingsOpen(true)} refreshing={refreshing || refreshingStats} />
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-5 pb-36 sm:px-6 sm:py-8 lg:ml-64 lg:pb-10">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-5 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8 lg:ml-64 lg:pb-10">
         {activeSection === 'home' && (
           <>
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><PageIntro title="Tu panorama" description="Lo importante de este período, sin sobrecargarte." />{periodToolbar}</div>

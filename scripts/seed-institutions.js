@@ -30,7 +30,7 @@ async function main() {
     INSERT INTO "financial_institutions" ("code", "display_name", "status", "sender_patterns", "updated_at") VALUES
       ('BHD', 'Banco BHD', 'PILOT', ARRAY['alertas@bhd.com.do', '@bhd.com.do'], CURRENT_TIMESTAMP),
       ('POPULAR', 'Banco Popular', 'COMING_SOON', ARRAY[]::TEXT[], CURRENT_TIMESTAMP),
-      ('BANRESERVAS', 'Banreservas', 'COMING_SOON', ARRAY[]::TEXT[], CURRENT_TIMESTAMP),
+      ('BANRESERVAS', 'Banreservas', 'PILOT', ARRAY['notificaciones@banreservas.com', 'notificacionestubancoapp@banreservas.com'], CURRENT_TIMESTAMP),
       ('QIK', 'Qik Banco Digital', 'PILOT', ARRAY['@qik.do', '@qik.com.do'], CURRENT_TIMESTAMP),
       ('APAP', 'APAP', 'COMING_SOON', ARRAY[]::TEXT[], CURRENT_TIMESTAMP),
       ('SCOTIABANK', 'Scotiabank', 'COMING_SOON', ARRAY[]::TEXT[], CURRENT_TIMESTAMP),

@@ -9,6 +9,7 @@ const protectedRoute = [requireAuth, requireCurrentLegalAcceptance, requireWorks
 router.get('/oauth/google/callback', InboxConnectionController.googleCallback);
 router.get('/inbox-connections', ...protectedRoute, InboxConnectionController.list);
 router.post('/inbox-connections/google/start', ...protectedRoute, InboxConnectionController.startGoogle);
+router.put('/inbox-connections/:id/institutions', ...protectedRoute, InboxConnectionController.updateInstitutions);
 router.post('/inbox-connections/:id/sync', ...protectedRoute, InboxConnectionController.sync);
 router.delete('/inbox-connections/:id', ...protectedRoute, InboxConnectionController.remove);
 

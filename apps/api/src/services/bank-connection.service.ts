@@ -1,1 +1,1 @@
-export { BankConnectionService } from '../modules/connections/infrastructure/bank-connection.service';
+export { FinancialInstitutionService as BankConnectionService } from '../modules/connections/infrastructure/financial-institution.service';

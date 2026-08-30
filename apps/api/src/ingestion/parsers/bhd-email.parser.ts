@@ -224,7 +224,7 @@ export class BhdEmailParser implements BankEmailParser {
       transactionDate: parseBhdDate(table?.fecha || content, email.receivedAt),
       source,
       institutionCode: this.institutionCode,
-      ingestionChannel: context?.ingestionChannel || 'EMAIL_FORWARD',
+      ingestionChannel: context?.ingestionChannel || 'GMAIL_OAUTH',
       notes,
     };
     return { status: 'parsed', transactions: [transaction] };

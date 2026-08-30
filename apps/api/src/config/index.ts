@@ -19,18 +19,15 @@ export const config = {
   appUrl: process.env.APP_URL || 'http://localhost:5173',
   apiPublicUrl: process.env.API_PUBLIC_URL || 'http://localhost:3000',
   legacyOwnerEmail: process.env.LEGACY_OWNER_EMAIL?.trim().toLowerCase() || '',
-  resendApiKey: process.env.RESEND_API_KEY || '',
-  resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || '',
-  resendReceivingDomain: process.env.RESEND_RECEIVING_DOMAIN || '',
   ingestionEncryptionKey: process.env.INGESTION_ENCRYPTION_KEY || '',
   googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID || '',
   googleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || '',
   googleOAuthRedirectUri:
     process.env.GOOGLE_OAUTH_REDIRECT_URI ||
     `${process.env.API_PUBLIC_URL || 'http://localhost:3000'}/api/v1/oauth/google/callback`,
-  gmailInitialSyncDays: Math.min(
-    Math.max(parseInt(process.env.GMAIL_INITIAL_SYNC_DAYS || '90', 10), 1),
-    365
+  gmailInitialSyncMonths: Math.min(
+    Math.max(parseInt(process.env.GMAIL_INITIAL_SYNC_MONTHS || '2', 10), 1),
+    6
   ),
   googlePubSubTopic: process.env.GOOGLE_PUBSUB_TOPIC || '',
   googlePubSubPushAudience: process.env.GOOGLE_PUBSUB_PUSH_AUDIENCE || '',
@@ -46,6 +43,10 @@ export const config = {
   gmailSyncConcurrency: Math.min(
     Math.max(parseInt(process.env.GMAIL_SYNC_CONCURRENCY || '4', 10), 1),
     10
+  ),
+  gmailBackfillConcurrency: Math.min(
+    Math.max(parseInt(process.env.GMAIL_BACKFILL_CONCURRENCY || '2', 10), 1),
+    4
   ),
   legalProviderName: process.env.LEGAL_PROVIDER_NAME || '',
   legalProviderId: process.env.LEGAL_PROVIDER_ID || '',

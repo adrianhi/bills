@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  Check,
   Download,
   Loader2,
   Mail,
@@ -18,6 +19,7 @@ import {
   Input,
 } from "@/shared/ui";
 import { useAccountSettings } from "../model/useAccountSettings";
+import { BankSelector } from '@/entities/connection/ui/BankSelector';
 
 interface AccountSettingsModalProps {
   authToken: string;
@@ -33,16 +35,18 @@ export function AccountSettingsModal({
   onAccountDeleted,
 }: AccountSettingsModalProps) {
   const model = useAccountSettings(isOpen, Boolean(authToken), onAccountDeleted);
-  const { connections, confirmation, setConfirmation, notice, error, busy,
-    startGoogle, sync, disconnect, exportData, deleteAccount } = model;
+  const { connections, institutions, newBankSelection, setNewBankSelection, bankSelections, setBankSelection,
+    confirmation, setConfirmation, notice, error, busy,
+    startGoogle, saveSelection, sync, disconnect, exportData, deleteAccount } = model;
+  const mustSelectBanks = connections.some((connection) => connection.status === 'ACTIVE' && connection.requiresBankSelection);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !mustSelectBanks && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Privacidad y conexiones</DialogTitle>
           <DialogDescription>
-            Controla las fuentes conectadas y tus derechos sobre los datos.
+            {mustSelectBanks ? 'Selecciona al menos un banco para reanudar Gmail.' : 'Controla las fuentes conectadas y tus derechos sobre los datos.'}
           </DialogDescription>
         </DialogHeader>
         <section className="space-y-3 rounded-xl border p-4">
@@ -71,6 +75,22 @@ export function AccountSettingsModal({
                   <ShieldCheck
                     className={`h-4 w-4 ${(connection.failedEvents || 0) > 0 || connection.status !== "ACTIVE" ? "text-amber-500" : "text-emerald-500"}`}
                   />
+                </div>
+                <div className="mt-3 rounded-xl border bg-background/70 p-3">
+                  <BankSelector
+                    institutions={institutions}
+                    selectedCodes={bankSelections[connection.id] ?? connection.selectedInstitutionCodes}
+                    onChange={(codes) => setBankSelection(connection.id, codes)}
+                    disabled={Boolean(busy)}
+                  />
+                  <Button
+                    size="sm"
+                    className="mt-3 min-h-11 w-full gap-2"
+                    disabled={Boolean(busy) || (bankSelections[connection.id] ?? connection.selectedInstitutionCodes).length === 0}
+                    onClick={() => saveSelection(connection.id)}
+                  >
+                    {busy === `selection:${connection.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Guardar bancos
+                  </Button>
                 </div>
                 <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
                   <p>
@@ -104,7 +124,7 @@ export function AccountSettingsModal({
                       size="sm"
                       variant="outline"
                       className="min-h-11 gap-1"
-                      disabled={Boolean(busy) || connection.currentJob?.status === 'PENDING' || connection.currentJob?.status === 'PROCESSING'}
+                      disabled={connection.requiresBankSelection || Boolean(busy) || connection.currentJob?.status === 'PENDING' || connection.currentJob?.status === 'PROCESSING'}
                       onClick={() => void sync(connection.id)}
                     >
                       {busy === `sync:${connection.id}` || connection.currentJob?.status === 'PENDING' || connection.currentJob?.status === 'PROCESSING' ? (
@@ -115,7 +135,7 @@ export function AccountSettingsModal({
                       {connection.currentJob?.status === 'PENDING' || connection.currentJob?.status === 'PROCESSING' ? 'Sincronizando…' : 'Sincronizar'}
                     </Button>
                   ) : (
-                    <Button size="sm" variant="outline" className="min-h-11 gap-1" disabled={Boolean(busy)} onClick={startGoogle}>
+                    <Button size="sm" variant="outline" className="min-h-11 gap-1" disabled={Boolean(busy) || (bankSelections[connection.id] ?? connection.selectedInstitutionCodes).length === 0} onClick={() => startGoogle(bankSelections[connection.id] ?? connection.selectedInstitutionCodes)}>
                       {busy === 'google' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />} Reconectar Gmail
                     </Button>
                   )}
@@ -132,19 +152,17 @@ export function AccountSettingsModal({
               </div>
             ))
           ) : (
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              disabled={busy === "google"}
-              onClick={startGoogle}
-            >
-              {busy === "google" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Mail className="h-4 w-4" />
-              )}{" "}
-              Conectar Gmail
-            </Button>
+            <div className="space-y-3">
+              <BankSelector institutions={institutions} selectedCodes={newBankSelection} onChange={setNewBankSelection} disabled={Boolean(busy)} />
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                disabled={busy === "google" || newBankSelection.length === 0}
+                onClick={() => startGoogle()}
+              >
+                {busy === "google" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Conectar Gmail
+              </Button>
+            </div>
           )}
           <a
             href="/legal/google-api-disclosure"

@@ -4,10 +4,13 @@ import { config } from '../config';
 import { AppError } from '../errors/app-error';
 import { GmailConnectionService } from '../services/gmail-connection.service';
 import { IngestionJobService } from '../services/ingestion-job.service';
+import { InstitutionSelectionService } from '../modules/connections/infrastructure/institution-selection.service';
 
 const StartGoogleSchema = z.object({
   returnTo: z.string().max(200).optional(),
+  institutionCodes: z.array(z.string().trim().min(2).max(32)).min(1),
 });
+const InstitutionSelectionSchema = StartGoogleSchema.pick({ institutionCodes: true });
 
 export class InboxConnectionController {
   public static async list(req: Request, res: Response, next: NextFunction) {
@@ -27,9 +30,34 @@ export class InboxConnectionController {
       const authorizationUrl = await GmailConnectionService.createAuthorizationUrl(
         req.auth!.workspaceId!,
         req.auth!.user.id,
+        input.institutionCodes,
         input.returnTo
       );
       res.status(200).json({ success: true, data: { authorizationUrl } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async updateInstitutions(req: Request, res: Response, next: NextFunction) {
+    try {
+      const input = InstitutionSelectionSchema.parse(req.body);
+      const result = await InstitutionSelectionService.replace(
+        req.auth!.workspaceId!,
+        String(req.params.id),
+        input.institutionCodes
+      );
+      const jobs = await Promise.all(result.addedInstitutionCodes.map((institutionCode) =>
+        IngestionJobService.enqueueBankBackfill(
+          req.auth!.workspaceId!,
+          String(req.params.id),
+          institutionCode
+        )
+      ));
+      res.status(200).json({
+        success: true,
+        data: { selectedInstitutionCodes: result.selectedInstitutionCodes, queuedJobIds: jobs.map((job) => job.id) },
+      });
     } catch (error) {
       next(error);
     }

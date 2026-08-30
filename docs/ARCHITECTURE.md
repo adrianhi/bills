@@ -2,7 +2,7 @@
 
 ## Principios
 
-bills. usa módulos verticales en el API y Feature-Sliced Design en el cliente. Las dependencias siempre apuntan hacia reglas más estables; HTTP, Prisma, Supabase, Gmail y Resend son detalles externos.
+bills. usa módulos verticales en el API y Feature-Sliced Design en el cliente. Las dependencias siempre apuntan hacia reglas más estables; HTTP, Prisma, Supabase y Gmail son detalles externos.
 
 ## Frontend
 
@@ -36,11 +36,11 @@ React UI → feature hook/action → entity service → Axios → API controller
 ```
 
 ```text
-Gmail Push / Resend → verified provider adapter → durable event/job
+Gmail Push → verified provider adapter → durable event/job
   → IngestionRunner → parser registry → transaction application → PostgreSQL
 ```
 
-`IngestionRunner` procesa las vías Gmail y Resend en paralelo y usa leases en PostgreSQL. En Render corre dentro del único proceso web (`PROCESS_ROLE=all`); Docker puede separar API y worker mediante `PROCESS_ROLE=web|worker` sin duplicar consumidores. Un cron externo puede despertar y avanzar la cola llamando con Bearer token a `POST /api/v1/internal/maintenance/tick`.
+`IngestionRunner` procesa Gmail con leases en PostgreSQL. En Render y Docker Compose corre dentro del único proceso web (`PROCESS_ROLE=all`). Un cron externo puede despertar y avanzar la cola llamando con Bearer token a `POST /api/v1/internal/maintenance/tick`.
 
 Solo `APPROVED` contribuye a gasto, ingreso, ticket promedio, subtotales y gráficas. `REVERSED`, `DECLINED` y `PENDING` permanecen visibles y auditables.
 
@@ -52,4 +52,4 @@ Solo `APPROVED` contribuye a gasto, ingreso, ticket promedio, subtotales y gráf
 4. Agregar pruebas de compras, ingresos, transferencias, rechazos y reversas.
 5. Ejecutar `npm run verify` y el smoke de staging.
 
-No se modifica el pipeline de Gmail, Resend, jobs ni transacciones para incorporar un banco.
+Cada banco se incorpora mediante un parser y remitentes explícitos; las suscripciones por conexión limitan qué instituciones puede consultar Gmail.

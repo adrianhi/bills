@@ -93,6 +93,7 @@ enum TransactionStatusResolution {
 
 enum IngestionJobType {
   GMAIL_INITIAL_BACKFILL
+  GMAIL_BANK_BACKFILL
   GMAIL_HISTORY_SYNC
   GMAIL_RECONCILIATION
   GMAIL_WATCH_RENEWAL
@@ -164,6 +165,7 @@ model FinancialInstitution {
   connections    BankConnection[]
   transactions   Transaction[]
   statusEvents   TransactionStatusEvent[]
+  inboxSubscriptions InboxInstitutionSubscription[]
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
@@ -221,6 +223,7 @@ model InboxConnection {
   ingestionEvents       IngestionEvent[]
   ingestionJobs         IngestionJob[]
   integrationConsents   IntegrationConsent[]
+  institutionSubscriptions InboxInstitutionSubscription[]
   createdAt             DateTime              @default(now()) @map("created_at")
   updatedAt             DateTime              @updatedAt @map("updated_at")
 
@@ -297,6 +300,7 @@ model OAuthState {
   profileId   String        @map("profile_id") @db.Uuid
   provider    InboxProvider
   returnTo    String        @default("/onboarding") @map("return_to")
+  institutionCodes String[] @default([]) @map("institution_codes")
   expiresAt   DateTime      @map("expires_at")
   usedAt      DateTime?     @map("used_at")
   workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -305,6 +309,21 @@ model OAuthState {
 
   @@index([expiresAt])
   @@map("oauth_states")
+}
+
+model InboxInstitutionSubscription {
+  id                String               @id @default(uuid()) @db.Uuid
+  inboxConnectionId String               @map("inbox_connection_id") @db.Uuid
+  institutionCode   String               @map("institution_code")
+  enabled           Boolean              @default(true)
+  inboxConnection   InboxConnection      @relation(fields: [inboxConnectionId], references: [id], onDelete: Cascade)
+  institution       FinancialInstitution @relation(fields: [institutionCode], references: [code], onDelete: Restrict)
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  @@unique([inboxConnectionId, institutionCode])
+  @@index([institutionCode, enabled])
+  @@map("inbox_institution_subscriptions")
 }
 
 model IngestionAddress {

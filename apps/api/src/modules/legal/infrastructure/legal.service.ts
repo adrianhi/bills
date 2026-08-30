@@ -4,7 +4,7 @@ import { config } from '../../../config';
 import { prisma } from '../../../config/database';
 import { AppError } from '../../../errors/app-error';
 
-export const CURRENT_LEGAL_VERSION = '2026-08-28.1';
+export const CURRENT_LEGAL_VERSION = '2026-08-29.1';
 export const GOOGLE_DISCLOSURE_VERSION = '2026-08-28.1';
 export const REQUIRED_LEGAL_TYPES: LegalDocumentType[] = ['TERMS', 'PRIVACY'];
 
@@ -36,10 +36,10 @@ function templates(): LegalTemplate[] {
       locale: 'es-DO',
       title: 'Términos y condiciones de uso',
       slug: 'terms',
-      effectiveAt: new Date('2026-08-28T00:00:00.000Z'),
+      effectiveAt: new Date('2026-08-29T00:00:00.000Z'),
       content: `# Términos y condiciones de uso
 
-Vigentes desde el 28 de agosto de 2026. bills. es operado por ${owner.name}, identificación ${owner.id}, con domicilio de contacto en ${owner.address} y correo ${owner.email}.
+Vigentes desde el 29 de agosto de 2026. bills. es operado por ${owner.name}, identificación ${owner.id}, con domicilio de contacto en ${owner.address} y correo ${owner.email}.
 
 ## Servicio
 bills. es una aplicación beta de organización y analítica financiera personal. Importa notificaciones autorizadas por el usuario, normaliza movimientos y presenta métricas informativas. No es un banco, entidad financiera, contador, asesor fiscal ni asesor de inversión. Los registros oficiales de la entidad bancaria prevalecen y el usuario debe verificar cualquier diferencia.
@@ -54,7 +54,7 @@ No se permite acceder a datos de terceros sin autorización, interferir con la s
 La beta puede contener errores, interrupciones o parsers incompletos. Podemos corregir, limitar o suspender funciones por seguridad, mantenimiento o incumplimiento. Los cambios materiales a estos términos serán informados y requerirán nueva aceptación; no se aplicarán de forma discriminatoria.
 
 ## Terceros
-El servicio depende de proveedores como Google, Supabase, Resend y las entidades emisoras de notificaciones. bills. no está afiliado ni respaldado por BHD, Qik u otro banco salvo acuerdo expreso. Cada tercero mantiene sus propios términos.
+El servicio depende de proveedores como Google, Supabase y las entidades emisoras de notificaciones. bills. no está afiliado ni respaldado por BHD, Qik, Banreservas u otro banco salvo acuerdo expreso. Cada tercero mantiene sus propios términos.
 
 ## Responsabilidad
 bills. aplicará cuidado razonable en la prestación del servicio. En la medida permitida por la legislación aplicable, no responde por decisiones tomadas exclusivamente a partir de métricas informativas, interrupciones de terceros o datos bancarios incorrectos. Nada en estos términos excluye derechos irrenunciables del consumidor ni responsabilidad que legalmente no pueda limitarse.
@@ -75,7 +75,7 @@ Las consultas y reclamaciones pueden enviarse a ${owner.email}. Se intentará un
       locale: 'es-DO',
       title: 'Política de privacidad',
       slug: 'privacy',
-      effectiveAt: new Date('2026-08-28T00:00:00.000Z'),
+      effectiveAt: new Date('2026-08-29T00:00:00.000Z'),
       content: `# Política de privacidad
 
 El responsable del tratamiento es ${owner.name}. Contacto: ${owner.email}. Domicilio: ${owner.address}.
@@ -90,7 +90,7 @@ Usamos los datos para crear la cuenta, importar y clasificar movimientos, mostra
 El cuerpo de un correo procesado correctamente no se conserva. Un mensaje que no pueda procesarse puede conservarse cifrado por hasta 7 días para diagnóstico y recuperación controlada y luego se purga. Los tokens OAuth se almacenan cifrados y se eliminan al revocar la conexión o borrar la cuenta. Los datos normalizados permanecen mientras la cuenta esté activa. Las copias de respaldo cifradas pueden conservar datos eliminados por hasta 30 días antes de expirar y no se utilizan para reactivar una cuenta eliminada.
 
 ## Proveedores y transferencias
-Podemos utilizar Google, Supabase, Resend, infraestructura de hosting y monitoreo como encargados tecnológicos. Esto puede implicar procesamiento fuera de República Dominicana. Se limita el acceso por finalidad, configuración contractual y controles de seguridad.
+Podemos utilizar Google, Supabase, infraestructura de hosting y monitoreo como encargados tecnológicos. Esto puede implicar procesamiento fuera de República Dominicana. Se limita el acceso por finalidad, configuración contractual y controles de seguridad.
 
 ## Venta, publicidad y acceso humano
 No vendemos datos personales o financieros ni usamos datos de Gmail para publicidad. El acceso humano a contenido de correo se restringe a seguridad, cumplimiento o soporte solicitado por el titular, cuando sea indispensable y esté permitido por la ley y las políticas de Google.
@@ -130,7 +130,7 @@ El uso y transferencia de información recibida desde las API de Google se ajust
       locale: 'es-DO',
       title: 'Eliminación de datos y cuenta',
       slug: 'data-deletion',
-      effectiveAt: new Date('2026-08-28T00:00:00.000Z'),
+      effectiveAt: new Date('2026-08-29T00:00:00.000Z'),
       content: `# Eliminación de datos y cuenta
 
 Puedes desconectar Gmail sin borrar tus transacciones, o eliminar completamente la cuenta desde la configuración autenticada.

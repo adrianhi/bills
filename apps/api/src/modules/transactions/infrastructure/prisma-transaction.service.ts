@@ -223,7 +223,7 @@ export class TransactionService {
     const txDate = new Date(data.transactionDate);
     const institutionCode = this.resolveInstitutionCode(data.institutionCode, data.source);
     const ingestionChannel =
-      data.ingestionChannel || (data.source === 'MANUAL' ? 'MANUAL' : 'EMAIL_FORWARD');
+      data.ingestionChannel || (data.source === 'MANUAL' ? 'MANUAL' : 'GMAIL_OAUTH');
     const statusCode = data.statusCode || normalizeTransactionStatus(data.status);
     const status = transactionStatusLabel(statusCode);
 

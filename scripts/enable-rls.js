@@ -1,27 +1,14 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-const tables = [
-  'profiles',
-  'workspaces',
-  'workspace_members',
-  'financial_institutions',
-  'bank_connections',
-  'inbox_connections',
-  'oauth_states',
-  'legal_documents',
-  'legal_acceptances',
-  'integration_consents',
-  'account_deletion_audits',
-  'ingestion_addresses',
-  'ingestion_events',
-  'beta_invites',
-  'transactions',
-  'category_rules',
-];
-
 async function main() {
-  console.log('Enabling RLS on all Supabase tables...');
+  console.log('Enabling RLS on all Supabase tables in public schema...');
+
+  const result = await prisma.$queryRaw`
+    SELECT tablename FROM pg_tables WHERE schemaname = 'public';
+  `;
+
+  const tables = result.map((r) => r.tablename);
 
   for (const table of tables) {
     await prisma.$executeRawUnsafe(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY;`);
@@ -31,11 +18,18 @@ async function main() {
   // Revoke public privileges
   for (const role of ['anon', 'authenticated']) {
     for (const table of tables) {
-      await prisma.$executeRawUnsafe(`REVOKE ALL PRIVILEGES ON TABLE "${table}" FROM ${role};`);
+      await prisma.$executeRawUnsafe(`
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
+            EXECUTE 'REVOKE ALL PRIVILEGES ON TABLE "${table}" FROM ${role};';
+          END IF;
+        END $$;
+      `);
     }
   }
 
-  console.log('\n🛡️ ¡RLS ACTIVADO Y ACCESO PÚBLICO BLOQUEADO EN TODAS LAS TABLAS!');
+  console.log(`\n🛡️ ¡RLS ACTIVADO Y ACCESO PÚBLICO BLOQUEADO EN LAS ${tables.length} TABLAS!`);
 }
 
 main()
@@ -44,3 +38,4 @@ main()
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());
+

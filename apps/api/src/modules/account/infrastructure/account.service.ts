@@ -50,6 +50,9 @@ export class AccountService {
                     revokedAt: true,
                     createdAt: true,
                     updatedAt: true,
+                    institutionSubscriptions: {
+                      select: { institutionCode: true, enabled: true, createdAt: true, updatedAt: true },
+                    },
                   },
                 },
                 ingestionEvents: {

@@ -102,7 +102,7 @@ export function AuthScreen({ checkingSession = false, setupError }: AuthScreenPr
         </Card>
 
         <p className="text-center text-[11px] text-muted-foreground">
-          BHD es el banco piloto. La arquitectura está preparada para nuevas instituciones.
+          Tú eliges cuáles bancos conectar. BHD, Qik y Banreservas están disponibles en piloto.
         </p>
         <p className="text-center text-[11px] text-muted-foreground">
           Al continuar podrás revisar y aceptar nuestros{' '}

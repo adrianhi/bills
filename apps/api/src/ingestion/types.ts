@@ -39,7 +39,7 @@ export type IngestionChannelName =
   | 'CSV_IMPORT';
 
 export interface ParserContext {
-  ingestionChannel: Extract<IngestionChannelName, 'EMAIL_FORWARD' | 'GMAIL_OAUTH'>;
+  ingestionChannel: Extract<IngestionChannelName, 'GMAIL_OAUTH'>;
 }
 
 export type ParseResult =

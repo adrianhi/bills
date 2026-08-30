@@ -100,7 +100,7 @@ export class QikEmailParser implements BankEmailParser {
       transactionDate: email.receivedAt,
       source: received ? 'QIK_TRANSFER_INCOME' : sent ? 'QIK_TRANSFER_EMAIL' : 'QIK_EMAIL',
       institutionCode: this.institutionCode,
-      ingestionChannel: context?.ingestionChannel || 'EMAIL_FORWARD',
+      ingestionChannel: context?.ingestionChannel || 'GMAIL_OAUTH',
       notes: received || sent ? merchant : null,
     };
     return { status: 'parsed', transactions: [transaction] };

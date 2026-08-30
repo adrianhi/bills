@@ -1,25 +1,21 @@
-import { IngestionWorker } from './ingestion-worker';
 import { IngestionJobService } from '../services/ingestion-job.service';
 import { logger } from '../shared/observability/logger';
 
 type CycleResult = {
   gmailProcessed: boolean;
-  resendProcessed: boolean;
 };
 
 const delay = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 
 /**
- * Coordinates both ingestion lanes in one Node process. Database leases remain
+ * Coordinates Gmail ingestion in the API process. Database leases remain
  * the source of truth, so an HTTP cron tick and the resident loop can safely race.
  */
 export class IngestionRunner {
-  private readonly resendWorker = new IngestionWorker();
   private running = false;
   private loopPromise: Promise<void> | null = null;
   private activeCycle: Promise<CycleResult> | null = null;
   private nextScheduleAt = 0;
-  private nextPurgeAt = 0;
 
   public start() {
     if (this.running) return;
@@ -38,25 +34,23 @@ export class IngestionRunner {
   public async maintenanceTick(timeBudgetMs = 8_000) {
     const startedAt = Date.now();
     let gmailProcessed = 0;
-    let resendProcessed = 0;
     let firstCycle = true;
 
     while (Date.now() - startedAt < timeBudgetMs) {
       const result = await this.runCycle(firstCycle);
       firstCycle = false;
       if (result.gmailProcessed) gmailProcessed += 1;
-      if (result.resendProcessed) resendProcessed += 1;
-      if (!result.gmailProcessed && !result.resendProcessed) break;
+      if (!result.gmailProcessed) break;
     }
 
-    return { gmailProcessed, resendProcessed, durationMs: Date.now() - startedAt };
+    return { gmailProcessed, durationMs: Date.now() - startedAt };
   }
 
   private async loop() {
     while (this.running) {
       try {
         const result = await this.runCycle(false);
-        if (!result.gmailProcessed && !result.resendProcessed) await delay(3_000);
+        if (!result.gmailProcessed) await delay(3_000);
       } catch (error) {
         logger.error('embedded_worker_cycle_failed', {
           errorName: error instanceof Error ? error.name : 'UnknownError',
@@ -81,17 +75,8 @@ export class IngestionRunner {
       this.nextScheduleAt = now + 60_000;
     }
 
-    const [gmailProcessed, resendProcessed] = await Promise.all([
-      IngestionJobService.processNext(),
-      this.resendWorker.processNext(),
-    ]);
-
-    if (now >= this.nextPurgeAt) {
-      await this.resendWorker.purgeExpiredRawContent();
-      this.nextPurgeAt = now + 60 * 60_000;
-    }
-
-    return { gmailProcessed, resendProcessed };
+    const gmailProcessed = await IngestionJobService.processNext();
+    return { gmailProcessed };
   }
 }
 

@@ -8,6 +8,7 @@ import type { NormalizedEmail } from '../../../ingestion/types';
 import { ParserRegistry } from '../../../ingestion/parser-registry';
 import { SecretCryptoService } from '../../../services/secret-crypto.service';
 import { LegalService } from '../../../services/legal.service';
+import { InstitutionSelectionService } from './institution-selection.service';
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -72,6 +73,16 @@ export type GmailReplayFilters = {
 
 function emptySummary(): SyncSummary {
   return { scanned: 0, parsed: 0, created: 0, duplicates: 0, ignored: 0, failed: 0 };
+}
+
+export function gmailInitialCutoff(now = new Date(), months = config.gmailInitialSyncMonths) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Santo_Domingo', year: 'numeric', month: 'numeric',
+  }).formatToParts(now);
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  const startMonth = month - Math.max(months, 1) + 1;
+  return new Date(Date.UTC(year, startMonth - 1, 1, 4, 0, 0));
 }
 
 function hashState(value: string) {
@@ -161,9 +172,11 @@ export class GmailConnectionService {
   public static async createAuthorizationUrl(
     workspaceId: string,
     profileId: string,
+    institutionCodes: string[],
     returnTo?: string
   ) {
     this.assertConfigured();
+    const selectedCodes = await InstitutionSelectionService.validate(institutionCodes);
     const state = crypto.randomBytes(32).toString('base64url');
     await prisma.$transaction([
       prisma.oAuthState.deleteMany({ where: { expiresAt: { lte: new Date() } } }),
@@ -174,6 +187,7 @@ export class GmailConnectionService {
           profileId,
           provider: 'GOOGLE',
           returnTo: safeReturnTo(returnTo),
+          institutionCodes: selectedCodes,
           expiresAt: new Date(Date.now() + 10 * 60 * 1000),
         },
       }),
@@ -273,6 +287,12 @@ export class GmailConnectionService {
           },
         });
 
+    await InstitutionSelectionService.replace(
+      oauthState.workspaceId,
+      connection.id,
+      oauthState.institutionCodes
+    );
+
     await LegalService.recordGoogleConsent(
       oauthState.profileId,
       connection.id,
@@ -290,6 +310,11 @@ export class GmailConnectionService {
     const connections = await prisma.inboxConnection.findMany({
       where: { workspaceId },
       include: {
+        institutionSubscriptions: {
+          where: { enabled: true },
+          select: { institutionCode: true },
+          orderBy: { institutionCode: 'asc' },
+        },
         bankConnections: {
           select: {
             id: true,
@@ -331,7 +356,15 @@ export class GmailConnectionService {
             },
           }),
         ]);
-        return serializeConnection({ ...connection, currentJob, failedEvents });
+        const selectedInstitutionCodes = connection.institutionSubscriptions.map((item) => item.institutionCode);
+        const { institutionSubscriptions: _subscriptions, ...connectionData } = connection;
+        return serializeConnection({
+          ...connectionData,
+          selectedInstitutionCodes,
+          requiresBankSelection: selectedInstitutionCodes.length === 0,
+          currentJob,
+          failedEvents,
+        });
       })
     );
   }
@@ -388,10 +421,21 @@ export class GmailConnectionService {
     return { connection: updated, accessToken: tokens.access_token };
   }
 
-  private static async senderQuery(lastSyncedAt?: Date | null) {
+  private static async senderQuery(
+    inboxConnectionId: string,
+    lastSyncedAt?: Date | null,
+    onlyInstitutionCodes?: string[]
+  ) {
+    const selectedCodes = await InstitutionSelectionService.enabledCodes(inboxConnectionId);
+    const requested = onlyInstitutionCodes?.length
+      ? selectedCodes.filter((code) => onlyInstitutionCodes.includes(code))
+      : selectedCodes;
+    if (!requested.length) {
+      throw new AppError(409, 'BANK_SELECTION_REQUIRED', 'Select at least one bank before synchronizing Gmail.');
+    }
     const institutions = await prisma.financialInstitution.findMany({
       where: {
-        code: { in: ParserRegistry.supportedInstitutionCodes() },
+        code: { in: requested.filter((code) => ParserRegistry.supportedInstitutionCodes().includes(code)) },
         status: { in: ['PILOT', 'ACTIVE'] },
       },
       select: { senderPatterns: true },
@@ -405,7 +449,7 @@ export class GmailConnectionService {
     }
     const dateFilter = lastSyncedAt
       ? `after:${Math.floor((lastSyncedAt.getTime() - 5 * 60 * 1000) / 1000)}`
-      : `newer_than:${config.gmailInitialSyncDays}d`;
+      : `after:${Math.floor(gmailInitialCutoff().getTime() / 1000)}`;
     return `{${senders.join(' ')}} ${dateFilter}`;
   }
 
@@ -580,11 +624,17 @@ export class GmailConnectionService {
     connection: { id: string; email: string },
     accessToken: string,
     messageIds: string[],
-    summary: SyncSummary
+    summary: SyncSummary,
+    concurrency = config.gmailSyncConcurrency,
+    requiredInstitutionCode?: string
   ) {
     summary.scanned += messageIds.length;
-    for (let index = 0; index < messageIds.length; index += config.gmailSyncConcurrency) {
-      const chunk = messageIds.slice(index, index + config.gmailSyncConcurrency);
+    for (let index = 0; index < messageIds.length; index += concurrency) {
+      if (requiredInstitutionCode) {
+        const selected = await InstitutionSelectionService.enabledCodes(connection.id);
+        if (!selected.includes(requiredInstitutionCode)) break;
+      }
+      const chunk = messageIds.slice(index, index + concurrency);
       await Promise.all(chunk.map((messageId) => this.processMessage({
         workspaceId,
         connection,
@@ -617,7 +667,10 @@ export class GmailConnectionService {
 
   public static async syncFull(workspaceId: string, connectionId: string, initial = false) {
     const { connection, accessToken } = await this.accessToken(connectionId, workspaceId);
-    const query = await this.senderQuery(initial ? null : connection.lastSuccessfulSyncAt || connection.lastSyncedAt);
+    const query = await this.senderQuery(
+      connection.id,
+      initial ? null : connection.lastSuccessfulSyncAt || connection.lastSyncedAt
+    );
     const summary = emptySummary();
     let pageToken = '';
     do {
@@ -639,6 +692,35 @@ export class GmailConnectionService {
 
     const profile = await googleJson<GmailProfile>(`${GMAIL_API_URL}/profile`, accessToken);
     await this.finishSync(connection.id, profile.historyId || connection.syncCursor, summary);
+    return summary;
+  }
+
+  public static async syncBankBackfill(workspaceId: string, connectionId: string, institutionCode: string) {
+    const code = institutionCode.trim().toUpperCase();
+    const { connection, accessToken } = await this.accessToken(connectionId, workspaceId);
+    const query = await this.senderQuery(connection.id, null, [code]);
+    const summary = emptySummary();
+    let pageToken = '';
+    do {
+      const selected = await InstitutionSelectionService.enabledCodes(connection.id);
+      if (!selected.includes(code)) break;
+      const params = new URLSearchParams({ q: query, maxResults: '100' });
+      if (pageToken) params.set('pageToken', pageToken);
+      const page = await googleJson<{ messages?: Array<{ id: string }>; nextPageToken?: string }>(
+        `${GMAIL_API_URL}/messages?${params.toString()}`,
+        accessToken
+      );
+      await this.processIds(
+        workspaceId,
+        connection,
+        accessToken,
+        (page.messages || []).map((message) => message.id),
+        summary,
+        config.gmailBackfillConcurrency,
+        code
+      );
+      pageToken = page.nextPageToken || '';
+    } while (pageToken);
     return summary;
   }
 
@@ -674,7 +756,7 @@ export class GmailConnectionService {
       pageToken = page.nextPageToken || '';
     } while (pageToken);
 
-    const supportedQuery = await this.senderQuery(null);
+    const supportedQuery = await this.senderQuery(connection.id, new Date());
     const senderTerms = Array.from(supportedQuery.matchAll(/from:([^\s}]+)/g)).map((match) => match[1]);
     const supportedIds: string[] = [];
     for (const messageId of messageIds) {
