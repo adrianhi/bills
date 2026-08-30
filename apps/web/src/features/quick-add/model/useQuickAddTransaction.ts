@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { transactionService } from '@/entities/transaction/api/transaction.service';
 import { transactionKeys } from '@/entities/transaction/api/query-keys';
 import { FINANCIAL_INSTITUTIONS } from '@/shared/config/financial-options';
-import { parseNumericInput } from '@/shared/lib';
+import { currentLocalDateTime, isFutureLocalDateTime, parseNumericInput } from '@/shared/lib';
 import { ApiClientError } from '@/shared/api';
 
 const transactionTypes: Record<string, string> = {
@@ -13,12 +13,6 @@ const transactionTypes: Record<string, string> = {
   servicio: 'Pago de Servicio',
   retiro: 'Retiro',
 };
-
-function currentLocalDateTime() {
-  const date = new Date();
-  const offset = date.getTimezoneOffset();
-  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16);
-}
 
 export function useQuickAddTransaction(onSuccess: () => void, onClose: () => void) {
   const queryClient = useQueryClient();
@@ -112,6 +106,8 @@ export function useQuickAddTransaction(onSuccess: () => void, onClose: () => voi
     const parsedDate = new Date(dateTime);
     if (isNaN(parsedDate.getTime())) {
       errors.dateTime = 'Fecha inválida';
+    } else if (isFutureLocalDateTime(dateTime)) {
+      errors.dateTime = 'La fecha y hora no pueden estar en el futuro';
     }
 
     setFieldErrors(errors);

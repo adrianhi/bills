@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  SafeDiagnosticButton,
 } from "@/shared/ui";
 import { useAccountSettings } from "../model/useAccountSettings";
 import { BankSelector } from '@/entities/connection/ui/BankSelector';
@@ -36,7 +37,7 @@ export function AccountSettingsModal({
 }: AccountSettingsModalProps) {
   const model = useAccountSettings(isOpen, Boolean(authToken), onAccountDeleted);
   const { connections, institutions, newBankSelection, setNewBankSelection, bankSelections, setBankSelection,
-    confirmation, setConfirmation, notice, error, busy,
+    confirmation, setConfirmation, notice, error, diagnosticError, busy,
     startGoogle, saveSelection, sync, disconnect, exportData, deleteAccount } = model;
   const mustSelectBanks = connections.some((connection) => connection.status === 'ACTIVE' && connection.requiresBankSelection);
 
@@ -239,9 +240,9 @@ export function AccountSettingsModal({
           </Button>
         </section>
         {error && (
-          <div className="flex gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
-            <AlertCircle className="h-4 w-4" />
-            {error}
+          <div className="space-y-3 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+            <div className="flex gap-2"><AlertCircle className="h-4 w-4 shrink-0" /><span>{error}</span></div>
+            <SafeDiagnosticButton error={diagnosticError} area="conexiones" className="min-h-11" />
           </div>
         )}
       </DialogContent>

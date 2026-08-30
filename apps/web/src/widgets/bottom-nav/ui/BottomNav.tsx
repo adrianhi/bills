@@ -79,6 +79,7 @@ export function BottomNav({
         <button
           type="button"
           onClick={onQuickAdd}
+          data-product-tour="new-movement"
           className="relative -top-2 flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-bold text-primary transition-transform active:scale-95 motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
           aria-label="Registrar un nuevo movimiento"
         >

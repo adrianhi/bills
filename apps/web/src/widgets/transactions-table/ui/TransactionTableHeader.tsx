@@ -33,7 +33,7 @@ export const TransactionTableHeader = ({ total, filters, onFilterChange, onReset
   ];
 
   return (
-    <CardHeader className="p-4 pb-3 sm:p-5">
+    <CardHeader className="p-4 pb-3 sm:p-5" data-product-tour="transactions">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <div className="flex items-center gap-2"><CardTitle className="text-lg font-bold">Historial de Transacciones</CardTitle><span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{total} registros</span></div>

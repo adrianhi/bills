@@ -19,6 +19,8 @@ export function App() {
     setOnboardingComplete,
     legalAcceptanceRequired,
     setLegalAcceptanceRequired,
+    productGuide,
+    setProductGuide,
     handleLock,
   } = useAuthSession();
 
@@ -52,6 +54,8 @@ export function App() {
     >
       <DashboardPage
         authToken={authToken}
+        productGuide={productGuide}
+        onProductGuideChange={setProductGuide}
         onLock={() => void handleLock()}
         onAccountDeleted={() => void handleLock()}
       />

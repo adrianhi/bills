@@ -3,6 +3,8 @@ import {
   createTransactionInputSchema,
   updateTransactionInputSchema,
   createCategoryRuleInputSchema,
+  bootstrapResponseSchema,
+  PRODUCT_GUIDE_VERSION,
 } from './index';
 
 describe('createTransactionInputSchema', () => {
@@ -50,6 +52,27 @@ describe('createTransactionInputSchema', () => {
       transactionDate: '2026-08-25',
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('bootstrapResponseSchema', () => {
+  it('requires a versioned product guide state', () => {
+    const parsed = bootstrapResponseSchema.safeParse({
+      success: true,
+      data: {
+        workspaceId: '11111111-1111-4111-8111-111111111111',
+        role: 'OWNER',
+        legalAcceptanceRequired: false,
+        onboardingComplete: true,
+        productGuide: {
+          currentVersion: PRODUCT_GUIDE_VERSION,
+          versionSeen: null,
+          completedAt: null,
+          completed: false,
+        },
+      },
+    });
+    expect(parsed.success).toBe(true);
   });
 });
 

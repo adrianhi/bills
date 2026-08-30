@@ -156,6 +156,14 @@ npm run beta:invite -- persona@example.com
 
 El comando debe ejecutarse con `DATABASE_URL`/`DIRECT_URL` apuntando al entorno deseado. Una invitación se consume al crear el workspace del usuario.
 
+Para revisar el avance de la beta sin consultar montos, comercios, notas ni credenciales:
+
+```bash
+npm run beta:status
+```
+
+El reporte muestra activación, onboarding, guía, estado de Gmail, bancos elegidos, última sincronización, cantidad de movimientos y fallos pendientes.
+
 ## Calidad
 
 ```bash

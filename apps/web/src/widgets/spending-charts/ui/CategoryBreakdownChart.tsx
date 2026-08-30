@@ -50,7 +50,7 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
   }, [stats]);
 
   return (
-    <Card className="border-border/60 shadow-sm flex flex-col justify-between">
+    <Card className="border-border/60 shadow-sm flex flex-col justify-between" data-product-tour="analytics">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-semibold">Gastos por Categoría</CardTitle>

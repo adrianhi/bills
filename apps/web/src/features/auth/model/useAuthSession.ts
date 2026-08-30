@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { configureHttpAuth } from '@/shared/api';
 import { authService } from '../api/auth.service';
+import type { ProductGuideState } from '@bills/contracts';
+
+const EMPTY_GUIDE: ProductGuideState = { currentVersion: '', versionSeen: null, completedAt: null, completed: false };
 
 export function useAuthSession() {
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -8,6 +11,7 @@ export function useAuthSession() {
   const [setupError, setSetupError] = useState('');
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [legalAcceptanceRequired, setLegalAcceptanceRequired] = useState(false);
+  const [productGuide, setProductGuide] = useState<ProductGuideState>(EMPTY_GUIDE);
   const tokenRef = useRef<string | null>(null);
   const activatingTokenRef = useRef<string | null>(null);
 
@@ -16,6 +20,7 @@ export function useAuthSession() {
     setAuthToken(null);
     setOnboardingComplete(false);
     setLegalAcceptanceRequired(false);
+    setProductGuide(EMPTY_GUIDE);
     setSetupError('');
   }, []);
 
@@ -50,6 +55,7 @@ export function useAuthSession() {
         setAuthToken(token);
         setLegalAcceptanceRequired(bootstrap.legalAcceptanceRequired);
         setOnboardingComplete(bootstrap.onboardingComplete);
+        setProductGuide(bootstrap.productGuide);
       } catch (error) {
         if (active) {
           clearSession();
@@ -87,6 +93,8 @@ export function useAuthSession() {
     setOnboardingComplete,
     legalAcceptanceRequired,
     setLegalAcceptanceRequired,
+    productGuide,
+    setProductGuide,
     handleLock,
   };
 }

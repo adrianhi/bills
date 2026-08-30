@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import type { ProductGuideState } from '@bills/contracts';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Download,
+  HelpCircle,
   Lock,
   Moon,
   Plus,
@@ -18,12 +21,14 @@ import { EditTransactionModal } from '@/features/edit-transaction';
 import { RulesManagerModal } from '@/features/manage-rules';
 import { QuickAddTransactionModal } from '@/features/quick-add';
 import { AccountSettingsModal } from '@/features/account-settings';
+import { ProductTour, ProductTourInvite } from '@/features/product-guide';
 import { PeriodFilter } from '@/features/period-filter';
 import { Button, Card, CardContent } from '@/shared/ui';
 import { formatCurrency, formatDate } from '@/shared/lib';
 import { isReceivedTransfer } from '@/entities/transaction/model/selectors';
 import { connectionService } from '@/entities/connection/api/connection.service';
 import { useDashboardController } from '../model/useDashboardController';
+import { ConnectionHealthCard } from './ConnectionHealthCard';
 
 const CategoryBreakdownChart = React.lazy(async () => {
   const module = await import('@/widgets/spending-charts/ui/CategoryBreakdownChart');
@@ -36,6 +41,8 @@ const DailySpendingChart = React.lazy(async () => {
 
 interface DashboardPageProps {
   authToken: string;
+  productGuide: ProductGuideState;
+  onProductGuideChange: (state: ProductGuideState) => void;
   onLock: () => void;
   onAccountDeleted: () => void;
 }
@@ -71,15 +78,15 @@ function PeriodToolbar({ currentPeriod, onApplyPeriod, currency, setCurrency }: 
   setCurrency: (currency: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border bg-card p-2 shadow-sm sm:w-fit">
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
       <PeriodFilter currentSelection={currentPeriod} onApply={onApplyPeriod} />
-      <div className="flex min-h-11 rounded-xl bg-muted p-1 text-xs font-bold" aria-label="Moneda">
+      <div className="flex min-h-12 w-full rounded-2xl border bg-card p-1 text-xs font-bold shadow-sm sm:w-auto" aria-label="Moneda">
         {['DOP', 'USD'].map((item) => (
           <button
             key={item}
             type="button"
             onClick={() => setCurrency(item)}
-            className={`min-w-14 rounded-lg px-3 transition-colors ${currency === item ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
+            className={`min-w-14 flex-1 rounded-xl px-3 transition-colors ${currency === item ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20' : 'text-muted-foreground'}`}
             aria-pressed={currency === item}
           >
             {item}
@@ -94,7 +101,7 @@ function LoadingCards() {
   return <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Cargando resumen">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-muted" />)}</div>;
 }
 
-export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock: lockSession, onAccountDeleted }) => {
+export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, productGuide, onProductGuideChange, onLock: lockSession, onAccountDeleted }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const activeSection = sectionFromPath(location.pathname) ?? 'home';
@@ -113,29 +120,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
   } = model;
   const [searchParams] = useSearchParams();
   const [isSettingsOpen, setIsSettingsOpen] = useState(() => searchParams.get('settings') === 'connections');
+  const [isTourInviteOpen, setIsTourInviteOpen] = useState(() => productGuide.versionSeen !== productGuide.currentVersion);
+  const [isTourOpen, setIsTourOpen] = useState(false);
+  const connectionsQuery = useQuery({
+    queryKey: ['inbox-connections', 'dashboard'],
+    queryFn: ({ signal }) => connectionService.listInboxConnections(signal),
+    gcTime: 0,
+    refetchInterval: (query) => query.state.data?.some((connection) => connection.currentJob?.status === 'PENDING' || connection.currentJob?.status === 'PROCESSING') ? 2_500 : false,
+  });
 
   useEffect(() => {
     if (!sectionFromPath(location.pathname)) navigate('/app/inicio', { replace: true });
   }, [location.pathname, navigate]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    void connectionService.listInboxConnections(controller.signal)
-      .then((connections) => {
-        if (connections.some((connection) => connection.status === 'ACTIVE' && connection.requiresBankSelection)) {
-          setIsSettingsOpen(true);
-        }
-      })
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, [authToken]);
-
   const activeFiltersCount = [categoryFilter, statusFilter, organizationFilter, typeFilter].filter(Boolean).length;
   const recentTransactions = useMemo(() => transactions.slice(0, 5), [transactions]);
-  const selectSection = (section: AppSection) => {
+  const primaryConnection = connectionsQuery.data?.find((connection) => connection.status !== 'REVOKED') ?? connectionsQuery.data?.[0];
+  const requiresBankSelection = connectionsQuery.data?.some((connection) => connection.status === 'ACTIVE' && connection.requiresBankSelection) ?? false;
+  const selectSection = (section: AppSection, replace = false, behavior: ScrollBehavior = 'smooth') => {
     const target = APP_SECTIONS.find((item) => item.id === section);
-    if (target) navigate(target.path);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (target) navigate(target.path, { replace });
+    window.scrollTo({ top: 0, behavior });
   };
   const periodToolbar = <PeriodToolbar currentPeriod={currentPeriod} onApplyPeriod={onApplyPeriod} currency={currency} setCurrency={setCurrency} />;
 
@@ -144,7 +149,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r bg-card lg:flex">
         <div className="flex h-20 items-center gap-3 border-b px-6">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-lg font-black text-white shadow-md">b.</div>
-          <div><p className="text-xl font-black tracking-tight">bills<span className="text-primary">.</span></p><p className="text-xs text-muted-foreground">Finanzas sin ruido</p></div>
+          <div><div className="flex items-center gap-2"><p className="text-xl font-black tracking-tight">bills<span className="text-primary">.</span></p><span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">Beta privada</span></div><p className="text-xs text-muted-foreground">Finanzas sin ruido</p></div>
         </div>
         <nav className="flex-1 space-y-1 p-4" aria-label="Navegación principal">
           {APP_SECTIONS.map(({ id, label, icon: Icon }) => (
@@ -155,7 +160,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
           ))}
         </nav>
         <div className="border-t p-4">
-          <Button onClick={() => setIsQuickAddOpen(true)} className="h-11 w-full gap-2 rounded-xl"><Plus className="h-4 w-4" />Nuevo movimiento</Button>
+          <Button onClick={() => setIsQuickAddOpen(true)} data-product-tour="new-movement" className="h-11 w-full gap-2 rounded-xl"><Plus className="h-4 w-4" />Nuevo movimiento</Button>
         </div>
       </aside>
 
@@ -165,6 +170,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
         {activeSection === 'home' && (
           <>
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><PageIntro title="Tu panorama" description="Lo importante de este período, sin sobrecargarte." />{periodToolbar}</div>
+            <ConnectionHealthCard connection={primaryConnection} loading={connectionsQuery.isLoading} failed={connectionsQuery.isError} onOpenConnections={() => setIsSettingsOpen(true)} />
             {statsError && !stats ? (
               <Card><CardContent className="flex flex-col items-start gap-3 p-5"><p className="font-semibold">No pudimos cargar el resumen</p><p className="text-sm text-muted-foreground">Los movimientos no se han perdido. Puedes volver a intentarlo.</p><Button onClick={onRefresh}>Reintentar</Button></CardContent></Card>
             ) : loadingStats ? <LoadingCards /> : <MetricCards stats={stats} currency={currency} hideBalances={hideBalances} />}
@@ -172,7 +178,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
               <div className="flex items-center justify-between border-b p-4 sm:p-5"><div><h3 className="font-bold">Actividad reciente</h3><p className="text-xs text-muted-foreground">Tus últimos movimientos registrados</p></div><Button variant="ghost" onClick={() => selectSection('transactions')} className="min-h-11 text-primary">Ver todos</Button></div>
               <CardContent className="p-0">
                 {loading ? <div className="space-y-2 p-4">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-14 animate-pulse rounded-xl bg-muted" />)}</div>
-                  : recentTransactions.length === 0 ? <div className="flex flex-col items-center gap-2 p-10 text-center"><ReceiptText className="h-8 w-8 text-muted-foreground" /><p className="text-sm font-semibold">Aún no hay movimientos</p><Button onClick={() => setIsQuickAddOpen(true)} className="mt-2 min-h-11">Registrar el primero</Button></div>
+                  : recentTransactions.length === 0 ? <div className="flex flex-col items-center gap-2 p-10 text-center"><ReceiptText className="h-8 w-8 text-muted-foreground" /><p className="text-sm font-semibold">Aún no hay movimientos en este período</p><p className="max-w-sm text-xs text-muted-foreground">Si conectaste Gmail, revisa el estado de importación y los bancos seleccionados. También puedes registrar uno manualmente.</p><div className="mt-2 flex flex-wrap justify-center gap-2"><Button variant="outline" onClick={() => setIsSettingsOpen(true)} className="min-h-11">Revisar conexión</Button><Button onClick={() => setIsQuickAddOpen(true)} className="min-h-11">Registrar manual</Button></div></div>
                     : <div className="divide-y">{recentTransactions.map((transaction) => { const income = isReceivedTransfer(transaction); return <button key={transaction.id} type="button" onClick={() => setEditingTransaction(transaction)} className="flex min-h-[4.5rem] w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/50 sm:px-5"><div className="min-w-0"><p className="truncate text-sm font-semibold">{transaction.merchant}</p><p className="mt-1 truncate text-xs text-muted-foreground">{transaction.category || 'Otros'} · {formatDate(transaction.transactionDate)}</p></div><p className={`shrink-0 text-sm font-bold ${income ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{hideBalances ? '••••••' : `${income ? '+ ' : ''}${formatCurrency(transaction.amount, transaction.currency)}`}</p></button>; })}</div>}
               </CardContent>
             </Card>
@@ -182,7 +188,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
         {activeSection === 'transactions' && (
           <>
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><PageIntro title="Todos tus movimientos" description="Busca, filtra y corrige desde un solo lugar." />{periodToolbar}</div>
-            <TransactionTable transactions={transactions} total={totalTransactions} page={page} setPage={setPage} limit={limit} search={search} setSearch={setSearch} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} organizationFilter={organizationFilter} setOrganizationFilter={setOrganizationFilter} typeFilter={typeFilter} setTypeFilter={setTypeFilter} onResetFilters={onResetFilters} onEdit={setEditingTransaction} onExport={onExport} loading={loading} refreshing={refreshing} error={error instanceof Error ? error : null} onRetry={onRefresh} hideBalances={hideBalances} />
+            <TransactionTable transactions={transactions} total={totalTransactions} page={page} setPage={setPage} limit={limit} search={search} setSearch={setSearch} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} organizationFilter={organizationFilter} setOrganizationFilter={setOrganizationFilter} typeFilter={typeFilter} setTypeFilter={setTypeFilter} onResetFilters={onResetFilters} onEdit={setEditingTransaction} onExport={onExport} loading={loading} refreshing={refreshing} error={error instanceof Error ? error : null} onRetry={onRefresh} hideBalances={hideBalances} onOpenConnections={() => setIsSettingsOpen(true)} onAddManual={() => setIsQuickAddOpen(true)} />
           </>
         )}
 
@@ -190,7 +196,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
           <>
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><PageIntro title="Entiende tus hábitos" description="Tendencias y categorías para tomar mejores decisiones." />{periodToolbar}</div>
             {statsError && !stats ? <Card><CardContent className="p-6 text-center"><p className="font-semibold">No pudimos preparar la analítica</p><Button onClick={onRefresh} className="mt-4">Reintentar</Button></CardContent></Card> : (
-              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2"><React.Suspense fallback={<><div className="h-72 animate-pulse rounded-2xl bg-muted" /><div className="h-72 animate-pulse rounded-2xl bg-muted" /></>}><CategoryBreakdownChart stats={stats} currency={currency} /><DailySpendingChart stats={stats} currency={currency} /></React.Suspense></div>
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2"><React.Suspense fallback={<><div className="h-72 animate-pulse rounded-2xl bg-muted" data-product-tour="analytics" /><div className="h-72 animate-pulse rounded-2xl bg-muted" /></>}><CategoryBreakdownChart stats={stats} currency={currency} /><DailySpendingChart stats={stats} currency={currency} /></React.Suspense></div>
             )}
           </>
         )}
@@ -199,7 +205,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
           <>
             <PageIntro title="Control y preferencias" description="Las herramientas menos frecuentes viven aquí." />
             <div className="grid gap-3 sm:grid-cols-2">
-              <Button variant="outline" onClick={() => setIsSettingsOpen(true)} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><Settings className="h-5 w-5 text-primary" /><span><span className="block font-bold">Conexiones y privacidad</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Gmail, exportación completa y tu cuenta</span></span></Button>
+              <Button variant="outline" onClick={() => setIsSettingsOpen(true)} data-product-tour="more-tools" className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><Settings className="h-5 w-5 text-primary" /><span><span className="block font-bold">Conexiones y privacidad</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Gmail, exportación completa y tu cuenta</span></span></Button>
+              <Button variant="outline" onClick={() => { setIsTourInviteOpen(false); setIsTourOpen(true); }} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><HelpCircle className="h-5 w-5 text-emerald-500" /><span><span className="block font-bold">Repetir recorrido</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Vuelve a conocer las secciones principales</span></span></Button>
               <Button variant="outline" onClick={() => setIsRulesModalOpen(true)} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><SlidersHorizontal className="h-5 w-5 text-amber-500" /><span><span className="block font-bold">Reglas de categorías</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Automatiza cómo se organizan tus gastos</span></span></Button>
               <Button variant="outline" onClick={onExport} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><Download className="h-5 w-5 text-sky-500" /><span><span className="block font-bold">Exportar movimientos</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Descarga la vista actual en CSV</span></span></Button>
               <Button variant="outline" onClick={() => setDarkMode(!darkMode)} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left">{darkMode ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-indigo-500" />}<span><span className="block font-bold">{darkMode ? 'Usar tema claro' : 'Usar tema oscuro'}</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Ajusta la apariencia a tu entorno</span></span></Button>
@@ -213,7 +220,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, onLock:
       <QuickAddTransactionModal isOpen={isQuickAddOpen} onClose={() => setIsQuickAddOpen(false)} onSuccess={onRefresh} authToken={authToken} />
       <EditTransactionModal key={editingTransaction?.id ?? 'no-transaction'} transaction={editingTransaction} isOpen={Boolean(editingTransaction)} onClose={() => setEditingTransaction(null)} onSave={onSaveTransaction} />
       <RulesManagerModal isOpen={isRulesModalOpen} onClose={() => setIsRulesModalOpen(false)} authToken={authToken} />
-      <AccountSettingsModal authToken={authToken} isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onAccountDeleted={onAccountDeleted} />
+      <AccountSettingsModal authToken={authToken} isOpen={isSettingsOpen || requiresBankSelection} onClose={() => setIsSettingsOpen(false)} onAccountDeleted={onAccountDeleted} />
+      <ProductTourInvite open={isTourInviteOpen && !isTourOpen && !requiresBankSelection && !isSettingsOpen} onStart={() => setIsTourOpen(true)} onDismiss={() => setIsTourInviteOpen(false)} onStateChange={onProductGuideChange} />
+      <ProductTour open={isTourOpen && !requiresBankSelection && !isSettingsOpen} activeSection={activeSection} onOpenChange={setIsTourOpen} onNavigate={(section) => selectSection(section, true, 'auto')} onStateChange={onProductGuideChange} />
     </div>
   );
 };

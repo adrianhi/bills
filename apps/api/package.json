@@ -17,6 +17,7 @@
     "db:push": "prisma db push",
     "db:truncate": "tsx src/scripts/truncate.ts",
     "beta:invite": "tsx src/scripts/create-beta-invite.ts",
+    "beta:status": "tsx src/scripts/beta-status.ts",
     "gmail:replay": "tsx src/scripts/replay-gmail-failures.ts",
     "gmail:process-jobs": "tsx src/scripts/process-ingestion-jobs.ts",
     "gmail:verify-recovery": "tsx src/scripts/verify-gmail-recovery.ts",

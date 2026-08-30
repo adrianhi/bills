@@ -15,10 +15,11 @@ import {
   DialogTitle, 
   DialogFooter, 
   Button, 
-  Input 
+  Input,
+  DateTimePickerField,
 } from '@/shared/ui';
 import { COMMON_CATEGORIES, FINANCIAL_INSTITUTIONS } from '@/shared/config/financial-options';
-import { formatCurrency } from '@/shared/lib';
+import { formatCurrency, toDateValue } from '@/shared/lib';
 import { useQuickAddTransaction } from '../model/useQuickAddTransaction';
 
 interface QuickAddTransactionModalProps {
@@ -206,20 +207,7 @@ export const QuickAddTransactionModal: React.FC<QuickAddTransactionModalProps> =
           </div>
 
           {/* 6. Fecha y Hora */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground">Fecha y Hora</label>
-            <input
-              type="datetime-local"
-              value={dateTime}
-              onChange={(e) => setDateTime(e.target.value)}
-              className={`w-full h-10 px-3 rounded-xl border border-input bg-background text-foreground text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer ${
-                model.fieldErrors.dateTime ? 'border-destructive focus:ring-destructive' : ''
-              }`}
-            />
-            {model.fieldErrors.dateTime && (
-              <p className="text-[11px] font-medium text-destructive">{model.fieldErrors.dateTime}</p>
-            )}
-          </div>
+          <DateTimePickerField value={dateTime} onChange={setDateTime} label="Fecha y hora" maxDate={toDateValue(new Date())} error={model.fieldErrors.dateTime} description="Usaremos tu hora local y la guardaremos de forma segura." />
 
           {/* 7. Nota Opcional */}
           <div className="space-y-1.5">

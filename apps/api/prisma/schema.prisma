@@ -108,27 +108,30 @@ enum IngestionJobStatus {
 }
 
 model Profile {
-  id                    String               @id @db.Uuid
-  email                 String               @unique
-  displayName           String?              @map("display_name")
-  timezone              String               @default("America/Santo_Domingo")
-  defaultCurrency       String               @default("DOP") @map("default_currency")
-  onboardingCompletedAt DateTime?            @map("onboarding_completed_at")
-  memberships           WorkspaceMember[]
-  oauthStates           OAuthState[]
-  createdAt             DateTime             @default(now()) @map("created_at")
-  updatedAt             DateTime             @updatedAt @map("updated_at")
-  legalAcceptances      LegalAcceptance[]
-  integrationConsents   IntegrationConsent[]
+  id                           String               @id @db.Uuid
+  email                        String               @unique
+  displayName                  String?              @map("display_name")
+  timezone                     String               @default("America/Santo_Domingo")
+  defaultCurrency              String               @default("DOP") @map("default_currency")
+  onboardingCompletedAt        DateTime?            @map("onboarding_completed_at")
+  productGuideVersionSeen      String?              @map("product_guide_version_seen")
+  productGuideCompletedVersion String?              @map("product_guide_completed_version")
+  productGuideCompletedAt      DateTime?            @map("product_guide_completed_at")
+  memberships                  WorkspaceMember[]
+  oauthStates                  OAuthState[]
+  createdAt                    DateTime             @default(now()) @map("created_at")
+  updatedAt                    DateTime             @updatedAt @map("updated_at")
+  legalAcceptances             LegalAcceptance[]
+  integrationConsents          IntegrationConsent[]
 
   @@map("profiles")
 }
 
 model Workspace {
-  id               String            @id @default(uuid()) @db.Uuid
+  id               String                   @id @default(uuid()) @db.Uuid
   name             String
-  type             WorkspaceType     @default(PERSONAL)
-  planTier         PlanTier          @default(BETA) @map("plan_tier")
+  type             WorkspaceType            @default(PERSONAL)
+  planTier         PlanTier                 @default(BETA) @map("plan_tier")
   members          WorkspaceMember[]
   transactions     Transaction[]
   categoryRules    CategoryRule[]
@@ -138,8 +141,8 @@ model Workspace {
   ingestionEvents  IngestionEvent[]
   ingestionJobs    IngestionJob[]
   statusEvents     TransactionStatusEvent[]
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
 
   @@map("workspaces")
 }
@@ -158,16 +161,16 @@ model WorkspaceMember {
 }
 
 model FinancialInstitution {
-  code           String            @id
-  displayName    String            @map("display_name")
-  status         InstitutionStatus @default(COMING_SOON)
-  senderPatterns String[]          @default([]) @map("sender_patterns")
-  connections    BankConnection[]
-  transactions   Transaction[]
-  statusEvents   TransactionStatusEvent[]
+  code               String                         @id
+  displayName        String                         @map("display_name")
+  status             InstitutionStatus              @default(COMING_SOON)
+  senderPatterns     String[]                       @default([]) @map("sender_patterns")
+  connections        BankConnection[]
+  transactions       Transaction[]
+  statusEvents       TransactionStatusEvent[]
   inboxSubscriptions InboxInstitutionSubscription[]
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
+  createdAt          DateTime                       @default(now()) @map("created_at")
+  updatedAt          DateTime                       @updatedAt @map("updated_at")
 
   @@map("financial_institutions")
 }
@@ -198,34 +201,34 @@ model BankConnection {
 }
 
 model InboxConnection {
-  id                    String                @id @default(uuid()) @db.Uuid
-  workspaceId           String                @map("workspace_id") @db.Uuid
-  provider              InboxProvider
-  providerAccountId     String                @map("provider_account_id")
-  email                 String
-  status                InboxConnectionStatus @default(PENDING)
-  encryptedAccessToken  String?               @map("encrypted_access_token") @db.Text
-  encryptedRefreshToken String?               @map("encrypted_refresh_token") @db.Text
-  tokenExpiresAt        DateTime?             @map("token_expires_at")
-  scopes                String[]              @default([])
-  syncCursor            String?               @map("sync_cursor")
-  lastSyncedAt          DateTime?             @map("last_synced_at")
-  lastSuccessfulSyncAt  DateTime?             @map("last_successful_sync_at")
-  nextReconcileAt       DateTime?             @map("next_reconcile_at")
-  syncLeaseUntil        DateTime?             @map("sync_lease_until")
-  watchExpiresAt        DateTime?             @map("watch_expires_at")
-  lastSyncSummary       Json?                 @map("last_sync_summary")
-  lastErrorCode         String?               @map("last_error_code")
-  grantedAt             DateTime?             @map("granted_at")
-  revokedAt             DateTime?             @map("revoked_at")
-  workspace             Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  bankConnections       BankConnection[]
-  ingestionEvents       IngestionEvent[]
-  ingestionJobs         IngestionJob[]
-  integrationConsents   IntegrationConsent[]
+  id                       String                         @id @default(uuid()) @db.Uuid
+  workspaceId              String                         @map("workspace_id") @db.Uuid
+  provider                 InboxProvider
+  providerAccountId        String                         @map("provider_account_id")
+  email                    String
+  status                   InboxConnectionStatus          @default(PENDING)
+  encryptedAccessToken     String?                        @map("encrypted_access_token") @db.Text
+  encryptedRefreshToken    String?                        @map("encrypted_refresh_token") @db.Text
+  tokenExpiresAt           DateTime?                      @map("token_expires_at")
+  scopes                   String[]                       @default([])
+  syncCursor               String?                        @map("sync_cursor")
+  lastSyncedAt             DateTime?                      @map("last_synced_at")
+  lastSuccessfulSyncAt     DateTime?                      @map("last_successful_sync_at")
+  nextReconcileAt          DateTime?                      @map("next_reconcile_at")
+  syncLeaseUntil           DateTime?                      @map("sync_lease_until")
+  watchExpiresAt           DateTime?                      @map("watch_expires_at")
+  lastSyncSummary          Json?                          @map("last_sync_summary")
+  lastErrorCode            String?                        @map("last_error_code")
+  grantedAt                DateTime?                      @map("granted_at")
+  revokedAt                DateTime?                      @map("revoked_at")
+  workspace                Workspace                      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  bankConnections          BankConnection[]
+  ingestionEvents          IngestionEvent[]
+  ingestionJobs            IngestionJob[]
+  integrationConsents      IntegrationConsent[]
   institutionSubscriptions InboxInstitutionSubscription[]
-  createdAt             DateTime              @default(now()) @map("created_at")
-  updatedAt             DateTime              @updatedAt @map("updated_at")
+  createdAt                DateTime                       @default(now()) @map("created_at")
+  updatedAt                DateTime                       @updatedAt @map("updated_at")
 
   @@unique([workspaceId, provider, providerAccountId])
   @@index([workspaceId, status])
@@ -295,17 +298,17 @@ model AccountDeletionAudit {
 }
 
 model OAuthState {
-  id          String        @id
-  workspaceId String        @map("workspace_id") @db.Uuid
-  profileId   String        @map("profile_id") @db.Uuid
-  provider    InboxProvider
-  returnTo    String        @default("/onboarding") @map("return_to")
-  institutionCodes String[] @default([]) @map("institution_codes")
-  expiresAt   DateTime      @map("expires_at")
-  usedAt      DateTime?     @map("used_at")
-  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  profile     Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  createdAt   DateTime      @default(now()) @map("created_at")
+  id               String        @id
+  workspaceId      String        @map("workspace_id") @db.Uuid
+  profileId        String        @map("profile_id") @db.Uuid
+  provider         InboxProvider
+  returnTo         String        @default("/onboarding") @map("return_to")
+  institutionCodes String[]      @default([]) @map("institution_codes")
+  expiresAt        DateTime      @map("expires_at")
+  usedAt           DateTime?     @map("used_at")
+  workspace        Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  profile          Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  createdAt        DateTime      @default(now()) @map("created_at")
 
   @@index([expiresAt])
   @@map("oauth_states")
@@ -406,29 +409,29 @@ model BetaInvite {
 }
 
 model Transaction {
-  id               String               @id @default(uuid())
-  workspaceId      String?              @map("workspace_id") @db.Uuid
-  institutionCode  String               @default("BHD") @map("institution_code")
-  ingestionChannel IngestionChannel     @default(EMAIL_FORWARD) @map("ingestion_channel")
-  externalId       String               @map("external_id")
-  cardLast4        String?              @map("card_last_4")
-  cardType         String?              @map("card_type")
-  rawMerchant      String               @map("raw_merchant")
+  id               String                   @id @default(uuid())
+  workspaceId      String?                  @map("workspace_id") @db.Uuid
+  institutionCode  String                   @default("BHD") @map("institution_code")
+  ingestionChannel IngestionChannel         @default(EMAIL_FORWARD) @map("ingestion_channel")
+  externalId       String                   @map("external_id")
+  cardLast4        String?                  @map("card_last_4")
+  cardType         String?                  @map("card_type")
+  rawMerchant      String                   @map("raw_merchant")
   merchant         String
   category         String
-  amount           Decimal              @db.Decimal(18, 2)
-  currency         String               @default("DOP")
-  status           String               @default("Aprobada")
-  statusCode       TransactionStatusCode @default(APPROVED) @map("status_code")
-  statusUpdatedAt  DateTime?             @map("status_updated_at")
-  transactionType  String               @default("Compra") @map("transaction_type")
-  transactionDate  DateTime             @map("transaction_date")
-  source           String               @default("BHD_EMAIL")
+  amount           Decimal                  @db.Decimal(18, 2)
+  currency         String                   @default("DOP")
+  status           String                   @default("Aprobada")
+  statusCode       TransactionStatusCode    @default(APPROVED) @map("status_code")
+  statusUpdatedAt  DateTime?                @map("status_updated_at")
+  transactionType  String                   @default("Compra") @map("transaction_type")
+  transactionDate  DateTime                 @map("transaction_date")
+  source           String                   @default("BHD_EMAIL")
   notes            String?
-  createdAt        DateTime             @default(now()) @map("created_at")
-  updatedAt        DateTime             @updatedAt @map("updated_at")
-  workspace        Workspace?           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  institution      FinancialInstitution @relation(fields: [institutionCode], references: [code], onDelete: Restrict)
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  workspace        Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  institution      FinancialInstitution     @relation(fields: [institutionCode], references: [code], onDelete: Restrict)
   statusEvents     TransactionStatusEvent[]
 
   @@unique([workspaceId, institutionCode, externalId])

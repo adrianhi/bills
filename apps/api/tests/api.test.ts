@@ -349,6 +349,31 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     expect(bootstrap.body.data.onboardingComplete).toBe(true);
   });
 
+  it('persists the current product guide version independently from onboarding', async () => {
+    const first = await request(app)
+      .patch('/api/v1/me/product-guide')
+      .set(auth(userA))
+      .send({ completed: false });
+    expect(first.status).toBe(200);
+    expect(first.body.data.versionSeen).toBe(first.body.data.currentVersion);
+    expect(first.body.data.completed).toBe(false);
+
+    const completed = await request(app)
+      .patch('/api/v1/me/product-guide')
+      .set(auth(userA))
+      .send({ completed: true });
+    expect(completed.status).toBe(200);
+    expect(completed.body.data.completed).toBe(true);
+    expect(completed.body.data.completedAt).toBeTruthy();
+
+    const bootstrap = await request(app).post('/api/v1/me/bootstrap').set(auth(userA));
+    expect(bootstrap.body.data.productGuide).toMatchObject({
+      currentVersion: completed.body.data.currentVersion,
+      versionSeen: completed.body.data.currentVersion,
+      completed: true,
+    });
+  });
+
   it('exports only the authenticated profile data and excludes encrypted secrets', async () => {
     const response = await request(app).post('/api/v1/me/data-export').set(auth(userA));
     expect(response.status).toBe(200);

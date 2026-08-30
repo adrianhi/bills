@@ -9,7 +9,7 @@ import {
   isServicePayment,
 } from '@/entities/transaction/model/selectors';
 import { FilterDrawer } from '@/features/filter-drawer';
-import { Card, CardContent } from '@/shared/ui';
+import { Button, Card, CardContent, SafeDiagnosticButton } from '@/shared/ui';
 import { TransactionDesktopTable } from './TransactionDesktopTable';
 import { TransactionMobileList } from './TransactionMobileList';
 import { TransactionPagination } from './TransactionPagination';
@@ -39,6 +39,8 @@ interface TransactionTableProps {
   error?: Error | null;
   onRetry?: () => void;
   hideBalances?: boolean;
+  onOpenConnections?: () => void;
+  onAddManual?: () => void;
 }
 
 const matchesType = (transaction: Transaction, type: string) => {
@@ -56,6 +58,7 @@ export const TransactionTable = ({
   setCategoryFilter, statusFilter, setStatusFilter, organizationFilter,
   setOrganizationFilter, typeFilter, setTypeFilter, onResetFilters, onEdit,
   onExport, loading, refreshing = false, error, onRetry, hideBalances = false,
+  onOpenConnections, onAddManual,
 }: TransactionTableProps) => {
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const totalPages = Math.ceil(total / limit) || 1;
@@ -99,8 +102,8 @@ export const TransactionTable = ({
       />
       <CardContent className="p-0">
         {loading ? <div className="space-y-3 p-4" aria-label="Cargando movimientos">{Array.from({ length: 5 }, (_, index) => <div key={index} className="h-16 animate-pulse rounded-xl bg-muted" />)}</div>
-          : error && transactions.length === 0 ? <div className="flex h-64 flex-col items-center justify-center gap-3 p-6 text-center"><p className="text-sm font-semibold">No pudimos cargar tus movimientos</p><p className="max-w-sm text-xs text-muted-foreground">Tus datos siguen seguros. Revisa tu conexión e inténtalo otra vez.</p>{onRetry && <button type="button" onClick={onRetry} className="min-h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Reintentar</button>}</div>
-          : filteredTransactions.length === 0 ? <div className="flex h-64 flex-col items-center justify-center p-6 text-center text-muted-foreground"><Layers className="mb-2 h-10 w-10 opacity-30" /><p className="text-sm font-semibold">No se encontraron transacciones</p><p className="mt-1 text-xs">Prueba cambiando el mes o los filtros de búsqueda.</p></div>
+          : error && transactions.length === 0 ? <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center"><p className="text-sm font-semibold">No pudimos cargar tus movimientos</p><p className="max-w-sm text-xs text-muted-foreground">Tus datos siguen seguros. Revisa tu conexión e inténtalo otra vez.</p><div className="flex flex-wrap justify-center gap-2">{onRetry && <Button onClick={onRetry} className="min-h-11">Reintentar</Button>}<SafeDiagnosticButton error={error} area="movimientos" className="min-h-11" /></div></div>
+          : filteredTransactions.length === 0 ? <div className="flex min-h-64 flex-col items-center justify-center p-6 text-center text-muted-foreground"><Layers className="mb-2 h-10 w-10 opacity-30" /><p className="text-sm font-semibold">{total > 0 ? 'No hay resultados con estos filtros' : 'Todavía no hay movimientos'}</p><p className="mt-1 max-w-sm text-xs">{total > 0 ? 'Prueba cambiando el mes o limpiando los filtros.' : 'Revisa tu conexión de Gmail o registra un movimiento manual.'}</p>{total === 0 && <div className="mt-4 flex flex-wrap justify-center gap-2">{onOpenConnections && <Button variant="outline" className="min-h-11" onClick={onOpenConnections}>Revisar conexión</Button>}{onAddManual && <Button className="min-h-11" onClick={onAddManual}>Registrar manual</Button>}</div>}</div>
             : <><TransactionMobileList groups={groups} hideBalances={hideBalances} onEdit={onEdit} /><TransactionDesktopTable groups={groups} hideBalances={hideBalances} onEdit={onEdit} /></>}
       </CardContent>
       <TransactionPagination page={page} total={total} totalPages={totalPages} onPageChange={setPage} />

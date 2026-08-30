@@ -32,6 +32,7 @@
     "prisma:studio": "npm run prisma:studio --prefix apps/api",
     "db:truncate": "npm run db:truncate --prefix apps/api",
     "beta:invite": "npm run beta:invite --prefix apps/api --",
+    "beta:status": "npm run beta:status --prefix apps/api",
     "gmail:replay": "npm run gmail:replay --prefix apps/api --",
     "gmail:process-jobs": "npm run gmail:process-jobs --prefix apps/api --",
     "gmail:verify-recovery": "npm run gmail:verify-recovery --prefix apps/api --",

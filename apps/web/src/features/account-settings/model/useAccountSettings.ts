@@ -20,6 +20,7 @@ export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAc
       return { connections, institutions };
     },
     enabled: isOpen && authenticated,
+    gcTime: 0,
     refetchInterval: (currentQuery) => {
       if (!isOpen) return false;
       const connections = currentQuery.state.data?.connections ?? [];
@@ -52,7 +53,7 @@ export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAc
     connections: query.data?.connections ?? [], institutions: query.data?.institutions ?? [],
     newBankSelection, setNewBankSelection, bankSelections,
     setBankSelection: (id: string, codes: string[]) => setBankSelections((current) => ({ ...current, [id]: codes })),
-    confirmation, setConfirmation, notice, error: error?.message ?? '', busy,
+    confirmation, setConfirmation, notice, error: error?.message ?? '', diagnosticError: error, busy,
     startGoogle: (codes = newBankSelection) => google.mutate(codes),
     saveSelection: (id: string) => selectionMutation.mutate({
       id,
