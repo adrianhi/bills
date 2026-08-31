@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { accountService } from '@/entities/account/api/account.service';
-import { connectionService, type InboxConnection } from '@/entities/connection/api/connection.service';
+import { accountService } from '@/entities/account';
+import { connectionService, type InboxConnection } from '@/entities/connection';
 import { ApiClientError } from '@/shared/api';
 
 export function useBankOnboarding(authenticated: boolean, onComplete: () => void) {

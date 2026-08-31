@@ -23,10 +23,18 @@ Cada módulo puede contener `domain`, `application`, `infrastructure` y `http`.
 - `application` implementa casos de uso y coordina repositorios.
 - `infrastructure` contiene Prisma, cifrado, colas y clientes externos.
 - `http` traduce requests/responses y mantiene compatibilidad con `/api/v1`.
-- `app-container.ts` es el composition root; las rutas no construyen dependencias.
-- Los archivos de `services/` que permanecen son fachadas temporales de compatibilidad hacia módulos verticales.
+- `app-container.ts` es el único composition root; rutas y middleware reciben instancias desde allí.
+- No existe una capa global `services/`: cada capacidad vive en su módulo y expone una API pública.
+- Los casos de uso dependen de puertos orientados a capacidades, nunca de Prisma o proveedores.
+- Los adaptadores de Prisma construyen filtros, agregaciones y transacciones de base de datos.
 
-El script `npm run check:architecture` impide HTTP en componentes, imports ascendentes en FSD y Prisma fuera de infrastructure.
+El script `npm run check:architecture` impide ciclos, HTTP en componentes, imports ascendentes o profundos en FSD, cruces directos entre features, Prisma fuera de infrastructure y dependencias de infraestructura desde aplicación o dominio. Los archivos runtime nuevos o modificados no pueden superar 250 líneas.
+
+## APIs públicas y composición
+
+Los módulos del API y los slices del cliente se consumen desde su `index.ts`. Un import profundo es una dependencia privada y el gate arquitectónico lo rechaza en código modificado. No se usan `BaseService` ni `BaseRepository`: cada puerto nombra una capacidad del negocio.
+
+En frontend, las páginas solo componen secciones y modales. Los hooks de `model` administran consultas, mutaciones y estado del flujo; los componentes de `ui` reciben modelos o callbacks tipados y no conocen el transporte HTTP.
 
 ## Flujo de datos
 

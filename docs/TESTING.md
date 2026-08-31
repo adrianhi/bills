@@ -4,10 +4,12 @@
 
 ```bash
 npm run verify
-npm run test:e2e
+npm run verify:full
 ```
 
-`verify` ejecuta fronteras arquitectónicas, contratos, pruebas API/web, compilación y lint. Playwright usa Chromium en viewport desktop y móvil; no usa Testing Library.
+`verify` ejecuta fronteras arquitectónicas, contratos, pruebas API/web, compilación, lint y Playwright. `verify:full` añade integración real contra PostgreSQL. La cobertura no puede bajar del piso registrado y el código de dominio, aplicación o modelos modificado debe acompañarse de pruebas de sus reglas.
+
+GitHub Actions reproduce estos gates con Node 22 y PostgreSQL 16. La suite E2E usa Chromium en proyectos desktop y mobile.
 
 ## PostgreSQL aislado
 

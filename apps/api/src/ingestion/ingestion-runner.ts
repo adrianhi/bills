@@ -1,4 +1,4 @@
-import { IngestionJobService } from '../services/ingestion-job.service';
+import type { IngestionJobProcessor } from '../modules/ingestion/application/ingestion-job.port';
 import { logger } from '../shared/observability/logger';
 
 type CycleResult = {
@@ -16,6 +16,8 @@ export class IngestionRunner {
   private loopPromise: Promise<void> | null = null;
   private activeCycle: Promise<CycleResult> | null = null;
   private nextScheduleAt = 0;
+
+  public constructor(private readonly jobs: IngestionJobProcessor) {}
 
   public start() {
     if (this.running) return;
@@ -71,13 +73,11 @@ export class IngestionRunner {
   private async performCycle(forceSchedule: boolean): Promise<CycleResult> {
     const now = Date.now();
     if (forceSchedule || now >= this.nextScheduleAt) {
-      await IngestionJobService.scheduleDue();
+      await this.jobs.scheduleDue();
       this.nextScheduleAt = now + 60_000;
     }
 
-    const gmailProcessed = await IngestionJobService.processNext();
+    const gmailProcessed = await this.jobs.processNext();
     return { gmailProcessed };
   }
 }
-
-export const ingestionRunner = new IngestionRunner();

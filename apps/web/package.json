@@ -8,6 +8,7 @@
     "build": "tsc -b && node ../../scripts/build-web.js",
     "lint": "oxlint",
     "test": "vitest run --config vitest.config.mjs",
+    "test:coverage": "vitest run --config vitest.config.mjs --coverage",
     "test:watch": "vitest --config vitest.config.mjs",
     "test:e2e": "playwright test",
     "preview": "vite preview"

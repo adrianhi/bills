@@ -24,7 +24,7 @@ import {
   isSentTransfer,
   isServicePayment,
   statusCode,
-} from '@/entities/transaction/model/selectors';
+} from '@/entities/transaction';
 
 export const TransactionStatus = ({ transaction }: { transaction: Transaction }) => {
   switch (statusCode(transaction)) {

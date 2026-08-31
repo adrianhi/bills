@@ -1,5 +1,5 @@
 import { prisma } from '../config/database';
-import { IngestionJobService } from '../services/ingestion-job.service';
+import { appContainer } from '../app-container';
 
 function argument(name: string) {
   const index = process.argv.indexOf(`--${name}`);
@@ -48,7 +48,7 @@ async function run() {
   }
   const jobs = [];
   for (const [id, workspaceId] of connections) {
-    jobs.push(await IngestionJobService.enqueueReplay(workspaceId, id, {
+    jobs.push(await appContainer.ingestionJobService.enqueueReplay(workspaceId, id, {
       bank,
       errors,
       parserVersion,

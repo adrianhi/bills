@@ -6,7 +6,7 @@ import {
   parseNumericInput,
   isValidEmail,
   getOrganizationMeta,
-} from './utils';
+} from './index';
 
 describe('formatCurrency', () => {
   it('formats Dominican Pesos (DOP) correctly', () => {

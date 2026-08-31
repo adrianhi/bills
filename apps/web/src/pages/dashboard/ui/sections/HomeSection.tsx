@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react';
-import type { InboxConnection } from '@/entities/connection/api/connection.service';
+import type { InboxConnection } from '@/entities/connection';
 import type { StatsSummary } from '@/entities/stat';
 import type { Transaction } from '@/entities/transaction';
 import { MetricCards } from '@/widgets/metric-summary';

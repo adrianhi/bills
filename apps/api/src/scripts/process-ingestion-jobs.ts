@@ -1,5 +1,5 @@
 import { prisma } from '../config/database';
-import { IngestionJobService } from '../services/ingestion-job.service';
+import { appContainer } from '../app-container';
 
 function listArgument(name: string) {
   const index = process.argv.indexOf(`--${name}`);
@@ -62,7 +62,7 @@ async function run() {
     ]);
   }
 
-  while (await IngestionJobService.processNext(ids)) {
+  while (await appContainer.ingestionJobService.processNext(ids)) {
     // Only the explicitly supplied IDs can be claimed.
   }
   const results = await prisma.ingestionJob.findMany({

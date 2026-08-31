@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { authService } from '@/features/auth/api/auth.service';
+import { sessionService } from '@/entities/session';
 
 export function usePinUnlock(onUnlock: (token: string, remember: boolean) => void) {
   const [pin, setPin] = useState('');
@@ -9,7 +9,7 @@ export function usePinUnlock(onUnlock: (token: string, remember: boolean) => voi
   const submit = async (candidate: string) => {
     if (candidate.length < 4) return;
     setLoading(true); setError('');
-    try { onUnlock(await authService.verifyPin(candidate), remember); }
+    try { onUnlock(await sessionService.verifyPin(candidate), remember); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'PIN incorrecto'); setPin(''); }
     finally { setLoading(false); }
   };

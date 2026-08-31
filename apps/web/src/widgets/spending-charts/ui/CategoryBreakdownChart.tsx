@@ -26,7 +26,15 @@ const CATEGORY_COLORS = [
   '#ef4444', // Red
 ];
 
-function CategoryTooltip({ active, payload, currency }: any) {
+interface CategoryTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload: { color: string; name: string; value: number; count: number; percentage: number };
+  }>;
+  currency: string;
+}
+
+function CategoryTooltip({ active, payload, currency }: CategoryTooltipProps) {
   if (!active || !payload?.length) return null;
   const item = payload[0].payload;
   return <div className="rounded-xl border bg-popover/95 p-3 text-xs shadow-xl backdrop-blur">

@@ -2,7 +2,6 @@ import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { bootstrapResponseSchema } from '@bills/contracts';
 import { httpClient, parseResponse } from '@/shared/api';
 import { supabase } from '@/shared/lib';
-import { z } from 'zod';
 
 function requireSupabase() {
   if (!supabase) throw new Error('Supabase Auth no está configurado.');
@@ -47,10 +46,5 @@ export const authService = {
       options: { emailRedirectTo },
     });
     if (error) throw error;
-  },
-
-  async verifyPin(pin: string) {
-    const response = await httpClient.post('/auth/verify-pin', { pin });
-    return z.object({ success: z.literal(true), token: z.string() }).parse(response.data).token;
   },
 };

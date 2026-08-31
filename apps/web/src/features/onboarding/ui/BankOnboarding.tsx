@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowRight, Building2, Check, ExternalLink, Inbox, Loader2, LogOut, Mail, RefreshCw, Sparkles } from 'lucide-react';
 import { Button, Card, CardContent } from '@/shared/ui';
-import { BankSelector } from '@/entities/connection/ui/BankSelector';
+import { BankSelector } from '@/entities/connection';
 import { useBankOnboarding } from '../model/useBankOnboarding';
 
 interface BankOnboardingProps {

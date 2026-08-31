@@ -1,11 +1,31 @@
 import { stringify } from 'csv-stringify/sync';
 import { institutionDisplayName } from '../domain/transaction-policy';
 
+interface CsvTransaction {
+  id: string;
+  externalId: string;
+  institutionCode: string;
+  transactionDate: Date;
+  cardLast4: string | null;
+  cardType: string | null;
+  rawMerchant: string;
+  merchant: string;
+  category: string;
+  amount: { toFixed(digits: number): string };
+  currency: string;
+  status: string;
+  statusCode: string;
+  transactionType: string;
+  source: string;
+  notes: string | null;
+  createdAt: Date;
+}
+
 export function serializeTransaction<T extends { amount: unknown }>(transaction: T) {
   return { ...transaction, amount: Number(transaction.amount) };
 }
 
-export function transactionsToCsv(transactions: Array<any>) {
+export function transactionsToCsv(transactions: CsvTransaction[]) {
   const rows = transactions.map((transaction) => ({
     'ID Transacción': transaction.id,
     'ID Externo (Gmail)': transaction.externalId,
