@@ -22,6 +22,7 @@
     "gmail:process-jobs": "tsx src/scripts/process-ingestion-jobs.ts",
     "gmail:verify-recovery": "tsx src/scripts/verify-gmail-recovery.ts",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "keywords": [

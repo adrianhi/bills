@@ -9,12 +9,11 @@ import accountRoutes from './account.routes';
 import reportRoutes from './report.routes';
 import { appContainer } from '../app-container';
 import { asyncHandler } from '../shared/http/async-handler';
-import { MaintenanceController } from '../controllers/maintenance.controller';
 
 const router = Router();
 
 router.get('/v1/health/ready', asyncHandler(appContainer.readinessController.handle));
-router.post('/v1/internal/maintenance/tick', asyncHandler(MaintenanceController.tick));
+router.post('/v1/internal/maintenance/tick', asyncHandler(appContainer.maintenanceController.tick));
 
 // Mount API v1 routes
 router.use('/v1', authRoutes);

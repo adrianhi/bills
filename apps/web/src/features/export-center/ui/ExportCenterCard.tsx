@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Check, Download, FileDown, FileJson, FileSpreadsheet, FileText, Loader2, Share2, SlidersHorizontal } from 'lucide-react';
 import type { PeriodSelection } from '@/entities/period';
-import { accountService } from '@/entities/account/api/account.service';
+import { accountService } from '@/entities/account';
 import { Button, Card, CardContent, SafeDiagnosticButton } from '@/shared/ui';
 import { shareOrDownloadFile, supportsFileShare } from '@/shared/lib';
 import { reportService, type FinancialReportFormat } from '../api/report.service';

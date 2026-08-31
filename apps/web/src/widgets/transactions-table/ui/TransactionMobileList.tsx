@@ -1,7 +1,7 @@
 import { Calendar } from 'lucide-react';
 import type { Transaction } from '@/entities/transaction';
-import type { groupTransactionsByDate } from '@/entities/transaction/model/selectors';
-import { isReceivedTransfer, isSentTransfer, statusCode } from '@/entities/transaction/model/selectors';
+import type { groupTransactionsByDate } from '@/entities/transaction';
+import { isReceivedTransfer, isSentTransfer, statusCode } from '@/entities/transaction';
 import { formatCurrency, formatDate, getOrganizationMeta } from '@/shared/lib';
 import { TransactionIcon, TransactionStatus } from './transaction-presenters';
 

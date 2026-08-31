@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CategorizationService } from '../src/services/categorization.service';
+import { CategorizationService } from '../src/modules/categorization/infrastructure/categorization.service';
 
 describe('Categorization and Normalization Service', () => {
   it('should clean raw merchant prefixes', () => {

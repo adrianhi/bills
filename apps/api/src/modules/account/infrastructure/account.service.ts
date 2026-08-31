@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { config } from '../../../config';
 import { prisma } from '../../../config/database';
 import { AppError } from '../../../errors/app-error';
-import { GmailConnectionService } from '../../../services/gmail-connection.service';
+import type { GmailConnectionLifecycle } from '../../connections';
 
 function subjectHash(profileId: string, email: string) {
   const salt = config.legalAuditSalt || config.ingestionEncryptionKey || 'bills-local-development';
@@ -10,7 +10,9 @@ function subjectHash(profileId: string, email: string) {
 }
 
 export class AccountService {
-  public static async exportData(profileId: string) {
+  public constructor(private readonly gmail: GmailConnectionLifecycle) {}
+
+  public async exportData(profileId: string) {
     const profile = await prisma.profile.findUnique({
       where: { id: profileId },
       include: {
@@ -78,7 +80,7 @@ export class AccountService {
     return { exportedAt: new Date().toISOString(), profile };
   }
 
-  public static async deleteAccount(profileId: string) {
+  public async deleteAccount(profileId: string) {
     const profile = await prisma.profile.findUnique({
       where: { id: profileId },
       include: {
@@ -94,7 +96,7 @@ export class AccountService {
       select: { id: true, workspaceId: true },
     });
     for (const connection of inboxConnections) {
-      await GmailConnectionService.disconnect(connection.workspaceId, connection.id).catch(() => undefined);
+      await this.gmail.disconnect(connection.workspaceId, connection.id).catch(() => undefined);
     }
 
     await prisma.$transaction(async (tx) => {

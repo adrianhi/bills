@@ -1,11 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useMemo } from 'react';
 import type { ProductGuideState } from '@bills/contracts';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/widgets/navbar';
-import { APP_SECTIONS, BottomNav, type AppSection } from '@/widgets/bottom-nav';
-import { connectionService } from '@/entities/connection/api/connection.service';
+import { BottomNav } from '@/widgets/bottom-nav';
 import { useDashboardController } from '../model/useDashboardController';
+import { DASHBOARD_SECTION_TITLES, useDashboardShell } from '../model/useDashboardShell';
 import { DashboardSidebar } from './DashboardSidebar';
 import { PeriodToolbar } from './PeriodToolbar';
 import { DashboardModals } from './DashboardModals';
@@ -21,22 +19,6 @@ interface DashboardPageProps {
   onLock: () => void;
   onAccountDeleted: () => void;
 }
-
-const SECTION_TITLES: Record<AppSection, string> = {
-  home: 'Inicio',
-  transactions: 'Movimientos',
-  analytics: 'Analítica',
-  more: 'Más',
-};
-
-function sectionFromPath(pathname: string): AppSection | null {
-  if (pathname.includes('/movimientos')) return 'transactions';
-  if (pathname.includes('/analitica')) return 'analytics';
-  if (pathname.includes('/mas')) return 'more';
-  if (pathname.includes('/inicio')) return 'home';
-  return null;
-}
-
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   authToken,
   productGuide,
@@ -44,9 +26,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onLock: lockSession,
   onAccountDeleted,
 }) => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const activeSection = sectionFromPath(location.pathname) ?? 'home';
+  const shell = useDashboardShell(productGuide);
+  const {
+    activeSection,
+    selectSection,
+    connectionsQuery,
+    primaryConnection,
+    requiresBankSelection,
+    isSettingsOpen,
+    setIsSettingsOpen,
+    isTourInviteOpen,
+    setIsTourInviteOpen,
+    isTourOpen,
+    setIsTourOpen,
+    isExportModalOpen,
+    setIsExportModalOpen,
+  } = shell;
   const model = useDashboardController(authToken, lockSession, activeSection);
   const {
     darkMode,
@@ -90,60 +85,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     isQuickAddOpen,
     setIsQuickAddOpen,
   } = model;
-
-  const [isSettingsOpen, setIsSettingsOpen] = useState(
-    () => new URLSearchParams(window.location.search).get('settings') === 'connections'
-  );
-  const [isTourInviteOpen, setIsTourInviteOpen] = useState(
-    () => productGuide.versionSeen !== productGuide.currentVersion
-  );
-  const [isTourOpen, setIsTourOpen] = useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-
-  const connectionsQuery = useQuery({
-    queryKey: ['inbox-connections', 'dashboard'],
-    queryFn: ({ signal }) => connectionService.listInboxConnections(signal),
-    gcTime: 0,
-    refetchInterval: (query) =>
-      query.state.data?.some(
-        (c) => c.currentJob?.status === 'PENDING' || c.currentJob?.status === 'PROCESSING'
-      )
-        ? 2_500
-        : false,
-  });
-
-  useEffect(() => {
-    if (!sectionFromPath(location.pathname)) {
-      navigate('/app/inicio', { replace: true });
-    }
-  }, [location.pathname, navigate]);
-
   const activeFiltersCount = [
     categoryFilter,
     statusFilter,
     organizationFilter,
     typeFilter,
   ].filter(Boolean).length;
-
-  const primaryConnection =
-    connectionsQuery.data?.find((c) => c.status !== 'REVOKED') ??
-    connectionsQuery.data?.[0];
-
-  const requiresBankSelection =
-    connectionsQuery.data?.some(
-      (c) => c.status === 'ACTIVE' && c.requiresBankSelection
-    ) ?? false;
-
-  const selectSection = (
-    section: AppSection,
-    replace = false,
-    behavior: ScrollBehavior = 'smooth'
-  ) => {
-    const target = APP_SECTIONS.find((item) => item.id === section);
-    if (target) navigate(target.path, { replace });
-    window.scrollTo({ top: 0, behavior });
-  };
-
   const periodToolbarNode = (
     <PeriodToolbar
       currentPeriod={currentPeriod}
@@ -152,7 +99,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       setCurrency={setCurrency}
     />
   );
-
   const currentFilters = useMemo(
     () => ({
       category: categoryFilter,
@@ -163,7 +109,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     }),
     [categoryFilter, statusFilter, organizationFilter, typeFilter, search]
   );
-
   return (
     <div className="min-h-screen bg-background text-foreground antialiased">
       <DashboardSidebar
@@ -172,16 +117,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         onQuickAdd={() => setIsQuickAddOpen(true)}
         activeFiltersCount={activeFiltersCount}
       />
-
       <Navbar
-        title={SECTION_TITLES[activeSection]}
+        title={DASHBOARD_SECTION_TITLES[activeSection]}
         hideBalances={hideBalances}
         setHideBalances={setHideBalances}
         onRefresh={onRefresh}
         onOpenSettings={() => setIsSettingsOpen(true)}
         refreshing={refreshing || refreshingStats}
       />
-
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-5 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8 lg:ml-64 lg:pb-10">
         {activeSection === 'home' && (
           <HomeSection
@@ -203,7 +146,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onAddManual={() => setIsQuickAddOpen(true)}
           />
         )}
-
         {activeSection === 'transactions' && (
           <TransactionsSection
             periodToolbar={periodToolbarNode}
@@ -234,7 +176,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onAddManual={() => setIsQuickAddOpen(true)}
           />
         )}
-
         {activeSection === 'analytics' && (
           <AnalyticsSection
             periodToolbar={periodToolbarNode}
@@ -246,7 +187,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onRefresh={onRefresh}
           />
         )}
-
         {activeSection === 'more' && (
           <MoreSection
             currentPeriod={currentPeriod}

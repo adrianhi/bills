@@ -1,15 +1,15 @@
-import { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
-import { AccountService } from '../services/account.service';
+import type { AccountService } from '../modules/account/infrastructure/account.service';
 
-const DeleteAccountSchema = z.object({
-  confirmation: z.literal('DELETE_MY_ACCOUNT'),
-});
+const DeleteAccountSchema = z.object({ confirmation: z.literal('DELETE_MY_ACCOUNT') });
 
 export class AccountController {
-  public static async exportData(req: Request, res: Response, next: NextFunction) {
+  public constructor(private readonly accounts: AccountService) {}
+
+  public exportData = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const data = await AccountService.exportData(req.auth!.user.id);
+      const data = await this.accounts.exportData(req.auth!.user.id);
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader(
         'Content-Disposition',
@@ -19,15 +19,15 @@ export class AccountController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
-  public static async remove(req: Request, res: Response, next: NextFunction) {
+  public remove = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       DeleteAccountSchema.parse(req.body);
-      await AccountService.deleteAccount(req.auth!.user.id);
+      await this.accounts.deleteAccount(req.auth!.user.id);
       res.status(200).json({ success: true });
     } catch (error) {
       next(error);
     }
-  }
+  };
 }

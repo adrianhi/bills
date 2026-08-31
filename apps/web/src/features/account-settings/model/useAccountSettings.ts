@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { accountService } from '@/entities/account/api/account.service';
-import { connectionService } from '@/entities/connection/api/connection.service';
+import { accountService } from '@/entities/account';
+import { connectionService } from '@/entities/connection';
 import { downloadBlob } from '@/shared/lib';
 
 export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAccountDeleted: () => void) {
@@ -64,3 +64,5 @@ export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAc
     deleteAccount: () => deleteMutation.mutate(),
   };
 }
+
+export type AccountSettingsModel = ReturnType<typeof useAccountSettings>;

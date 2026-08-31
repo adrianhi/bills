@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { config } from '../config';
-import { WorkspaceService } from '../services/workspace.service';
+import { appContainer } from '../app-container';
 import { AppError } from '../errors/app-error';
 
 let authClient: SupabaseClient | null = null;
@@ -82,7 +82,7 @@ export async function requireWorkspace(
     }
 
     const requestedWorkspaceId = req.headers['x-workspace-id'];
-    const membership = await WorkspaceService.findMembership(
+    const membership = await appContainer.workspaceService.findMembership(
       req.auth.user.id,
       typeof requestedWorkspaceId === 'string' ? requestedWorkspaceId : undefined
     );

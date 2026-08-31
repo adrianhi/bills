@@ -1,18 +1,10 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { transactionService } from '@/entities/transaction/api/transaction.service';
-import { transactionKeys } from '@/entities/transaction/api/query-keys';
+import { transactionKeys, transactionService } from '@/entities/transaction';
 import { FINANCIAL_INSTITUTIONS } from '@/shared/config/financial-options';
-import { currentLocalDateTime, isFutureLocalDateTime, parseNumericInput } from '@/shared/lib';
+import { currentLocalDateTime, parseNumericInput } from '@/shared/lib';
 import { ApiClientError } from '@/shared/api';
-
-const transactionTypes: Record<string, string> = {
-  recibida: 'Transferencia Recibida',
-  compra: 'Compra',
-  enviada: 'Transferencia',
-  servicio: 'Pago de Servicio',
-  retiro: 'Retiro',
-};
+import { defaultCategoryFor, transactionTypes, validateQuickAddForm } from './quick-add-form';
 
 export function useQuickAddTransaction(onSuccess: () => void, onClose: () => void) {
   const queryClient = useQueryClient();
@@ -71,45 +63,11 @@ export function useQuickAddTransaction(onSuccess: () => void, onClose: () => voi
 
   const handleTypeChange = (type: string) => {
     setMovementType(type);
-    const defaultCategory: Record<string, string> = {
-      recibida: 'Ingresos / Transferencias',
-      compra: 'Supermercado',
-      enviada: 'Transferencias',
-      servicio: 'Servicios',
-      retiro: 'Servicios Financieros',
-    };
-    setCategory(defaultCategory[type] ?? 'Otros');
+    setCategory(defaultCategoryFor(type));
   };
 
   const validate = (): boolean => {
-    const errors: Record<string, string> = {};
-    const parsedAmount = parseNumericInput(amount);
-
-    if (parsedAmount === null || parsedAmount <= 0) {
-      errors.amount = 'Ingresa un monto válido mayor a 0';
-    } else if (parsedAmount > 100_000_000) {
-      errors.amount = 'El monto excede el límite permitido';
-    }
-
-    if (!merchant.trim()) {
-      errors.merchant = movementType === 'recibida'
-        ? 'Ingresa el nombre de quien te transfirió'
-        : 'Ingresa el nombre del comercio o beneficiario';
-    } else if (merchant.trim().length > 200) {
-      errors.merchant = 'El nombre no puede superar 200 caracteres';
-    }
-
-    if (notes.trim().length > 500) {
-      errors.notes = 'Las notas no pueden superar 500 caracteres';
-    }
-
-    const parsedDate = new Date(dateTime);
-    if (isNaN(parsedDate.getTime())) {
-      errors.dateTime = 'Fecha inválida';
-    } else if (isFutureLocalDateTime(dateTime)) {
-      errors.dateTime = 'La fecha y hora no pueden estar en el futuro';
-    }
-
+    const errors = validateQuickAddForm({ amount, movementType, merchant, dateTime, notes });
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -172,3 +130,5 @@ export function useQuickAddTransaction(onSuccess: () => void, onClose: () => voi
     error: generalError || (Object.keys(fieldErrors).length > 0 ? 'Por favor corrige los campos marcados' : ''),
   };
 }
+
+export type QuickAddTransactionModel = ReturnType<typeof useQuickAddTransaction>;

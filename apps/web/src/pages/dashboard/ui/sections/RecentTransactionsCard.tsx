@@ -3,7 +3,7 @@ import type { Transaction } from '@/entities/transaction';
 import { ReceiptText } from 'lucide-react';
 import { Button, Card, CardContent } from '@/shared/ui';
 import { formatCurrency, formatDate } from '@/shared/lib';
-import { isReceivedTransfer } from '@/entities/transaction/model/selectors';
+import { isReceivedTransfer } from '@/entities/transaction';
 
 interface RecentTransactionsCardProps {
   transactions: Transaction[];

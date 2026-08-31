@@ -1,9 +1,17 @@
-import { resolveDateRange, resolveInstitutionCode } from '../../transactions/domain/transaction-policy';
+import { resolveDateRange, resolveInstitutionCode } from '../../transactions';
 import { resolveComparisonPeriods, type ComparablePeriod } from '../domain/comparison-period';
 import { summarizeTransactions } from '../domain/summarize-transactions';
-import { PrismaAnalyticsRepository } from '../infrastructure/prisma-analytics.repository';
 
 export interface SummaryRequest { month?: string; startDate?: string; endDate?: string; organization?: string; currency?: string }
+
+interface AnalyticsRepository {
+  findTransactions(
+    workspaceId: string,
+    range: ReturnType<typeof resolveDateRange>,
+    institutionCode?: string
+  ): Promise<Parameters<typeof summarizeTransactions>[0]>;
+  listCategories(workspaceId: string): Promise<Array<{ category: string; _count: { _all: number } }>>;
+}
 
 type Summary = ReturnType<typeof summarizeTransactions>;
 
@@ -123,7 +131,7 @@ function buildInsights(currency: string, period: ComparablePeriod, current: Summ
 }
 
 export class AnalyticsService {
-  constructor(private readonly repository: PrismaAnalyticsRepository) {}
+  constructor(private readonly repository: AnalyticsRepository) {}
   async getSummary(workspaceId: string, request: SummaryRequest) {
     const currency = (request.currency || 'DOP').toUpperCase();
     const institution = request.organization && request.organization.toUpperCase() !== 'ALL' ? resolveInstitutionCode(request.organization, request.organization) : undefined;

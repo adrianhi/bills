@@ -1,6 +1,5 @@
 import { prisma } from '../../../config/database';
 import { CreateTransactionSchema } from '../../../schemas/transaction.schema';
-import { TransactionService } from '../../../services/transaction.service';
 import { ParserRegistry } from '../../../ingestion/parser-registry';
 import type { IngestionChannelName, NormalizedEmail } from '../../../ingestion/types';
 
@@ -14,8 +13,14 @@ interface ProcessEmailInput {
   sourceEmail?: string;
 }
 
+interface TransactionWriter {
+  create(workspaceId: string, input: ReturnType<typeof CreateTransactionSchema.parse>): Promise<{ isDuplicate: boolean }>;
+}
+
 export class NormalizedEmailProcessor {
-  public static async process(input: ProcessEmailInput) {
+  public constructor(private readonly transactions: TransactionWriter) {}
+
+  public async process(input: ProcessEmailInput) {
     const parser = input.institutionCode
       ? ParserRegistry.forInstitution(input.institutionCode)
       : ParserRegistry.detect(input.email);
@@ -111,7 +116,7 @@ export class NormalizedEmailProcessor {
         institutionCode: parser.institutionCode,
         ingestionChannel: input.ingestionChannel,
       });
-      const result = await TransactionService.createTransaction(input.workspaceId, validated);
+      const result = await this.transactions.create(input.workspaceId, validated);
       if (result.isDuplicate) duplicates += 1;
       else created += 1;
     }

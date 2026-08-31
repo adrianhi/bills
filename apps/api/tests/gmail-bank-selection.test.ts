@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gmailInitialCutoff } from '../src/modules/connections/infrastructure/gmail-connection.service';
+import { gmailInitialCutoff } from '../src/modules/connections';
 import { InstitutionSelectionService } from '../src/modules/connections/infrastructure/institution-selection.service';
 
 describe('Gmail bank selection policy', () => {

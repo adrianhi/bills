@@ -9,7 +9,7 @@ import { rateLimit } from 'express-rate-limit';
 import { config } from './config';
 import apiRoutes from './routes';
 import { errorHandler } from './middlewares/error.middleware';
-import { GmailPubSubController } from './controllers/gmail-pubsub.controller';
+import { appContainer } from './app-container';
 import { logger } from './shared/observability/logger';
 
 function resolvePublicDir(): string {
@@ -74,7 +74,7 @@ export function createApp(): Express {
   app.post(
     '/api/v1/webhooks/google/gmail',
     express.json({ limit: '256kb' }),
-    GmailPubSubController.handle
+    appContainer.gmailPubSubController.handle
   );
   app.use(
     rateLimit({

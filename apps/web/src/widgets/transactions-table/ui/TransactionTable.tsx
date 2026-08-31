@@ -7,7 +7,7 @@ import {
   isReceivedTransfer,
   isSentTransfer,
   isServicePayment,
-} from '@/entities/transaction/model/selectors';
+} from '@/entities/transaction';
 import { FilterDrawer } from '@/features/filter-drawer';
 import { Button, Card, CardContent, SafeDiagnosticButton } from '@/shared/ui';
 import { TransactionDesktopTable } from './TransactionDesktopTable';

@@ -1,10 +1,9 @@
-import { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import { config } from '../config';
 import { AppError } from '../errors/app-error';
-import { GmailConnectionService } from '../services/gmail-connection.service';
-import { IngestionJobService } from '../services/ingestion-job.service';
-import { InstitutionSelectionService } from '../modules/connections/infrastructure/institution-selection.service';
+import type { GmailConnectionLifecycle } from '../modules/connections/application/gmail-connection.port';
+import type { IngestionJobQueue } from '../modules/ingestion/application/ingestion-job.port';
 
 const StartGoogleSchema = z.object({
   returnTo: z.string().max(200).optional(),
@@ -12,47 +11,47 @@ const StartGoogleSchema = z.object({
 });
 const InstitutionSelectionSchema = StartGoogleSchema.pick({ institutionCodes: true });
 
+interface InstitutionSelection {
+  replace(workspaceId: string, connectionId: string, codes: string[]): Promise<{
+    selectedInstitutionCodes: string[];
+    addedInstitutionCodes: string[];
+  }>;
+}
+
 export class InboxConnectionController {
-  public static async list(req: Request, res: Response, next: NextFunction) {
+  public constructor(
+    private readonly gmail: GmailConnectionLifecycle,
+    private readonly jobs: IngestionJobQueue,
+    private readonly institutions: InstitutionSelection
+  ) {}
+
+  public list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      res.status(200).json({
-        success: true,
-        data: await GmailConnectionService.list(req.auth!.workspaceId!),
-      });
+      res.status(200).json({ success: true, data: await this.gmail.list(req.auth!.workspaceId!) });
     } catch (error) {
       next(error);
     }
-  }
+  };
 
-  public static async startGoogle(req: Request, res: Response, next: NextFunction) {
+  public startGoogle = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const input = StartGoogleSchema.parse(req.body);
-      const authorizationUrl = await GmailConnectionService.createAuthorizationUrl(
-        req.auth!.workspaceId!,
-        req.auth!.user.id,
-        input.institutionCodes,
-        input.returnTo
+      const authorizationUrl = await this.gmail.createAuthorizationUrl(
+        req.auth!.workspaceId!, req.auth!.user.id, input.institutionCodes, input.returnTo
       );
       res.status(200).json({ success: true, data: { authorizationUrl } });
     } catch (error) {
       next(error);
     }
-  }
+  };
 
-  public static async updateInstitutions(req: Request, res: Response, next: NextFunction) {
+  public updateInstitutions = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const input = InstitutionSelectionSchema.parse(req.body);
-      const result = await InstitutionSelectionService.replace(
-        req.auth!.workspaceId!,
-        String(req.params.id),
-        input.institutionCodes
-      );
+      const connectionId = String(req.params.id);
+      const result = await this.institutions.replace(req.auth!.workspaceId!, connectionId, input.institutionCodes);
       const jobs = await Promise.all(result.addedInstitutionCodes.map((institutionCode) =>
-        IngestionJobService.enqueueBankBackfill(
-          req.auth!.workspaceId!,
-          String(req.params.id),
-          institutionCode
-        )
+        this.jobs.enqueueBankBackfill(req.auth!.workspaceId!, connectionId, institutionCode)
       ));
       res.status(200).json({
         success: true,
@@ -61,26 +60,24 @@ export class InboxConnectionController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
-  public static async googleCallback(req: Request, res: Response) {
+  public googleCallback = async (req: Request, res: Response): Promise<void> => {
     const fallbackReturnTo = '/onboarding';
     try {
       const code = typeof req.query.code === 'string' ? req.query.code : '';
       const state = typeof req.query.state === 'string' ? req.query.state : '';
       const oauthError = typeof req.query.error === 'string' ? req.query.error : '';
       if (oauthError) {
-        res.redirect(GmailConnectionService.callbackRedirect(fallbackReturnTo, 'GOOGLE_ACCESS_DENIED'));
+        res.redirect(this.gmail.callbackRedirect(fallbackReturnTo, 'GOOGLE_ACCESS_DENIED'));
         return;
       }
-      if (!code || !state) {
-        throw new AppError(400, 'INVALID_OAUTH_CALLBACK', 'Google callback is incomplete.');
-      }
-      const result = await GmailConnectionService.completeAuthorization(code, state);
+      if (!code || !state) throw new AppError(400, 'INVALID_OAUTH_CALLBACK', 'Google callback is incomplete.');
+      const result = await this.gmail.completeAuthorization(code, state);
       const connection = result.connection as { id: string; workspaceId: string };
-      await IngestionJobService.enqueueInitial(connection.workspaceId, connection.id);
-      if (config.googlePubSubTopic) await IngestionJobService.enqueueWatch(connection.workspaceId, connection.id);
-      res.redirect(GmailConnectionService.callbackRedirect(result.returnTo));
+      await this.jobs.enqueueInitial(connection.workspaceId, connection.id);
+      if (config.googlePubSubTopic) await this.jobs.enqueueWatch(connection.workspaceId, connection.id);
+      res.redirect(this.gmail.callbackRedirect(result.returnTo));
     } catch (error) {
       const code = error instanceof AppError ? error.code : 'GOOGLE_OAUTH_FAILED';
       const target = new URL(fallbackReturnTo, config.appUrl);
@@ -88,26 +85,23 @@ export class InboxConnectionController {
       target.searchParams.set('code', code);
       res.redirect(target.toString());
     }
-  }
+  };
 
-  public static async sync(req: Request, res: Response, next: NextFunction) {
+  public sync = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const job = await IngestionJobService.enqueueManual(
-        req.auth!.workspaceId!,
-        String(req.params.id)
-      );
+      const job = await this.jobs.enqueueManual(req.auth!.workspaceId!, String(req.params.id));
       res.status(202).json({ success: true, data: { jobId: job.id, status: 'QUEUED' } });
     } catch (error) {
       next(error);
     }
-  }
+  };
 
-  public static async remove(req: Request, res: Response, next: NextFunction) {
+  public remove = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      await GmailConnectionService.disconnect(req.auth!.workspaceId!, String(req.params.id));
+      await this.gmail.disconnect(req.auth!.workspaceId!, String(req.params.id));
       res.status(200).json({ success: true });
     } catch (error) {
       next(error);
     }
-  }
+  };
 }

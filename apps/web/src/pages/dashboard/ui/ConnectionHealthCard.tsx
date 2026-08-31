@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Clock3, MailPlus, RefreshCw } from 'lucide-react';
-import type { InboxConnection } from '@/entities/connection/api/connection.service';
+import type { InboxConnection } from '@/entities/connection';
 import { Button, Card, CardContent } from '@/shared/ui';
 
 interface ConnectionHealthCardProps {

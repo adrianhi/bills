@@ -1,24 +1,50 @@
-import type { CreateTransactionInput, ExportQueryInput, TransactionQueryInput, UpdateTransactionInput } from '../../../schemas/transaction.schema';
+import type {
+  CreateTransactionInput,
+  ExportQueryInput,
+  TransactionQueryInput,
+  UpdateTransactionInput,
+} from '../../../schemas/transaction.schema';
 import { AppError } from '../../../errors/app-error';
-import { TransactionService } from '../../../services/transaction.service';
+import type { TransactionReader, TransactionWriter } from './transaction-store.port';
 
 export class TransactionApplicationService {
-  create(workspaceId: string, input: CreateTransactionInput) { return TransactionService.createTransaction(workspaceId, input); }
-  batchCreate(workspaceId: string, input: CreateTransactionInput[]) { return TransactionService.batchCreateTransactions(workspaceId, input); }
-  list(workspaceId: string, query: TransactionQueryInput) { return TransactionService.getTransactions(workspaceId, query); }
-  async get(workspaceId: string, id: string) {
-    const transaction = await TransactionService.getTransactionById(workspaceId, id);
+  public constructor(
+    private readonly writer: TransactionWriter,
+    private readonly reader: TransactionReader
+  ) {}
+
+  public create(workspaceId: string, input: CreateTransactionInput) {
+    return this.writer.create(workspaceId, input);
+  }
+
+  public async batchCreate(workspaceId: string, input: CreateTransactionInput[]) {
+    const items = await Promise.all(input.map((item) => this.writer.create(workspaceId, item)));
+    const duplicateCount = items.filter((item) => item.isDuplicate).length;
+    return { total: items.length, createdCount: items.length - duplicateCount, duplicateCount, items };
+  }
+
+  public list(workspaceId: string, query: TransactionQueryInput) {
+    return this.reader.list(workspaceId, query);
+  }
+
+  public async get(workspaceId: string, id: string) {
+    const transaction = await this.reader.get(workspaceId, id);
     if (!transaction) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Transaction not found.');
     return transaction;
   }
-  async update(workspaceId: string, id: string, input: UpdateTransactionInput) {
-    const transaction = await TransactionService.updateTransaction(workspaceId, id, input);
+
+  public async update(workspaceId: string, id: string, input: UpdateTransactionInput) {
+    const transaction = await this.writer.update(workspaceId, id, input);
     if (!transaction) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Transaction not found.');
     return transaction;
   }
-  async remove(workspaceId: string, id: string) {
-    const deleted = await TransactionService.deleteTransaction(workspaceId, id);
+
+  public async remove(workspaceId: string, id: string) {
+    const deleted = await this.writer.remove(workspaceId, id);
     if (!deleted) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Transaction not found.');
   }
-  export(workspaceId: string, query: ExportQueryInput, limit?: number) { return TransactionService.getTransactionsForExport(workspaceId, query, limit); }
+
+  public export(workspaceId: string, query: ExportQueryInput, limit?: number) {
+    return this.reader.export(workspaceId, query, limit);
+  }
 }
