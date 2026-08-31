@@ -2,7 +2,7 @@ import { prisma } from '../../../config/database';
 import { ParserRegistry } from '../../../ingestion/parser-registry';
 
 export class FinancialInstitutionService {
-  public static async listInstitutions() {
+  public async listInstitutions() {
     const institutions = await prisma.financialInstitution.findMany({
       where: { code: { not: 'CASH' } },
       orderBy: [{ status: 'asc' }, { displayName: 'asc' }],

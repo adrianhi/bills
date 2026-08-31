@@ -12,3 +12,4 @@ export {
   resolveDateRange,
   resolveInstitutionCode,
 } from './domain/transaction-policy';
+export type { DateRange } from './domain/transaction-policy';

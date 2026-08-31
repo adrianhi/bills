@@ -35,11 +35,15 @@ import { MaintenanceController } from './controllers/maintenance.controller';
 import { AccountService } from './modules/account/infrastructure/account.service';
 import { AccountController } from './controllers/account.controller';
 import { LegalService } from './modules/legal/infrastructure/legal.service';
+import { WorkspaceService } from './modules/identity/infrastructure/workspace.service';
 import { PrismaTransactionWriter } from './modules/transactions/infrastructure/prisma-transaction.writer';
 import { PrismaTransactionQuery } from './modules/transactions/infrastructure/prisma-transaction.query';
 import { PrismaReversalService } from './modules/transactions/infrastructure/prisma-reversal.service';
 import { CategorizationService } from './modules/categorization/infrastructure/categorization.service';
 import { NormalizedEmailProcessor } from './modules/ingestion/infrastructure/normalized-email.processor';
+import { FinancialInstitutionService } from './modules/connections/infrastructure/financial-institution.service';
+import { BankConnectionController } from './controllers/bank-connection.controller';
+import { LegalController } from './controllers/legal.controller';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
 const categoryRuleService = new CategoryRuleApplicationService(new PrismaCategoryRuleRepository());
@@ -98,7 +102,11 @@ export const appContainer = {
   transactionController: new TransactionHttpController(transactionService),
   financialReportController: new FinancialReportController(new FinancialReportService(analyticsService, transactionService)),
   readinessController: new ReadinessController(new PrismaReadinessRepository()),
-  identityController: new IdentityController(new IdentityApplicationService(new PrismaProfileRepository())),
+  identityController: new IdentityController(new IdentityApplicationService(
+    new PrismaProfileRepository(),
+    { bootstrap: WorkspaceService.bootstrap.bind(WorkspaceService) },
+    { hasCurrentRequired: LegalService.hasCurrentRequired.bind(LegalService) }
+  )),
   gmailPubSubController: new GmailPubSubController(gmailPushHandler),
   inboxConnectionController,
   maintenanceController: new MaintenanceController(ingestionRunner),
@@ -107,4 +115,11 @@ export const appContainer = {
   ingestionJobService,
   ingestionRunner,
   accountController: new AccountController(new AccountService(gmailLifecycleService)),
+  workspaceService: WorkspaceService,
+  legalService: LegalService,
+  legalController: new LegalController({
+    current: LegalService.current.bind(LegalService),
+    accept: LegalService.accept.bind(LegalService),
+  }),
+  bankConnectionController: new BankConnectionController(new FinancialInstitutionService()),
 };

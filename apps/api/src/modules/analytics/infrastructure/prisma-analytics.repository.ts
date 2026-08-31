@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../config/database';
-import type { DateRange } from '../../transactions/domain/transaction-policy';
+import type { DateRange } from '../../transactions';
 
 const selection = {
   amount: true, currency: true, category: true, merchant: true, statusCode: true,

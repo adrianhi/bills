@@ -1,9 +1,14 @@
 import type { CreateCategoryRuleInput } from '../../../schemas/transaction.schema';
 import { AppError } from '../../../errors/app-error';
-import { PrismaCategoryRuleRepository } from '../infrastructure/prisma-category-rule.repository';
+
+interface CategoryRuleRepository {
+  list(workspaceId: string): Promise<unknown[]>;
+  create(workspaceId: string, input: CreateCategoryRuleInput): Promise<unknown>;
+  remove(workspaceId: string, id: string): Promise<{ count: number }>;
+}
 
 export class CategoryRuleApplicationService {
-  constructor(private readonly repository: PrismaCategoryRuleRepository) {}
+  constructor(private readonly repository: CategoryRuleRepository) {}
   list(workspaceId: string) { return this.repository.list(workspaceId); }
   create(workspaceId: string, input: CreateCategoryRuleInput) { return this.repository.create(workspaceId, input); }
   async remove(workspaceId: string, id: string) {
