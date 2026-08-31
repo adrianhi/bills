@@ -17,7 +17,13 @@ interface DailySpendingChartProps {
   currency: string;
 }
 
-function DailyTooltip({ active, payload, currency }: any) {
+interface DailyTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: { date: string; total: number; count: number } }>;
+  currency: string;
+}
+
+function DailyTooltip({ active, payload, currency }: DailyTooltipProps) {
   if (!active || !payload?.length) return null;
   const item = payload[0].payload;
   return <div className="rounded-xl border bg-popover/95 p-3 text-xs shadow-xl backdrop-blur">

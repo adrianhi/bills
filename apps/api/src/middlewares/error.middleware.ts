@@ -5,7 +5,7 @@ import { AppError } from '../errors/app-error';
 import { logger } from '../shared/observability/logger';
 
 export function errorHandler(
-  err: any,
+  err: unknown,
   req: Request,
   res: Response,
   next: NextFunction
@@ -28,7 +28,11 @@ export function errorHandler(
     return;
   }
 
-  if (err.name === 'PrismaClientKnownRequestError') {
+  if (
+    err instanceof Error
+    && err.name === 'PrismaClientKnownRequestError'
+    && 'code' in err
+  ) {
     if (err.code === 'P2002') {
       res.status(409).json({
         success: false,
@@ -52,14 +56,16 @@ export function errorHandler(
     });
   }
 
-  const statusCode = err instanceof AppError ? err.statusCode : err.status || err.statusCode || 500;
+  const statusCode = err instanceof AppError ? err.statusCode : 500;
   const code = err instanceof AppError ? err.code : 'INTERNAL_SERVER_ERROR';
   const message =
     err instanceof AppError
       ? err.message
       : statusCode >= 500
         ? 'An unexpected error occurred.'
-        : err.message || 'Request failed.';
+        : err instanceof Error
+          ? err.message || 'Request failed.'
+          : 'Request failed.';
   res.status(statusCode).json({
     success: false,
     error: {
