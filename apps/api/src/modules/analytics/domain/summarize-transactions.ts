@@ -8,9 +8,9 @@ export interface AnalyticsTransaction {
 
 const round = (value: number) => Math.round(value * 100) / 100;
 
-export function summarizeTransactions(transactions: AnalyticsTransaction[], requestedCurrency: string) {
+export function summarizeTransactions(transactions: AnalyticsTransaction[], requestedCurrency: string, periodDays?: number) {
   let totalSpentDOP = 0, totalSpentUSD = 0, totalIncomeDOP = 0, totalIncomeUSD = 0;
-  let approvedCount = 0, rejectedCount = 0, reversedCount = 0, pendingCount = 0, approvedExpenseCount = 0;
+  let approvedCount = 0, rejectedCount = 0, reversedCount = 0, pendingCount = 0, approvedExpenseCount = 0, totalTransactions = 0;
   const byCategoryMap: Record<string, { total: number; count: number }> = {};
   const byMerchantMap: Record<string, { total: number; totalDOP: number; totalUSD: number; count: number }> = {};
   const byInstitutionMap: Record<string, { total: number; count: number }> = {};
@@ -20,6 +20,15 @@ export function summarizeTransactions(transactions: AnalyticsTransaction[], requ
     const amount = Number(transaction.amount);
     const income = isIncomeMovement(transaction);
     const matchesCurrency = transaction.currency.toUpperCase() === requestedCurrency;
+    if (matchesCurrency) totalTransactions += 1;
+    if (!matchesCurrency) {
+      if (contributesToFinancialMetrics(transaction.statusCode)) {
+        if (income) {
+          if (transaction.currency === 'USD') totalIncomeUSD += amount; else totalIncomeDOP += amount;
+        } else if (transaction.currency === 'USD') totalSpentUSD += amount; else totalSpentDOP += amount;
+      }
+      continue;
+    }
     if (transaction.statusCode === 'DECLINED') rejectedCount += 1;
     else if (transaction.statusCode === 'REVERSED') reversedCount += 1;
     else if (transaction.statusCode === 'PENDING') pendingCount += 1;
@@ -29,25 +38,23 @@ export function summarizeTransactions(transactions: AnalyticsTransaction[], requ
       if (transaction.currency === 'USD') totalIncomeUSD += amount; else totalIncomeDOP += amount;
       continue;
     }
-    if (matchesCurrency) approvedExpenseCount += 1;
+    approvedExpenseCount += 1;
     if (transaction.currency === 'USD') totalSpentUSD += amount; else totalSpentDOP += amount;
     const institution = institutionDisplayName(transaction.institutionCode);
     byInstitutionMap[institution] ||= { total: 0, count: 0 };
     byInstitutionMap[institution].count += 1;
-    if (matchesCurrency) byInstitutionMap[institution].total += amount;
+    byInstitutionMap[institution].total += amount;
     byCategoryMap[transaction.category] ||= { total: 0, count: 0 };
     byCategoryMap[transaction.category].count += 1;
-    if (matchesCurrency) byCategoryMap[transaction.category].total += amount;
+    byCategoryMap[transaction.category].total += amount;
     byMerchantMap[transaction.merchant] ||= { total: 0, totalDOP: 0, totalUSD: 0, count: 0 };
     const merchant = byMerchantMap[transaction.merchant];
     merchant.count += 1;
     if (transaction.currency === 'USD') merchant.totalUSD += amount; else merchant.totalDOP += amount;
-    if (matchesCurrency) merchant.total += amount;
-    if (matchesCurrency) {
-      const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santo_Domingo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(transaction.transactionDate);
-      dailyTrendMap[date] ||= { total: 0, count: 0 };
-      dailyTrendMap[date].total += amount; dailyTrendMap[date].count += 1;
-    }
+    merchant.total += amount;
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santo_Domingo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(transaction.transactionDate);
+    dailyTrendMap[date] ||= { total: 0, count: 0 };
+    dailyTrendMap[date].total += amount; dailyTrendMap[date].count += 1;
   }
   const totalAmount = requestedCurrency === 'USD' ? totalSpentUSD : totalSpentDOP;
   const totalIncome = requestedCurrency === 'USD' ? totalIncomeUSD : totalIncomeDOP;
@@ -58,7 +65,9 @@ export function summarizeTransactions(transactions: AnalyticsTransaction[], requ
   return {
     totalAmount: round(totalAmount), totalIncome: round(totalIncome), totalSpentDOP: round(totalSpentDOP), totalSpentUSD: round(totalSpentUSD),
     totalIncomeDOP: round(totalIncomeDOP), totalIncomeUSD: round(totalIncomeUSD), approvedCount, rejectedCount, reversedCount, pendingCount,
-    dailyAverage: round(totalAmount / Math.max(dailyTrend.length, 1)), averageTicket: approvedExpenseCount > 0 ? round(totalAmount / approvedExpenseCount) : 0,
+    totalTransactions,
+    dailyAverage: round(totalAmount / Math.max(periodDays ?? dailyTrend.length, 1)), averageTicket: approvedExpenseCount > 0 ? round(totalAmount / approvedExpenseCount) : 0,
+    approvedExpenseCount,
     byCategory, byOrganization, topMerchants, dailyTrend,
   };
 }

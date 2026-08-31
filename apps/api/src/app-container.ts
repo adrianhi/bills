@@ -11,14 +11,18 @@ import { PrismaReadinessRepository } from './modules/system/infrastructure/prism
 import { IdentityApplicationService } from './modules/identity/application/identity.service';
 import { PrismaProfileRepository } from './modules/identity/infrastructure/prisma-profile.repository';
 import { IdentityController } from './modules/identity/http/identity.controller';
+import { FinancialReportService } from './modules/reports/application/financial-report.service';
+import { FinancialReportController } from './modules/reports/http/financial-report.controller';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
 const categoryRuleService = new CategoryRuleApplicationService(new PrismaCategoryRuleRepository());
+const transactionService = new TransactionApplicationService();
 
 export const appContainer = {
   analyticsController: new AnalyticsController(analyticsService),
   categoryRuleController: new CategoryRuleController(categoryRuleService),
-  transactionController: new TransactionHttpController(new TransactionApplicationService()),
+  transactionController: new TransactionHttpController(transactionService),
+  financialReportController: new FinancialReportController(new FinancialReportService(analyticsService, transactionService)),
   readinessController: new ReadinessController(new PrismaReadinessRepository()),
   identityController: new IdentityController(new IdentityApplicationService(new PrismaProfileRepository())),
 };

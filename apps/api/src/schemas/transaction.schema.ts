@@ -51,6 +51,11 @@ export const ExportQuerySchema = z.object({
   search: z.string().optional(),
 });
 
+export const FinancialReportQuerySchema = ExportQuerySchema.omit({ format: true }).extend({
+  format: z.enum(['csv', 'xlsx', 'pdf']),
+  includeNotes: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+});
+
 export const CreateCategoryRuleSchema = createCategoryRuleInputSchema;
 
 export type CreateTransactionInput = z.infer<typeof CreateTransactionSchema>;
@@ -58,4 +63,5 @@ export type BatchCreateTransactionsInput = z.infer<typeof BatchCreateTransaction
 export type UpdateTransactionInput = z.infer<typeof UpdateTransactionSchema>;
 export type TransactionQueryInput = z.infer<typeof TransactionQuerySchema>;
 export type ExportQueryInput = z.infer<typeof ExportQuerySchema>;
+export type FinancialReportQueryInput = z.infer<typeof FinancialReportQuerySchema>;
 export type CreateCategoryRuleInput = z.infer<typeof CreateCategoryRuleSchema>;

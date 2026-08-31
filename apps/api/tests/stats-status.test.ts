@@ -35,4 +35,13 @@ describe('financial status analytics', () => {
     expect(summary.byCategory).toHaveLength(1);
     expect(summary.dailyTrend[0].total).toBe(100);
   });
+
+  it('keeps breakdown counts scoped to the requested currency', () => {
+    const usd = { ...transaction('APPROVED', 75), currency: 'USD' };
+    const summary = summarizeTransactions([transaction('APPROVED', 100), usd], 'DOP', 10);
+    expect(summary.totalTransactions).toBe(1);
+    expect(summary.approvedCount).toBe(1);
+    expect(summary.byCategory[0].count).toBe(1);
+    expect(summary.dailyAverage).toBe(10);
+  });
 });

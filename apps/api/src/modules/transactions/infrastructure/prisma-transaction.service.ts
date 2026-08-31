@@ -591,11 +591,12 @@ export class TransactionService {
   /**
    * Retrieves all matching transactions for export (no pagination limit).
    */
-  public static async getTransactionsForExport(workspaceId: string, query: ExportQueryInput) {
+  public static async getTransactionsForExport(workspaceId: string, query: ExportQueryInput, limit?: number) {
     const where = this.buildWhereClause(workspaceId, query);
     return prisma.transaction.findMany({
       where,
       orderBy: { transactionDate: 'desc' },
+      ...(limit ? { take: limit } : {}),
     });
   }
 

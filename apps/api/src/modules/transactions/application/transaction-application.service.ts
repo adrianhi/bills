@@ -20,5 +20,5 @@ export class TransactionApplicationService {
     const deleted = await TransactionService.deleteTransaction(workspaceId, id);
     if (!deleted) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Transaction not found.');
   }
-  export(workspaceId: string, query: ExportQueryInput) { return TransactionService.getTransactionsForExport(workspaceId, query); }
+  export(workspaceId: string, query: ExportQueryInput, limit?: number) { return TransactionService.getTransactionsForExport(workspaceId, query, limit); }
 }

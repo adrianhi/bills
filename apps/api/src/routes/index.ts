@@ -6,6 +6,7 @@ import bankConnectionRoutes from './bank-connection.routes';
 import inboxConnectionRoutes from './inbox-connection.routes';
 import legalRoutes from './legal.routes';
 import accountRoutes from './account.routes';
+import reportRoutes from './report.routes';
 import { appContainer } from '../app-container';
 import { asyncHandler } from '../shared/http/async-handler';
 import { MaintenanceController } from '../controllers/maintenance.controller';
@@ -23,5 +24,6 @@ router.use('/v1', bankConnectionRoutes);
 router.use('/v1', inboxConnectionRoutes);
 router.use('/v1', legalRoutes);
 router.use('/v1', accountRoutes);
+router.use('/v1', reportRoutes);
 
 export default router;

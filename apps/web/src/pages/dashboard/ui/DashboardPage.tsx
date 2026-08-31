@@ -16,6 +16,7 @@ import {
 import { Navbar } from '@/widgets/navbar';
 import { APP_SECTIONS, BottomNav, type AppSection } from '@/widgets/bottom-nav';
 import { MetricCards } from '@/widgets/metric-summary';
+import { MonthPerspectiveCard, ComparisonDetails } from '@/widgets/spending-perspective';
 import { TransactionTable } from '@/widgets/transactions-table';
 import { EditTransactionModal } from '@/features/edit-transaction';
 import { RulesManagerModal } from '@/features/manage-rules';
@@ -23,6 +24,7 @@ import { QuickAddTransactionModal } from '@/features/quick-add';
 import { AccountSettingsModal } from '@/features/account-settings';
 import { ProductTour, ProductTourInvite } from '@/features/product-guide';
 import { PeriodFilter } from '@/features/period-filter';
+import { ExportCenterCard } from '@/features/export-center';
 import { Button, Card, CardContent } from '@/shared/ui';
 import { formatCurrency, formatDate } from '@/shared/lib';
 import { isReceivedTransfer } from '@/entities/transaction/model/selectors';
@@ -174,6 +176,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, product
             {statsError && !stats ? (
               <Card><CardContent className="flex flex-col items-start gap-3 p-5"><p className="font-semibold">No pudimos cargar el resumen</p><p className="text-sm text-muted-foreground">Los movimientos no se han perdido. Puedes volver a intentarlo.</p><Button onClick={onRefresh}>Reintentar</Button></CardContent></Card>
             ) : loadingStats ? <LoadingCards /> : <MetricCards stats={stats} currency={currency} hideBalances={hideBalances} />}
+            {!loadingStats && <MonthPerspectiveCard stats={stats} currency={currency} hideBalances={hideBalances} />}
             <Card className="overflow-hidden border-border/60 shadow-sm">
               <div className="flex items-center justify-between border-b p-4 sm:p-5"><div><h3 className="font-bold">Actividad reciente</h3><p className="text-xs text-muted-foreground">Tus últimos movimientos registrados</p></div><Button variant="ghost" onClick={() => selectSection('transactions')} className="min-h-11 text-primary">Ver todos</Button></div>
               <CardContent className="p-0">
@@ -196,7 +199,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, product
           <>
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><PageIntro title="Entiende tus hábitos" description="Tendencias y categorías para tomar mejores decisiones." />{periodToolbar}</div>
             {statsError && !stats ? <Card><CardContent className="p-6 text-center"><p className="font-semibold">No pudimos preparar la analítica</p><Button onClick={onRefresh} className="mt-4">Reintentar</Button></CardContent></Card> : (
-              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2"><React.Suspense fallback={<><div className="h-72 animate-pulse rounded-2xl bg-muted" data-product-tour="analytics" /><div className="h-72 animate-pulse rounded-2xl bg-muted" /></>}><CategoryBreakdownChart stats={stats} currency={currency} /><DailySpendingChart stats={stats} currency={currency} /></React.Suspense></div>
+              <>
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2"><React.Suspense fallback={<><div className="h-72 animate-pulse rounded-2xl bg-muted" data-product-tour="analytics" /><div className="h-72 animate-pulse rounded-2xl bg-muted" /></>}><CategoryBreakdownChart stats={stats} currency={currency} /><DailySpendingChart stats={stats} currency={currency} /></React.Suspense></div>
+                {!loadingStats && <ComparisonDetails stats={stats} currency={currency} hideBalances={hideBalances} />}
+              </>
             )}
           </>
         )}
@@ -204,11 +210,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, product
         {activeSection === 'more' && (
           <>
             <PageIntro title="Control y preferencias" description="Las herramientas menos frecuentes viven aquí." />
+            <ExportCenterCard period={currentPeriod} currency={currency} filters={{ category: categoryFilter, status: statusFilter, organization: organizationFilter, transactionType: typeFilter, search }} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Button variant="outline" onClick={() => setIsSettingsOpen(true)} data-product-tour="more-tools" className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><Settings className="h-5 w-5 text-primary" /><span><span className="block font-bold">Conexiones y privacidad</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Gmail, exportación completa y tu cuenta</span></span></Button>
               <Button variant="outline" onClick={() => { setIsTourInviteOpen(false); setIsTourOpen(true); }} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><HelpCircle className="h-5 w-5 text-emerald-500" /><span><span className="block font-bold">Repetir recorrido</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Vuelve a conocer las secciones principales</span></span></Button>
               <Button variant="outline" onClick={() => setIsRulesModalOpen(true)} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><SlidersHorizontal className="h-5 w-5 text-amber-500" /><span><span className="block font-bold">Reglas de categorías</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Automatiza cómo se organizan tus gastos</span></span></Button>
-              <Button variant="outline" onClick={onExport} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><Download className="h-5 w-5 text-sky-500" /><span><span className="block font-bold">Exportar movimientos</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Descarga la vista actual en CSV</span></span></Button>
+              <Button variant="outline" onClick={onExport} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><Download className="h-5 w-5 text-sky-500" /><span><span className="block font-bold">CSV rápido</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Descarga directa de la vista actual</span></span></Button>
               <Button variant="outline" onClick={() => setDarkMode(!darkMode)} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left">{darkMode ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-indigo-500" />}<span><span className="block font-bold">{darkMode ? 'Usar tema claro' : 'Usar tema oscuro'}</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Ajusta la apariencia a tu entorno</span></span></Button>
             </div>
             <Button variant="ghost" onClick={onLock} className="min-h-11 w-full gap-2 text-muted-foreground sm:w-auto"><Lock className="h-4 w-4" />Cerrar sesión</Button>
