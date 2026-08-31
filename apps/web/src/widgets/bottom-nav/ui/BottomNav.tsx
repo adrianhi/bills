@@ -64,6 +64,7 @@ export function BottomNav({
     <nav
       className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-1/2 z-40 isolate w-[calc(100%-1.5rem)] max-w-[430px] -translate-x-1/2 lg:hidden"
       aria-label="Navegación principal"
+      data-product-tour-occluder="bottom-navigation"
     >
       <div className="grid h-[4.5rem] grid-cols-[minmax(0,1fr)_minmax(0,1fr)_4rem_minmax(0,1fr)_minmax(0,1fr)] items-center rounded-full border border-white/60 bg-white/70 px-2 shadow-[0_16px_44px_rgba(15,23,42,0.22)] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10 dark:bg-slate-950/70 dark:shadow-[0_18px_50px_rgba(0,0,0,0.55)] supports-[backdrop-filter]:bg-white/62 supports-[backdrop-filter]:dark:bg-slate-950/62">
         {leadingItems.map((item) => (
