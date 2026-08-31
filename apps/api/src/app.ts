@@ -128,6 +128,12 @@ export function createApp(): Express {
     },
   }));
 
+  // Google OAuth callback aliases
+  app.get(
+    ['/oauth/google/callback', '/auth/google/callback', '/api/oauth/google/callback', '/api/auth/google/callback'],
+    appContainer.inboxConnectionController.googleCallback
+  );
+
   // Mount API routes
   app.use('/api', apiRoutes);
 

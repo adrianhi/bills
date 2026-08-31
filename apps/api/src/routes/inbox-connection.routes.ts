@@ -6,7 +6,10 @@ import { requireCurrentLegalAcceptance } from '../middlewares/legal.middleware';
 const router = Router();
 const protectedRoute = [requireAuth, requireCurrentLegalAcceptance, requireWorkspace];
 
-router.get('/oauth/google/callback', appContainer.inboxConnectionController.googleCallback);
+router.get(
+  ['/oauth/google/callback', '/auth/google/callback', '/google/callback'],
+  appContainer.inboxConnectionController.googleCallback
+);
 router.get('/inbox-connections', ...protectedRoute, appContainer.inboxConnectionController.list);
 router.post('/inbox-connections/google/start', ...protectedRoute, appContainer.inboxConnectionController.startGoogle);
 router.put('/inbox-connections/:id/institutions', ...protectedRoute, appContainer.inboxConnectionController.updateInstitutions);
