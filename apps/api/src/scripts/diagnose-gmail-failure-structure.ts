@@ -1,5 +1,5 @@
 import { prisma } from '../config/database';
-import { SecretCryptoService } from '../services/secret-crypto.service';
+import { SecretCryptoService } from '../shared/infrastructure/secret-crypto.service';
 
 const TOKENS = [
   'fecha', 'moneda', 'monto', 'comercio', 'estado', 'tipo', 'aprobada', 'rechazada',

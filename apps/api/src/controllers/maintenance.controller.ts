@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Request, Response } from 'express';
 import { config } from '../config';
 import { AppError } from '../errors/app-error';
-import { ingestionRunner } from '../ingestion/ingestion-runner';
+import type { IngestionRunner } from '../ingestion/ingestion-runner';
 
 function authorized(header: string | undefined) {
   if (!config.maintenanceSecret || !header?.startsWith('Bearer ')) return false;
@@ -12,14 +12,16 @@ function authorized(header: string | undefined) {
 }
 
 export class MaintenanceController {
-  public static async tick(req: Request, res: Response) {
+  public constructor(private readonly ingestionRunner: IngestionRunner) {}
+
+  public tick = async (req: Request, res: Response) => {
     if (!config.maintenanceSecret) {
       throw new AppError(503, 'MAINTENANCE_DISABLED', 'Maintenance endpoint is not configured.');
     }
     if (!authorized(req.header('authorization'))) {
       throw new AppError(401, 'INVALID_MAINTENANCE_TOKEN', 'Maintenance token is invalid.');
     }
-    const result = await ingestionRunner.maintenanceTick();
+    const result = await this.ingestionRunner.maintenanceTick();
     res.status(200).json({ success: true, data: result });
-  }
+  };
 }

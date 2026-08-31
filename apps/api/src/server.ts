@@ -1,7 +1,7 @@
 import { createApp } from './app';
 import { config, validateRuntimeConfig } from './config';
 import { connectDB, disconnectDB } from './config/database';
-import { ingestionRunner } from './ingestion/ingestion-runner';
+import { appContainer } from './app-container';
 import { logger } from './shared/observability/logger';
 
 async function bootstrap() {
@@ -12,14 +12,14 @@ async function bootstrap() {
     logger.info('http_server_started', { port: config.port, apiBase: '/api/v1', processRole: config.processRole });
   });
 
-  if (config.processRole === 'all' || config.processRole === 'worker') ingestionRunner.start();
+  if (config.processRole === 'all' || config.processRole === 'worker') appContainer.ingestionRunner.start();
 
   let shuttingDown = false;
   const shutdown = async () => {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info('http_server_stopping');
-    await ingestionRunner.stop();
+    await appContainer.ingestionRunner.stop();
     server.close(async () => {
       await disconnectDB();
       logger.info('http_server_stopped');

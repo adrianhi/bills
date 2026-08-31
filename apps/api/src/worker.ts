@@ -1,18 +1,18 @@
 import { connectDB, disconnectDB } from './config/database';
 import { validateRuntimeConfig } from './config';
-import { ingestionRunner } from './ingestion/ingestion-runner';
+import { appContainer } from './app-container';
 import { logger } from './shared/observability/logger';
 
 async function run() {
   validateRuntimeConfig();
   await connectDB();
-  ingestionRunner.start();
+  appContainer.ingestionRunner.start();
 
   let shuttingDown = false;
   const shutdown = async () => {
     if (shuttingDown) return;
     shuttingDown = true;
-    await ingestionRunner.stop();
+    await appContainer.ingestionRunner.stop();
     await disconnectDB();
     process.exit(0);
   };
