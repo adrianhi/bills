@@ -6,7 +6,7 @@ import {
   Share2,
 } from 'lucide-react';
 import type { PeriodSelection } from '@/entities/period';
-import { accountService } from '@/entities/account/api/account.service';
+import { accountService } from '@/entities/account';
 import {
   Button,
   Dialog,

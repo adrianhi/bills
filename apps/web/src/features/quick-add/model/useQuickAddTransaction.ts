@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { transactionService } from '@/entities/transaction/api/transaction.service';
-import { transactionKeys } from '@/entities/transaction/api/query-keys';
+import { transactionKeys, transactionService } from '@/entities/transaction';
 import { FINANCIAL_INSTITUTIONS } from '@/shared/config/financial-options';
 import { currentLocalDateTime, isFutureLocalDateTime, parseNumericInput } from '@/shared/lib';
 import { ApiClientError } from '@/shared/api';
@@ -172,3 +171,5 @@ export function useQuickAddTransaction(onSuccess: () => void, onClose: () => voi
     error: generalError || (Object.keys(fieldErrors).length > 0 ? 'Por favor corrige los campos marcados' : ''),
   };
 }
+
+export type QuickAddTransactionModel = ReturnType<typeof useQuickAddTransaction>;

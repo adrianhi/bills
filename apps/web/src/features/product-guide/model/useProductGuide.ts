@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import type { ProductGuideState } from '@bills/contracts';
-import { accountService } from '@/entities/account/api/account.service';
+import { accountService } from '@/entities/account';
 
 export function useProductGuide(onChange: (state: ProductGuideState) => void) {
   const mutation = useMutation({
