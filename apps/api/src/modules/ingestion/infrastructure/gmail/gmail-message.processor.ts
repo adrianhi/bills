@@ -2,7 +2,6 @@ import { Prisma } from '@prisma/client';
 import { config } from '../../../../config';
 import { prisma } from '../../../../config/database';
 import { AppError } from '../../../../errors/app-error';
-import { NormalizedEmailProcessor } from '../../../../ingestion/normalized-email.processor';
 import { ParserRegistry } from '../../../../ingestion/parser-registry';
 import type { NormalizedEmail } from '../../../../ingestion/types';
 import { InstitutionSelectionService } from '../../../connections/infrastructure/institution-selection.service';
@@ -24,8 +23,24 @@ interface ProcessMessageInput {
   retainedEmail?: NormalizedEmail | null;
 }
 
+interface EmailProcessor {
+  process(input: {
+    workspaceId: string;
+    email: NormalizedEmail;
+    ingestionChannel: 'GMAIL_OAUTH';
+    inboxConnectionId: string;
+    sourceEmail: string;
+  }): Promise<
+    | { status: 'parsed'; created: number; duplicates: number; bankConnectionId: string; parserCode: string; parserVersion: string }
+    | { status: 'ignored' | 'unsupported'; reason: string; parserCode?: string; parserVersion?: string }
+  >;
+}
+
 export class GmailMessageProcessor {
-  public constructor(private readonly google: GoogleGmailClient) {}
+  public constructor(
+    private readonly google: GoogleGmailClient,
+    private readonly emailProcessor: EmailProcessor
+  ) {}
 
   public async processIds(
     workspaceId: string,
@@ -93,7 +108,7 @@ export class GmailMessageProcessor {
     let normalized = input.retainedEmail || null;
     try {
       if (!normalized) normalized = normalizeGmailMessage(await this.google.message(input.accessToken, input.messageId));
-      const result = await NormalizedEmailProcessor.process({
+      const result = await this.emailProcessor.process({
         workspaceId: input.workspaceId,
         email: normalized,
         ingestionChannel: 'GMAIL_OAUTH',

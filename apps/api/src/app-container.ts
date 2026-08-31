@@ -35,10 +35,22 @@ import { MaintenanceController } from './controllers/maintenance.controller';
 import { AccountService } from './modules/account/infrastructure/account.service';
 import { AccountController } from './controllers/account.controller';
 import { LegalService } from './modules/legal/infrastructure/legal.service';
+import { PrismaTransactionWriter } from './modules/transactions/infrastructure/prisma-transaction.writer';
+import { PrismaTransactionQuery } from './modules/transactions/infrastructure/prisma-transaction.query';
+import { PrismaReversalService } from './modules/transactions/infrastructure/prisma-reversal.service';
+import { CategorizationService } from './modules/categorization/infrastructure/categorization.service';
+import { NormalizedEmailProcessor } from './modules/ingestion/infrastructure/normalized-email.processor';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
 const categoryRuleService = new CategoryRuleApplicationService(new PrismaCategoryRuleRepository());
-const transactionService = new TransactionApplicationService();
+const transactionWriter = new PrismaTransactionWriter(
+  { categorize: CategorizationService.categorize.bind(CategorizationService) },
+  new PrismaReversalService()
+);
+const transactionService = new TransactionApplicationService(
+  transactionWriter,
+  new PrismaTransactionQuery()
+);
 const googleGmailClient = new GoogleGmailClient(
   config.googleOAuthClientId,
   config.googleOAuthClientSecret,
@@ -54,7 +66,10 @@ const gmailLifecycleService = new GmailLifecycleService(
     revoke: LegalService.revokeGoogleConsent.bind(LegalService),
   }
 );
-const gmailMessageProcessor = new GmailMessageProcessor(googleGmailClient);
+const gmailMessageProcessor = new GmailMessageProcessor(
+  googleGmailClient,
+  new NormalizedEmailProcessor(transactionService)
+);
 const gmailSyncService = new GmailSyncService(
   googleGmailClient,
   gmailTokenProvider,
