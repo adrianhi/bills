@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ProductGuideState } from '@bills/contracts';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Download,
   HelpCircle,
@@ -24,7 +24,7 @@ import { QuickAddTransactionModal } from '@/features/quick-add';
 import { AccountSettingsModal } from '@/features/account-settings';
 import { ProductTour, ProductTourInvite } from '@/features/product-guide';
 import { PeriodFilter } from '@/features/period-filter';
-import { ExportCenterCard } from '@/features/export-center';
+import { ExportCenterCard, ExportModal } from '@/features/export-center';
 import { Button, Card, CardContent } from '@/shared/ui';
 import { formatCurrency, formatDate } from '@/shared/lib';
 import { isReceivedTransfer } from '@/entities/transaction/model/selectors';
@@ -116,14 +116,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, product
     page, setPage, limit, search, setSearch,
     categoryFilter, setCategoryFilter, statusFilter, setStatusFilter,
     organizationFilter, setOrganizationFilter, typeFilter, setTypeFilter,
-    onResetFilters, onRefresh, onExport, onLock,
+    onResetFilters, onRefresh, onLock,
     editingTransaction, setEditingTransaction, onSaveTransaction,
     isRulesModalOpen, setIsRulesModalOpen, isQuickAddOpen, setIsQuickAddOpen,
   } = model;
-  const [searchParams] = useSearchParams();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(() => searchParams.get('settings') === 'connections');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(() => new URLSearchParams(window.location.search).get('settings') === 'connections');
   const [isTourInviteOpen, setIsTourInviteOpen] = useState(() => productGuide.versionSeen !== productGuide.currentVersion);
   const [isTourOpen, setIsTourOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const connectionsQuery = useQuery({
     queryKey: ['inbox-connections', 'dashboard'],
     queryFn: ({ signal }) => connectionService.listInboxConnections(signal),
@@ -191,7 +191,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, product
         {activeSection === 'transactions' && (
           <>
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><PageIntro title="Todos tus movimientos" description="Busca, filtra y corrige desde un solo lugar." />{periodToolbar}</div>
-            <TransactionTable transactions={transactions} total={totalTransactions} page={page} setPage={setPage} limit={limit} search={search} setSearch={setSearch} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} organizationFilter={organizationFilter} setOrganizationFilter={setOrganizationFilter} typeFilter={typeFilter} setTypeFilter={setTypeFilter} onResetFilters={onResetFilters} onEdit={setEditingTransaction} onExport={onExport} loading={loading} refreshing={refreshing} error={error instanceof Error ? error : null} onRetry={onRefresh} hideBalances={hideBalances} onOpenConnections={() => setIsSettingsOpen(true)} onAddManual={() => setIsQuickAddOpen(true)} />
+            <TransactionTable transactions={transactions} total={totalTransactions} page={page} setPage={setPage} limit={limit} search={search} setSearch={setSearch} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} organizationFilter={organizationFilter} setOrganizationFilter={setOrganizationFilter} typeFilter={typeFilter} setTypeFilter={setTypeFilter} onResetFilters={onResetFilters} onEdit={setEditingTransaction} onExport={() => setIsExportModalOpen(true)} loading={loading} refreshing={refreshing} error={error instanceof Error ? error : null} onRetry={onRefresh} hideBalances={hideBalances} onOpenConnections={() => setIsSettingsOpen(true)} onAddManual={() => setIsQuickAddOpen(true)} />
           </>
         )}
 
@@ -215,7 +215,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, product
               <Button variant="outline" onClick={() => setIsSettingsOpen(true)} data-product-tour="more-tools" className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><Settings className="h-5 w-5 text-primary" /><span><span className="block font-bold">Conexiones y privacidad</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Gmail, exportación completa y tu cuenta</span></span></Button>
               <Button variant="outline" onClick={() => { setIsTourInviteOpen(false); setIsTourOpen(true); }} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><HelpCircle className="h-5 w-5 text-emerald-500" /><span><span className="block font-bold">Repetir recorrido</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Vuelve a conocer las secciones principales</span></span></Button>
               <Button variant="outline" onClick={() => setIsRulesModalOpen(true)} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><SlidersHorizontal className="h-5 w-5 text-amber-500" /><span><span className="block font-bold">Reglas de categorías</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Automatiza cómo se organizan tus gastos</span></span></Button>
-              <Button variant="outline" onClick={onExport} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><Download className="h-5 w-5 text-sky-500" /><span><span className="block font-bold">CSV rápido</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Descarga directa de la vista actual</span></span></Button>
+              <Button variant="outline" onClick={() => setIsExportModalOpen(true)} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left"><Download className="h-5 w-5 text-sky-500" /><span><span className="block font-bold">Exportar datos</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Excel con 5 pestañas, CSV, PDF o JSON</span></span></Button>
               <Button variant="outline" onClick={() => setDarkMode(!darkMode)} className="h-auto min-h-20 justify-start gap-3 rounded-2xl p-4 text-left">{darkMode ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-indigo-500" />}<span><span className="block font-bold">{darkMode ? 'Usar tema claro' : 'Usar tema oscuro'}</span><span className="mt-1 block text-xs font-normal text-muted-foreground">Ajusta la apariencia a tu entorno</span></span></Button>
             </div>
             <Button variant="ghost" onClick={onLock} className="min-h-11 w-full gap-2 text-muted-foreground sm:w-auto"><Lock className="h-4 w-4" />Cerrar sesión</Button>
@@ -230,6 +230,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ authToken, product
       <AccountSettingsModal authToken={authToken} isOpen={isSettingsOpen || requiresBankSelection} onClose={() => setIsSettingsOpen(false)} onAccountDeleted={onAccountDeleted} />
       <ProductTourInvite open={isTourInviteOpen && !isTourOpen && !requiresBankSelection && !isSettingsOpen} onStart={() => setIsTourOpen(true)} onDismiss={() => setIsTourInviteOpen(false)} onStateChange={onProductGuideChange} />
       <ProductTour open={isTourOpen && !requiresBankSelection && !isSettingsOpen} activeSection={activeSection} onOpenChange={setIsTourOpen} onNavigate={(section) => selectSection(section, true, 'auto')} onStateChange={onProductGuideChange} />
+      <ExportModal open={isExportModalOpen} onOpenChange={setIsExportModalOpen} initialPeriod={currentPeriod} initialCurrency={currency} initialFilters={{ category: categoryFilter, status: statusFilter, organization: organizationFilter, transactionType: typeFilter, search }} />
     </div>
   );
 };
