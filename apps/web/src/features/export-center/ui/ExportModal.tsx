@@ -17,6 +17,7 @@ import type { PeriodSelection } from '@/entities/period';
 import { accountService } from '@/entities/account/api/account.service';
 import {
   Button,
+  DatePickerField,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -226,25 +227,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
 
               {periodType === 'custom' && (
-                <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-muted-foreground text-[11px] mb-1 block">Desde:</span>
-                    <input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-[11px] mb-1 block">Hasta:</span>
-                    <input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs"
-                    />
-                  </div>
+                <div className="mt-2.5">
+                  <DatePickerField
+                    mode="range"
+                    value={{ from: customStartDate, to: customEndDate }}
+                    onChange={(range) => {
+                      setCustomStartDate(range.from);
+                      setCustomEndDate(range.to);
+                    }}
+                    triggerLabel="Seleccionar fechas personalizadas"
+                    className="w-full"
+                  />
                 </div>
               )}
             </div>
