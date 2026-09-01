@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const PRODUCT_GUIDE_VERSION = '2026-08-30.2';
+export const PRODUCT_GUIDE_VERSION = '2026-09-01.1';
 export const productGuideStateSchema = z.object({
   currentVersion: z.string(), versionSeen: z.string().nullable(),
   completedAt: z.string().datetime().nullable(), completed: z.boolean(),

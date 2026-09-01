@@ -30,6 +30,9 @@ interface DashboardModalsProps {
   setIsSettingsOpen: (open: boolean) => void;
   requiresBankSelection: boolean;
   onAccountDeleted: () => void;
+  darkMode: boolean;
+  setDarkMode: (value: boolean) => void;
+  onLock: () => void;
   // Product Guide / Tour
   isTourInviteOpen: boolean;
   setIsTourInviteOpen: (open: boolean) => void;
@@ -66,6 +69,9 @@ export const DashboardModals: React.FC<DashboardModalsProps> = ({
   setIsSettingsOpen,
   requiresBankSelection,
   onAccountDeleted,
+  darkMode,
+  setDarkMode,
+  onLock,
   isTourInviteOpen,
   setIsTourInviteOpen,
   isTourOpen,
@@ -102,6 +108,12 @@ export const DashboardModals: React.FC<DashboardModalsProps> = ({
         isOpen={isSettingsOpen || requiresBankSelection}
         onClose={() => setIsSettingsOpen(false)}
         onAccountDeleted={onAccountDeleted}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        onRepeatTour={() => { setIsSettingsOpen(false); setIsTourInviteOpen(false); setIsTourOpen(true); }}
+        onOpenRules={() => { setIsSettingsOpen(false); setIsRulesModalOpen(true); }}
+        onOpenExport={() => { setIsSettingsOpen(false); setIsExportModalOpen(true); }}
+        onLock={onLock}
       />
       <ProductTourInvite
         open={
