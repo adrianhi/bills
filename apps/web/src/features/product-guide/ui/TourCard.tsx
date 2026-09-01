@@ -1,16 +1,16 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { ArrowLeft, ArrowRight, Loader2, X } from 'lucide-react';
 import { Button } from '@/shared/ui';
-import type { TourCardPlacement, TourRect } from '../lib/tour-geometry';
+import type { TourCardPlacement, TourCardPosition } from '../lib/tour-geometry';
 import type { TourDirection, TourStep } from '../model/tour-steps';
+import { useTourCardFocus } from '../model/useTourCardFocus';
 
 interface TourCardProps {
   step: TourStep;
   index: number;
   total: number;
-  rect: TourRect | null;
   placement: TourCardPlacement;
+  position?: TourCardPosition;
   direction: TourDirection;
   saving: boolean;
   error: string;
@@ -19,20 +19,12 @@ interface TourCardProps {
   onSkip: () => void;
 }
 
-function desktopPosition(rect: TourRect | null, placement: TourCardPlacement): CSSProperties | undefined {
-  if (window.innerWidth < 640 || !rect) return undefined;
-  const width = 360;
-  const left = Math.min(Math.max(16, rect.left), window.innerWidth - width - 16);
-  const top = placement === 'desktop-below' ? rect.bottom + 16 : Math.max(16, rect.top - 276);
-  return { left, top, width };
-}
-
 export function TourCard({
   step,
   index,
   total,
-  rect,
   placement,
+  position,
   direction,
   saving,
   error,
@@ -40,11 +32,7 @@ export function TourCard({
   onNext,
   onSkip,
 }: TourCardProps) {
-  const nextButtonRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => nextButtonRef.current?.focus());
-    return () => window.cancelAnimationFrame(frame);
-  }, [index]);
+  const nextButtonRef = useTourCardFocus(index);
   const mobilePosition = placement === 'top'
     ? 'top-[calc(0.75rem+env(safe-area-inset-top))] bottom-auto sm:top-auto sm:bottom-auto'
     : 'bottom-[calc(0.75rem+env(safe-area-inset-bottom))] top-auto sm:top-auto sm:bottom-auto';
@@ -52,7 +40,7 @@ export function TourCard({
   return (
     <DialogPrimitive.Content
       className={`fixed left-3 right-3 z-[72] max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto rounded-3xl border border-white/20 bg-card/95 p-5 text-card-foreground shadow-2xl backdrop-blur-xl [animation-timing-function:cubic-bezier(0.22,1,0.36,1)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:[animation-duration:150ms] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:[animation-duration:220ms] motion-reduce:animate-none sm:left-auto sm:right-auto sm:max-h-[calc(100dvh-2rem)] ${mobilePosition}`}
-      style={desktopPosition(rect, placement)}
+      style={position}
       onOpenAutoFocus={(event) => event.preventDefault()}
       onPointerDownOutside={(event) => event.preventDefault()}
       onInteractOutside={(event) => event.preventDefault()}

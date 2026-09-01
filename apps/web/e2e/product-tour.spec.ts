@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 const GUIDE_VERSION = '2026-08-30.2';
 
 async function mockAuthenticatedDashboard(page: Page) {
+  const productGuideUpdates: boolean[] = [];
   await page.addInitScript(() => {
     window.localStorage.setItem('sb-example-auth-token', JSON.stringify({
       access_token: 'e2e-access-token',
@@ -48,6 +49,7 @@ async function mockAuthenticatedDashboard(page: Page) {
     }
     if (path.endsWith('/me/product-guide')) {
       const completed = Boolean(request.postDataJSON()?.completed);
+      productGuideUpdates.push(completed);
       return json({
         success: true,
         data: {
@@ -89,12 +91,16 @@ async function mockAuthenticatedDashboard(page: Page) {
     }
     return json({ success: true, data: [] });
   });
+
+  return productGuideUpdates;
 }
 
 async function expectSettledStep(page: Page, title: string) {
   await expect(page.locator('[data-product-tour-phase="settled"]')).toBeVisible();
   await expect(page.locator('[data-product-tour-card]')).toBeVisible();
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
+  const primaryAction = title === 'Tú mantienes el control' ? 'Terminar' : 'Siguiente';
+  await expect(page.getByRole('button', { name: primaryAction })).toBeFocused();
 }
 
 async function moveTour(page: Page, action: 'Atrás' | 'Siguiente', title: string) {
@@ -110,7 +116,7 @@ async function moveTour(page: Page, action: 'Atrás' | 'Siguiente', title: strin
 
 test('the tour settles every target before revealing its card', async ({ page }) => {
   test.setTimeout(60_000);
-  await mockAuthenticatedDashboard(page);
+  const productGuideUpdates = await mockAuthenticatedDashboard(page);
   await page.goto('/app/inicio');
   await page.getByRole('button', { name: 'Ver recorrido' }).click();
 
@@ -140,15 +146,17 @@ test('the tour settles every target before revealing its card', async ({ page })
 
   await page.getByRole('button', { name: 'Terminar' }).click();
   await expect(page.locator('[data-product-tour-phase]')).toHaveCount(0);
+  expect(productGuideUpdates).toEqual([false, true]);
 });
 
 test('Escape cancels the tour and leaves normal navigation usable', async ({ page }) => {
-  await mockAuthenticatedDashboard(page);
+  const productGuideUpdates = await mockAuthenticatedDashboard(page);
   await page.goto('/app/inicio');
   await page.getByRole('button', { name: 'Ver recorrido' }).click();
   await expectSettledStep(page, 'Tu conexión, siempre clara');
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-product-tour-phase]')).toHaveCount(0);
+  expect(productGuideUpdates).toEqual([false, false]);
   await page.getByRole('button', { name: 'Movimientos' }).click();
   await expect(page).toHaveURL(/\/app\/movimientos/);
 });

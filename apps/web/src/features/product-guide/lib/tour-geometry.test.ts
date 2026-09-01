@@ -4,6 +4,7 @@ import {
   isFullyVisible,
   paddedRect,
   scrollDestination,
+  tourCardPosition,
   verticalBounds,
   type TourRect,
   type TourViewport,
@@ -47,5 +48,15 @@ describe('tour geometry', () => {
       width: 393,
       height: 852,
     });
+  });
+
+  it('calculates desktop card coordinates without consulting the DOM', () => {
+    const desktopViewport = { top: 12, left: 8, width: 1_024, height: 768 };
+    expect(tourCardPosition(rect(200, 280, 900, 1_000), 'desktop-below', desktopViewport)).toEqual({
+      left: 656,
+      top: 296,
+      width: 360,
+    });
+    expect(tourCardPosition(rect(200, 280), 'top', viewport)).toBeUndefined();
   });
 });

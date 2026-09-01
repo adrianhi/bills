@@ -1,24 +1,22 @@
-import { createPortal } from 'react-dom';
 import { Loader2 } from 'lucide-react';
-import { paddedRect, type TourRect } from '../lib/tour-geometry';
-import { viewportMetrics } from '../lib/tour-dom';
+import { paddedRect, type TourRect, type TourViewport } from '../lib/tour-geometry';
 import type { TourPhase } from '../model/tour-steps';
 
 interface TourSpotlightProps {
   open: boolean;
   rect: TourRect | null;
   phase: TourPhase;
+  viewport: TourViewport;
 }
 
 const geometryTransition = 'transition-[top,left,right,bottom,width,height,opacity,background-color,box-shadow] [transition-duration:220ms] [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none';
 
-export function TourSpotlight({ open, rect, phase }: TourSpotlightProps) {
-  if (!open || typeof document === 'undefined') return null;
-  const viewport = viewportMetrics();
+export function TourSpotlight({ open, rect, phase, viewport }: TourSpotlightProps) {
+  if (!open) return null;
   const focusRect = rect ? paddedRect(rect, viewport) : null;
   const transitioning = phase !== 'settled';
 
-  return createPortal(
+  return (
     <div className="fixed inset-0 z-[69] animate-in fade-in-0 [animation-duration:220ms] [animation-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none" data-product-tour-phase={phase}>
       {focusRect ? (
         <>
@@ -43,7 +41,6 @@ export function TourSpotlight({ open, rect, phase }: TourSpotlightProps) {
       <p className="sr-only" role="status" aria-live="polite">
         {transitioning ? 'Preparando el siguiente paso del recorrido.' : 'Paso listo.'}
       </p>
-    </div>,
-    document.body
+    </div>
   );
 }

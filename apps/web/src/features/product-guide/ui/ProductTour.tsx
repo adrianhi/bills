@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { ProductGuideState } from '@bills/contracts';
+import { tourCardPosition } from '../lib/tour-geometry';
+import type { TourSection } from '../model/tour-steps';
 import { useProductGuide } from '../model/useProductGuide';
 import { useProductTourController } from '../model/useProductTourController';
-import type { TourSection } from '../model/tour-steps';
+import { useTourEscape } from '../model/useTourEscape';
+import { useTourViewport } from '../model/useTourViewport';
 import { TourCard } from './TourCard';
+import { TourPortal } from './TourPortal';
 import { TourSpotlight } from './TourSpotlight';
 
 interface ProductTourProps {
@@ -15,10 +19,7 @@ interface ProductTourProps {
   onStateChange: (state: ProductGuideState) => void;
 }
 
-export function ProductTour({
-  open,
-  ...props
-}: ProductTourProps) {
+export function ProductTour({ open, ...props }: ProductTourProps) {
   if (!open) return null;
   return <ActiveProductTour {...props} />;
 }
@@ -30,54 +31,51 @@ function ActiveProductTour({
   onStateChange,
 }: Omit<ProductTourProps, 'open'>) {
   const { saving, error, save } = useProductGuide(onStateChange);
+  const viewport = useTourViewport();
+  const controller = useProductTourController({ activeSection, onNavigate });
   const closingRef = useRef(false);
-  const exhaustedRef = useRef<() => void>(() => undefined);
+  const { cancel, exhausted, goBackward, goForward, resume } = controller;
 
-  const controller = useProductTourController({
-    open: true,
-    activeSection,
-    onNavigate,
-    onExhausted: () => exhaustedRef.current(),
-  });
-  const { cancel } = controller;
-
-  const finish = useCallback(async (completed: boolean) => {
+  const persist = useCallback(async (completed: boolean) => {
     if (closingRef.current) return;
     closingRef.current = true;
-    cancel();
     try {
       await save(completed);
       onOpenChange(false);
     } catch {
-      // Keep the settled step visible so the user can retry.
+      resume();
     } finally {
       closingRef.current = false;
     }
-  }, [cancel, onOpenChange, save]);
+  }, [onOpenChange, resume, save]);
+
+  const finish = useCallback((completed: boolean) => {
+    cancel();
+    void persist(completed);
+  }, [cancel, persist]);
+
+  useTourEscape(useCallback(() => finish(false), [finish]));
 
   useEffect(() => {
-    exhaustedRef.current = () => void finish(true);
-  }, [finish]);
+    if (exhausted) void persist(true);
+  }, [exhausted, persist]);
 
-  useEffect(() => {
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      event.stopPropagation();
-      void finish(false);
-    };
-    document.addEventListener('keydown', onEscape, true);
-    return () => document.removeEventListener('keydown', onEscape, true);
-  }, [finish]);
-
-  const next = () => {
-    if (!controller.goForward()) void finish(true);
-  };
-  const skip = () => void finish(false);
+  const next = useCallback(() => {
+    if (!goForward()) finish(true);
+  }, [finish, goForward]);
+  const skip = useCallback(() => finish(false), [finish]);
+  const position = tourCardPosition(controller.rect, controller.placement, viewport);
 
   return (
     <>
-      <TourSpotlight open rect={controller.rect} phase={controller.phase} />
+      <TourPortal>
+        <TourSpotlight
+          open
+          rect={controller.rect}
+          phase={controller.phase}
+          viewport={viewport}
+        />
+      </TourPortal>
       <DialogPrimitive.Root
         open={controller.settled}
         onOpenChange={(nextOpen) => {
@@ -90,12 +88,12 @@ function ActiveProductTour({
             step={controller.step}
             index={controller.index}
             total={controller.totalSteps}
-            rect={controller.rect}
             placement={controller.placement}
+            position={position}
             direction={controller.direction}
             saving={saving}
             error={error}
-            onBack={controller.goBackward}
+            onBack={goBackward}
             onNext={next}
             onSkip={skip}
           />

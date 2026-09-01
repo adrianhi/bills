@@ -40,4 +40,32 @@ describe('tour scroll animation', () => {
     })).resolves.toBe(false);
     expect(scrollTo).not.toHaveBeenCalled();
   });
+
+  it('cancels an active frame without applying later updates', async () => {
+    let scheduled: FrameRequestCallback | undefined;
+    const cancelAnimationFrame = vi.fn();
+    const scrollTo = vi.fn();
+    vi.stubGlobal('performance', { now: () => 0 });
+    vi.stubGlobal('window', {
+      scrollY: 0,
+      scrollTo,
+      requestAnimationFrame: (callback: FrameRequestCallback) => {
+        scheduled = callback;
+        return 17;
+      },
+      cancelAnimationFrame,
+    });
+
+    const controller = new AbortController();
+    const animation = animateTourScroll(400, {
+      signal: controller.signal,
+      reducedMotion: false,
+    });
+    controller.abort();
+
+    await expect(animation).resolves.toBe(false);
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(17);
+    scheduled?.(480);
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
 });

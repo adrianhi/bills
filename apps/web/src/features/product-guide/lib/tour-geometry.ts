@@ -21,6 +21,12 @@ export interface VerticalBounds {
 
 export type TourCardPlacement = 'top' | 'bottom' | 'desktop-above' | 'desktop-below';
 
+export interface TourCardPosition {
+  left: number;
+  top: number;
+  width: number;
+}
+
 const EDGE_GAP = 12;
 const OCCLUDER_SNAP_DISTANCE = 40;
 
@@ -89,6 +95,20 @@ export function cardPlacement(rect: TourRect | null, viewport: TourViewport): To
   const viewportCenter = viewport.top + viewport.height / 2;
   if (viewport.width < 640) return targetCenter >= viewportCenter ? 'top' : 'bottom';
   return rect.bottom + 276 < viewport.top + viewport.height ? 'desktop-below' : 'desktop-above';
+}
+
+export function tourCardPosition(
+  rect: TourRect | null,
+  placement: TourCardPlacement,
+  viewport: TourViewport
+): TourCardPosition | undefined {
+  if (viewport.width < 640 || !rect) return undefined;
+  const width = 360;
+  const left = Math.min(Math.max(viewport.left + 16, rect.left), viewport.left + viewport.width - width - 16);
+  const top = placement === 'desktop-below'
+    ? rect.bottom + 16
+    : Math.max(viewport.top + 16, rect.top - 276);
+  return { left, top, width };
 }
 
 export function paddedRect(rect: TourRect, viewport: TourViewport, padding = 6): TourRect {

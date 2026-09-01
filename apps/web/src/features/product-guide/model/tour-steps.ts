@@ -1,6 +1,6 @@
 export type TourSection = 'home' | 'transactions' | 'analytics' | 'more';
 export type TourDirection = 'forward' | 'backward';
-export type TourPhase = 'idle' | 'exiting' | 'navigating' | 'locating' | 'scrolling' | 'settled';
+export type TourPhase = 'exiting' | 'navigating' | 'locating' | 'scrolling' | 'settled';
 
 export interface TourStep {
   section: TourSection;
