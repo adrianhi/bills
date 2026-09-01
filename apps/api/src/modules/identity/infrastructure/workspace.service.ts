@@ -24,18 +24,57 @@ export class WorkspaceService {
 
     return prisma.$transaction(
       async (tx) => {
-        await tx.profile.upsert({
-          where: { id: user.id },
-          update: {
-            email: normalizedEmail,
-            ...(user.displayName ? { displayName: user.displayName } : {}),
-          },
-          create: {
-            id: user.id,
-            email: normalizedEmail,
-            displayName: user.displayName,
-          },
+        // Handle case where profile exists for this email with a different auth user id
+        const existingProfileByEmail = await tx.profile.findUnique({
+          where: { email: normalizedEmail },
+          include: { memberships: true },
         });
+
+        if (existingProfileByEmail && existingProfileByEmail.id !== user.id) {
+          const workspaceIds = existingProfileByEmail.memberships.map((m) => ({
+            workspaceId: m.workspaceId,
+            role: m.role,
+          }));
+
+          await tx.profile.delete({ where: { id: existingProfileByEmail.id } });
+
+          await tx.profile.create({
+            data: {
+              id: user.id,
+              email: normalizedEmail,
+              displayName: user.displayName || existingProfileByEmail.displayName,
+              timezone: existingProfileByEmail.timezone,
+              defaultCurrency: existingProfileByEmail.defaultCurrency,
+              onboardingCompletedAt: existingProfileByEmail.onboardingCompletedAt,
+              productGuideVersionSeen: existingProfileByEmail.productGuideVersionSeen,
+              productGuideCompletedVersion: existingProfileByEmail.productGuideCompletedVersion,
+              productGuideCompletedAt: existingProfileByEmail.productGuideCompletedAt,
+            },
+          });
+
+          for (const m of workspaceIds) {
+            await tx.workspaceMember.create({
+              data: {
+                workspaceId: m.workspaceId,
+                profileId: user.id,
+                role: m.role,
+              },
+            });
+          }
+        } else {
+          await tx.profile.upsert({
+            where: { id: user.id },
+            update: {
+              email: normalizedEmail,
+              ...(user.displayName ? { displayName: user.displayName } : {}),
+            },
+            create: {
+              id: user.id,
+              email: normalizedEmail,
+              displayName: user.displayName,
+            },
+          });
+        }
 
         const currentMembership = await tx.workspaceMember.findFirst({
           where: { profileId: user.id },
