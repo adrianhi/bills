@@ -6,7 +6,7 @@ bills. debe permitir que una persona sin conocimientos técnicos cree una cuenta
 
 ## Decisiones vigentes
 
-- BHD, Qik y Banreservas funcionan como pilotos con selección explícita por usuario.
+- BHD, Qik, Banreservas y Popular funcionan como pilotos con selección explícita por usuario.
 - Google o magic link autentican mediante Supabase. Conectar Gmail es un consentimiento OAuth distinto y opcional.
 - Gmail de solo lectura es el onboarding principal; la vuelta de Google encola automáticamente el backfill en el servidor aunque el navegador se cierre.
 - Gmail OAuth es el único canal automático; los movimientos manuales permanecen como recuperación.
@@ -19,7 +19,7 @@ bills. debe permitir que una persona sin conocimientos técnicos cree una cuenta
 ```text
 Gmail (solo remitentes seleccionados) ─> NormalizedEmail ─> ParserRegistry ─> BankEmailParser ─> Transaction
 Manual/CSV ────────────────────────────────────────────────────────────────────────────────────┘
-                                                            BHD | Qik | Banreservas | próximo banco
+                                                            BHD | Qik | Banreservas | Popular | próximo banco
 ```
 
 Un adaptador declara dominios/remitentes, detecta si puede interpretar un mensaje y devuelve `parsed`, `ignored` o `unsupported`. La transacción normalizada conserva `institutionCode`, `ingestionChannel`, `externalId`, monto, moneda, fecha, tipo, estado y campos opcionales. Agregar un banco no cambia el contrato central de ingestión, workspace, métricas ni transacciones.
@@ -45,7 +45,8 @@ Salida verificada: base PostgreSQL 16 creada desde cero y suite de aislamiento m
 - Cola PostgreSQL con lease, reintentos y backoff para backfill, History API, reconciliación, renovación de watch y replay.
 - Gmail Push autenticado por JWT OIDC como canal principal, con reconciliación cada cinco minutos como respaldo.
 - Historial auditable de estados y reversas correlacionadas sin crear una segunda transacción visible.
-- BHD, Qik y Banreservas visibles como pilotos; catálogo listo para nuevas instituciones.
+- BHD, Qik, Banreservas y Popular visibles como pilotos; catálogo listo para nuevas instituciones.
+- Las notificaciones de transferencias recibidas se almacenan como evidencia parcial, pero no aparecen en listados, analítica ni reportes porque los bancos no garantizan su envío consistente.
 
 La recuperación contra Gmail/Supabase real quedó verificada con movimientos BHD hasta el 26 de agosto de 2026 y reversas materializadas. Sigue pendiente activar Gmail Push en Google Cloud.
 

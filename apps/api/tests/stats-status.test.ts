@@ -44,4 +44,17 @@ describe('financial status analytics', () => {
     expect(summary.byCategory[0].count).toBe(1);
     expect(summary.dailyAverage).toBe(10);
   });
+
+  it('excludes stored income from every visible metric', () => {
+    const income = {
+      ...transaction('APPROVED', 1500), transactionType: 'Transferencia Recibida',
+      category: 'Ingresos / Transferencias', source: 'POPULAR_TRANSFER_INCOME', institutionCode: 'POPULAR',
+    };
+    const summary = summarizeTransactions([transaction('APPROVED', 100), income], 'DOP');
+    expect(summary).toMatchObject({
+      totalAmount: 100, totalIncome: 0, totalIncomeDOP: 0, totalIncomeUSD: 0,
+      totalTransactions: 1, approvedCount: 1, approvedExpenseCount: 1,
+    });
+    expect(summary.byCategory.map((item) => item.category)).not.toContain('Ingresos / Transferencias');
+  });
 });

@@ -1,6 +1,5 @@
 import React from 'react';
 import { 
-  TrendingUp, 
   CheckCircle2, 
   XCircle, 
   ShoppingBag, 
@@ -24,9 +23,7 @@ export const MetricCards: React.FC<MetricCardsProps> = ({ stats, currency, hideB
     ? stats.byCategory[0]
     : null;
 
-  const hasIncome = (stats?.totalIncome || 0) > 0;
   const expenseChange = stats?.comparison?.expenseChangePercent;
-  const incomeChange = stats?.comparison?.incomeChangePercent;
 
   const renderAmount = (amount: number) => {
     if (hideBalances) return '••••••';
@@ -79,53 +76,30 @@ export const MetricCards: React.FC<MetricCardsProps> = ({ stats, currency, hideB
         </CardContent>
       </Card>
 
-      {/* 2. Ingresos o Efectividad */}
+      {/* 2. Efectividad */}
       <Card className="relative overflow-hidden border-border/60 bg-gradient-to-br from-card via-card to-card/50 shadow-sm hover:shadow-md transition-all">
         <div className="absolute right-0 top-0 h-16 sm:h-24 w-16 sm:w-24 translate-x-4 -translate-y-4 rounded-full bg-sky-500/10 blur-2xl pointer-events-none" />
         <CardContent className="p-3.5 sm:p-5">
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">
-              {hasIncome ? 'Ingresos' : 'Aprobadas'}
+              Aprobadas
             </span>
             <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
-              {hasIncome ? <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2 sm:mt-3">
-            {hasIncome ? (
-              <>
-                <div className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 truncate">
-                  {hideBalances ? '••••••' : `+ ${renderAmount(stats?.totalIncome || 0)}`}
-                </div>
-                <div className="mt-1 text-[11px] sm:text-xs text-muted-foreground flex items-center justify-between">
-                  <span className="text-emerald-500 font-semibold">{stats?.approvedCount || 0} exitosas</span>
-                  {incomeChange !== null && incomeChange !== undefined && (
-                    <span className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
-                      incomeChange >= 0
-                        ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
-                        : 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20'
-                    }`}>
-                      {incomeChange >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                      {Math.abs(incomeChange)}%
-                    </span>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-foreground truncate">
-                  {stats?.approvedCount || 0}
-                </div>
-                <div className="mt-1 flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground">
-                  <span>Exitosas</span>
-                  {stats && stats.rejectedCount > 0 && (
-                    <span className="text-destructive font-semibold flex items-center gap-0.5">
-                      <XCircle className="h-3 w-3" /> {stats.rejectedCount}
-                    </span>
-                  )}
-                </div>
-              </>
-            )}
+            <div className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-foreground truncate">
+              {stats?.approvedCount || 0}
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground">
+              <span>Exitosas</span>
+              {stats && stats.rejectedCount > 0 && (
+                <span className="text-destructive font-semibold flex items-center gap-0.5">
+                  <XCircle className="h-3 w-3" /> {stats.rejectedCount}
+                </span>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

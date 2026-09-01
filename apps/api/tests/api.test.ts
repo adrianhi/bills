@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { prisma } from '../src/config/database';
+import { GmailQueryService } from '../src/modules/connections/infrastructure/gmail-query.service';
 
 const integrationDescribe =
   process.env.TEST_DATABASE_URL && process.env.DATABASE_URL === process.env.TEST_DATABASE_URL
@@ -84,7 +85,7 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
           senderPatterns: ['notificaciones@banreservas.com', 'notificacionestubancoapp@banreservas.com'],
         },
         {
-          code: 'POPULAR', displayName: 'Banco Popular', status: 'COMING_SOON',
+          code: 'POPULAR', displayName: 'Banco Popular', status: 'PILOT',
           senderPatterns: ['notificaciones@popularenlinea.com'],
         },
         { code: 'CASH', displayName: 'Manual / Efectivo', status: 'ACTIVE' },
@@ -165,18 +166,22 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     const updated = await request(app)
       .put(`/api/v1/inbox-connections/${connection.id}/institutions`)
       .set(auth(userA))
-      .send({ institutionCodes: ['bhd', 'BANRESERVAS', 'BHD'] });
+      .send({ institutionCodes: ['bhd', 'BANRESERVAS', 'POPULAR', 'BHD'] });
     expect(updated.status).toBe(200);
-    expect(updated.body.data.selectedInstitutionCodes).toEqual(['BHD', 'BANRESERVAS']);
-    expect(updated.body.data.queuedJobIds).toHaveLength(2);
+    expect(updated.body.data.selectedInstitutionCodes).toEqual(['BHD', 'BANRESERVAS', 'POPULAR']);
+    expect(updated.body.data.queuedJobIds).toHaveLength(3);
 
     const listed = await request(app).get('/api/v1/inbox-connections').set(auth(userA));
     expect(listed.status).toBe(200);
-    expect(listed.body.data[0].selectedInstitutionCodes).toEqual(['BANRESERVAS', 'BHD']);
+    expect(listed.body.data[0].selectedInstitutionCodes).toEqual(['BANRESERVAS', 'BHD', 'POPULAR']);
     expect(listed.body.data[0].requiresBankSelection).toBe(false);
+    const popularQuery = await new GmailQueryService().senderQuery(
+      connection.id, new Date('2026-08-31T12:00:00.000Z'), ['POPULAR']
+    );
+    expect(popularQuery).toContain('from:notificaciones@popularenlinea.com');
   });
 
-  it('rejects empty, unsupported and coming-soon bank selections', async () => {
+  it('rejects empty and unsupported bank selections', async () => {
     const connection = await prisma.inboxConnection.findFirstOrThrow({
       where: { providerAccountId: 'gmail-selection-test' },
     });
@@ -187,14 +192,12 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     expect(empty.status).toBe(400);
     expect(empty.body.error.code).toBe('VALIDATION_ERROR');
 
-    for (const institutionCode of ['POPULAR', 'UNKNOWN']) {
-      const unavailable = await request(app)
-        .put(`/api/v1/inbox-connections/${connection.id}/institutions`)
-        .set(auth(userA))
-        .send({ institutionCodes: [institutionCode] });
-      expect(unavailable.status).toBe(400);
-      expect(unavailable.body.error.code).toBe('BANK_SELECTION_UNAVAILABLE');
-    }
+    const unavailable = await request(app)
+      .put(`/api/v1/inbox-connections/${connection.id}/institutions`)
+      .set(auth(userA))
+      .send({ institutionCodes: ['UNKNOWN'] });
+    expect(unavailable.status).toBe(400);
+    expect(unavailable.body.error.code).toBe('BANK_SELECTION_UNAVAILABLE');
   });
 
   it('does not expose retired forwarding connection endpoints', async () => {
@@ -217,6 +220,46 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     expect(responseA.body.data[0].externalId).toBe('shared-bank-id-001');
     expect(responseB.body.data[0].externalId).toBe('shared-bank-id-001');
     expect(responseA.body.data[0].id).not.toBe(responseB.body.data[0].id);
+  });
+
+  it('stores bank income privately while excluding it from every user surface', async () => {
+    const membership = await prisma.workspaceMember.findFirstOrThrow({
+      where: { profileId: userA.id }, select: { workspaceId: true },
+    });
+    const hidden = await prisma.transaction.create({
+      data: {
+        workspaceId: membership.workspaceId, externalId: 'popular-hidden-income-001',
+        institutionCode: 'POPULAR', ingestionChannel: 'GMAIL_OAUTH', rawMerchant: 'Transferencia recibida',
+        merchant: 'Transferencia recibida', category: 'Ingresos / Transferencias', amount: 1500,
+        currency: 'DOP', status: 'Aprobada', statusCode: 'APPROVED', transactionType: 'Transferencia Recibida',
+        transactionDate: new Date('2026-08-16T04:00:00.000Z'), source: 'POPULAR_TRANSFER_INCOME',
+      },
+    });
+
+    const manual = await request(app).post('/api/v1/transactions').set(auth(userA)).send({
+      externalId: 'manual-income-rejected', rawMerchant: 'Persona', amount: 100, currency: 'DOP',
+      transactionType: 'Transferencia Recibida', category: 'Ingresos / Transferencias',
+      transactionDate: '2026-08-16T04:00:00.000Z', institutionCode: 'POPULAR', ingestionChannel: 'MANUAL',
+    });
+    expect(manual.status).toBe(400);
+    expect(manual.body.error.code).toBe('INCOME_MANUAL_ENTRY_DISABLED');
+
+    const [listed, detail, update, removal, stats, categories, exported] = await Promise.all([
+      request(app).get('/api/v1/transactions').set(auth(userA)),
+      request(app).get(`/api/v1/transactions/${hidden.id}`).set(auth(userA)),
+      request(app).patch(`/api/v1/transactions/${hidden.id}`).set(auth(userA)).send({ category: 'Otros' }),
+      request(app).delete(`/api/v1/transactions/${hidden.id}`).set(auth(userA)),
+      request(app).get('/api/v1/stats/summary?currency=DOP').set(auth(userA)),
+      request(app).get('/api/v1/categories').set(auth(userA)),
+      request(app).get('/api/v1/transactions/export?format=json').set(auth(userA)),
+    ]);
+    expect(listed.body.data.some((item: { id: string }) => item.id === hidden.id)).toBe(false);
+    expect([detail.status, update.status, removal.status]).toEqual([404, 404, 404]);
+    expect(stats.body.data.totalIncome).toBe(0);
+    expect(stats.body.data.byCategory.some((item: { category: string }) => /ingreso/i.test(item.category))).toBe(false);
+    expect(categories.body.data.some((item: { category: string }) => /ingreso/i.test(item.category))).toBe(false);
+    expect(exported.body.data.some((item: { id: string }) => item.id === hidden.id)).toBe(false);
+    expect(await prisma.transaction.findUnique({ where: { id: hidden.id } })).not.toBeNull();
   });
 
   it('keeps one transaction and materializes a later reversal', async () => {

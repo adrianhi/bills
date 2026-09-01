@@ -83,13 +83,13 @@ export class FinancialReportService {
     const overview = workbook.addWorksheet('Resumen');
     overview.addRows([
       ['Informe financiero', 'bills.'], ['Período', summary.period], ['Moneda', currency],
-      ['Gasto total', summary.totalAmount], ['Ingresos', summary.totalIncome || 0],
+      ['Gasto total', summary.totalAmount],
       ['Promedio diario', summary.dailyAverage], ['Ticket promedio', summary.averageTicket || 0],
       ['Movimientos', summary.totalTransactions],
     ]);
     overview.getColumn(1).width = 24; overview.getColumn(2).width = 32;
     overview.getRow(1).eachCell((cell) => Object.assign(cell, headerStyle));
-    for (let row = 4; row <= 7; row += 1) overview.getCell(row, 2).numFmt = '#,##0.00';
+    for (let row = 4; row <= 6; row += 1) overview.getCell(row, 2).numFmt = '#,##0.00';
 
     const comparison = workbook.addWorksheet('Comparación');
     comparison.addRow(['Métrica', 'Período actual', 'Período anterior', 'Diferencia']);
@@ -98,7 +98,6 @@ export class FinancialReportService {
     if (comparisonData) {
       comparison.addRows([
         ['Gasto', comparisonData.currentPeriod.totalAmount, comparisonData.previousPeriod.totalAmount, comparisonData.expenseChangeAmount],
-        ['Ingreso', comparisonData.currentPeriod.totalIncome, comparisonData.previousPeriod.totalIncome, comparisonData.currentPeriod.totalIncome - comparisonData.previousPeriod.totalIncome],
         ['Promedio diario', comparisonData.currentPeriod.dailyAverage, comparisonData.previousPeriod.dailyAverage, comparisonData.currentPeriod.dailyAverage - comparisonData.previousPeriod.dailyAverage],
       ]);
       comparison.columns.forEach((column) => { column.width = 22; });
@@ -141,7 +140,6 @@ export class FinancialReportService {
       doc.moveDown(0.3).fillColor('#6b7280').fontSize(10).text(`Período: ${summary.period} · Moneda: ${currency} · Generado: ${formatDate(new Date())}`);
       doc.moveDown(1.2).fillColor('#111827').fontSize(13).text('Resumen');
       doc.fontSize(11).text(`Gasto total: ${currencyValue(summary.totalAmount, currency)}`);
-      doc.text(`Ingresos: ${currencyValue(summary.totalIncome || 0, currency)}`);
       doc.text(`Promedio diario: ${currencyValue(summary.dailyAverage, currency)}`);
       doc.text(`Ticket promedio: ${currencyValue(summary.averageTicket || 0, currency)}`);
       doc.text(`Movimientos: ${summary.totalTransactions}`);

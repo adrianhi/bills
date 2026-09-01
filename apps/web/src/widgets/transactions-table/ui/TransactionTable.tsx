@@ -4,7 +4,6 @@ import type { Transaction } from '@/entities/transaction';
 import {
   groupTransactionsByDate,
   isAtmWithdrawal,
-  isReceivedTransfer,
   isSentTransfer,
   isServicePayment,
 } from '@/entities/transaction';
@@ -45,11 +44,10 @@ interface TransactionTableProps {
 
 const matchesType = (transaction: Transaction, type: string) => {
   if (!type) return true;
-  if (type === 'recibida') return isReceivedTransfer(transaction);
   if (type === 'enviada') return isSentTransfer(transaction);
   if (type === 'servicio') return isServicePayment(transaction);
   if (type === 'retiro') return isAtmWithdrawal(transaction);
-  if (type === 'compra') return !isReceivedTransfer(transaction) && !isSentTransfer(transaction) && !isServicePayment(transaction) && !isAtmWithdrawal(transaction);
+  if (type === 'compra') return !isSentTransfer(transaction) && !isServicePayment(transaction) && !isAtmWithdrawal(transaction);
   return true;
 };
 

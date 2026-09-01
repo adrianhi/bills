@@ -4,6 +4,7 @@ import { normalizeTransactionStatus } from '../../../domain/transaction-status';
 import type { ExportQueryInput, TransactionQueryInput } from '../../../schemas/transaction.schema';
 import type { TransactionReader } from '../application/transaction-store.port';
 import { isIncomeMovement, resolveDateRange } from '../domain/transaction-policy';
+import { visibleTransactionWhere } from './income-visibility.where';
 
 type Query = TransactionQueryInput | ExportQueryInput;
 
@@ -16,23 +17,8 @@ function institutionCode(value: string): string {
 
 function movementTypeFilter(value: string): Prisma.TransactionWhereInput {
   const type = value.toLowerCase();
-  if (type === 'recibida' || type.includes('recibida') || type === 'ingreso') {
-    return {
-      OR: [
-        { transactionType: { contains: 'Recibida' } },
-        { category: { contains: 'Ingresos' } },
-        { source: 'BHD_TRANSFER_INCOME' },
-      ],
-    };
-  }
   if (type === 'enviada' || type.includes('enviada')) {
-    return {
-      AND: [
-        { transactionType: { contains: 'Transferencia' } },
-        { NOT: { transactionType: { contains: 'Recibida' } } },
-        { NOT: { source: 'BHD_TRANSFER_INCOME' } },
-      ],
-    };
+    return { transactionType: { contains: 'Transferencia' } };
   }
   if (type === 'compra') return { transactionType: { contains: 'Compra' } };
   if (type === 'servicio') {
@@ -49,7 +35,7 @@ function movementTypeFilter(value: string): Prisma.TransactionWhereInput {
 }
 
 export function buildTransactionWhere(workspaceId: string, query: Query): Prisma.TransactionWhereInput {
-  const where: Prisma.TransactionWhereInput = { workspaceId };
+  const where: Prisma.TransactionWhereInput = { workspaceId, ...visibleTransactionWhere() };
   const dateRange = resolveDateRange(query.month, query.startDate, query.endDate);
   if (dateRange.gte || dateRange.lte) where.transactionDate = dateRange;
   if (query.category) where.category = { equals: query.category };
@@ -137,6 +123,6 @@ export class PrismaTransactionQuery implements TransactionReader {
   }
 
   public get(workspaceId: string, id: string) {
-    return prisma.transaction.findFirst({ where: { id, workspaceId } });
+    return prisma.transaction.findFirst({ where: { id, workspaceId, ...visibleTransactionWhere() } });
   }
 }

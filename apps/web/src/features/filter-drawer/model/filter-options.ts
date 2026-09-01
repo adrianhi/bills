@@ -7,8 +7,8 @@ export const organizationOptions = [
   { id: 'SCOTIABANK', label: 'Scotiabank', dot: 'bg-red-500' }, { id: 'MANUAL', label: 'Manual / Efectivo', dot: 'bg-slate-400' },
 ];
 export const movementTypeOptions = [
-  { id: '', label: 'Todos los Tipos' }, { id: 'recibida', label: '📥 Ingresos / Recibidas' },
-  { id: 'compra', label: '💳 Compras con Tarjeta' }, { id: 'enviada', label: '↗️ Transf. Enviadas' },
+  { id: '', label: 'Todos los Tipos' }, { id: 'compra', label: '💳 Compras con Tarjeta' },
+  { id: 'enviada', label: '↗️ Transf. Enviadas' },
   { id: 'servicio', label: '🧾 Pagos de Servicios' }, { id: 'retiro', label: '🏧 Retiros de Cajero' },
 ];
 export const categoryOptions = [

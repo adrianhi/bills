@@ -2,7 +2,7 @@ import React from 'react';
 import { Calendar, Edit3 } from 'lucide-react';
 import type { Transaction } from '@/entities/transaction';
 import type { groupTransactionsByDate } from '@/entities/transaction';
-import { isReceivedTransfer, isSentTransfer, statusCode } from '@/entities/transaction';
+import { isSentTransfer, statusCode } from '@/entities/transaction';
 import { formatCurrency, formatDate, getOrganizationMeta } from '@/shared/lib';
 import { Button } from '@/shared/ui';
 import { TransactionIcon, TransactionStatus, TransactionTypeBadge } from './transaction-presenters';
@@ -22,7 +22,6 @@ const GroupHeader = ({ group, hideBalances }: { group: TransactionGroup; hideBal
           <div className="flex items-center gap-3">
             <span className="font-normal text-muted-foreground">En esta página:</span>
             {group.totalExpenseDOP > 0 && <span>Gasto: -{formatCurrency(group.totalExpenseDOP, 'DOP')}</span>}
-            {group.totalIncomeDOP > 0 && <span className="text-emerald-600 dark:text-emerald-400">Ingreso: +{formatCurrency(group.totalIncomeDOP, 'DOP')}</span>}
           </div>
         )}
       </div>
@@ -32,14 +31,13 @@ const GroupHeader = ({ group, hideBalances }: { group: TransactionGroup; hideBal
 
 const TransactionRow = ({ transaction, hideBalances, onEdit }: { transaction: Transaction; hideBalances: boolean; onEdit: (transaction: Transaction) => void }) => {
   const inactive = statusCode(transaction) !== 'APPROVED';
-  const income = isReceivedTransfer(transaction);
   const sent = isSentTransfer(transaction);
   const institution = getOrganizationMeta(transaction.source, transaction.merchant);
   return (
-    <tr className={`group transition-colors hover:bg-muted/30 ${income ? 'bg-emerald-500/[0.02]' : ''}`}>
+    <tr className="group transition-colors hover:bg-muted/30">
       <td className="px-4 py-3.5 sm:px-6">
         <div className="flex items-center gap-3">
-          <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${income ? 'bg-emerald-500/15' : sent ? 'bg-sky-500/15' : 'bg-muted/60'}`}><TransactionIcon transaction={transaction} /></div>
+          <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${sent ? 'bg-sky-500/15' : 'bg-muted/60'}`}><TransactionIcon transaction={transaction} /></div>
           <div>
             <div className="max-w-[240px] truncate font-semibold" title={transaction.merchant}>{transaction.merchant}</div>
             <div className="mt-0.5 flex items-center gap-1.5">
@@ -54,7 +52,7 @@ const TransactionRow = ({ transaction, hideBalances, onEdit }: { transaction: Tr
       <td className="whitespace-nowrap px-4 py-3.5 text-xs text-muted-foreground">{formatDate(transaction.transactionDate)}</td>
       <td className="px-4 py-3.5 font-mono text-xs text-muted-foreground">{transaction.cardLast4 ? `•••• ${transaction.cardLast4}` : 'N/A'}</td>
       <td className="px-4 py-3.5"><TransactionStatus transaction={transaction} /></td>
-      <td className="px-4 py-3.5 text-right"><div className={`font-mono text-sm font-bold ${inactive ? 'text-muted-foreground line-through' : income ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{hideBalances ? '••••••' : `${income ? '+ ' : ''}${formatCurrency(transaction.amount, transaction.currency)}`}</div></td>
+      <td className="px-4 py-3.5 text-right"><div className={`font-mono text-sm font-bold ${inactive ? 'text-muted-foreground line-through' : ''}`}>{hideBalances ? '••••••' : formatCurrency(transaction.amount, transaction.currency)}</div></td>
       <td className="px-4 py-3.5 text-center"><Button variant="ghost" size="icon" onClick={() => onEdit(transaction)} className="h-8 w-8 cursor-pointer text-muted-foreground hover:text-foreground" title="Editar clasificación"><Edit3 className="h-3.5 w-3.5" /></Button></td>
     </tr>
   );

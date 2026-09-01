@@ -13,3 +13,4 @@ export {
   resolveInstitutionCode,
 } from './domain/transaction-policy';
 export type { DateRange } from './domain/transaction-policy';
+export { hiddenIncomeWhere, visibleTransactionWhere } from './infrastructure/income-visibility.where';

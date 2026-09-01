@@ -95,6 +95,8 @@ describe('FinancialReportService', () => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(report.buffer as unknown as ArrayBuffer);
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Resumen', 'Comparación', 'Categorías', 'Comercios', 'Movimientos']);
+    expect(workbook.getWorksheet('Resumen')!.getColumn(1).values).not.toContain('Ingresos');
+    expect(workbook.getWorksheet('Comparación')!.getColumn(1).values).not.toContain('Ingreso');
     const movements = workbook.getWorksheet('Movimientos')!;
     expect(movements.rowCount).toBe(2);
   });

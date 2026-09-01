@@ -22,6 +22,16 @@ describe('transaction application service', () => {
     expect(result).toMatchObject({ total: 2, createdCount: 1, duplicateCount: 1 });
   });
 
+  it('rejects manual income creation without calling persistence', async () => {
+    const { writer, service } = services();
+    expect(() => service.create('workspace', {
+      transactionType: 'Transferencia Recibida', category: 'Ingresos / Transferencias',
+    } as never)).toThrowError(expect.objectContaining({ code: 'INCOME_MANUAL_ENTRY_DISABLED' }));
+    await expect(service.batchCreate('workspace', [{ source: 'POPULAR_TRANSFER_INCOME' }] as never))
+      .rejects.toMatchObject({ code: 'INCOME_MANUAL_ENTRY_DISABLED' });
+    expect(writer.create).not.toHaveBeenCalled();
+  });
+
   it('translates missing records into the stable public error', async () => {
     const { reader, writer, service } = services();
     vi.mocked(reader.get).mockResolvedValue(null);

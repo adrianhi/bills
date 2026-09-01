@@ -50,6 +50,7 @@ export const FORMAT_OPTIONS: FormatOption[] = [
 export const BANK_OPTIONS = [
   { value: '', label: 'Todos los bancos' },
   { value: 'BANCO_BHD', label: 'Banco BHD' },
+  { value: 'POPULAR', label: 'Banco Popular' },
   { value: 'QIK_BANCO_DIGITAL', label: 'Qik Banco Digital' },
   { value: 'BANRESERVAS', label: 'Banreservas' },
   { value: 'CASH', label: 'Manual / Efectivo' },

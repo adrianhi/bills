@@ -1,5 +1,4 @@
 import {
-  ArrowDownLeft,
   ArrowUpRight,
   Car,
   CheckCircle2,
@@ -20,7 +19,6 @@ import {
 import type { Transaction } from '@/entities/transaction';
 import {
   isAtmWithdrawal,
-  isReceivedTransfer,
   isSentTransfer,
   isServicePayment,
   statusCode,
@@ -40,7 +38,6 @@ export const TransactionStatus = ({ transaction }: { transaction: Transaction })
 };
 
 export const TransactionIcon = ({ transaction }: { transaction: Transaction }) => {
-  if (isReceivedTransfer(transaction)) return <ArrowDownLeft className="h-4 w-4 text-emerald-500" />;
   if (isSentTransfer(transaction)) return <ArrowUpRight className="h-4 w-4 text-sky-500" />;
   if (isServicePayment(transaction)) return <Zap className="h-4 w-4 text-amber-500" />;
   if (isAtmWithdrawal(transaction)) return <Landmark className="h-4 w-4 text-blue-500" />;
@@ -56,7 +53,6 @@ export const TransactionIcon = ({ transaction }: { transaction: Transaction }) =
 };
 
 export const TransactionTypeBadge = ({ transaction }: { transaction: Transaction }) => {
-  if (isReceivedTransfer(transaction)) return <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"><ArrowDownLeft className="h-3 w-3" />Recibida</span>;
   if (isSentTransfer(transaction)) return <span className="inline-flex items-center gap-1 rounded-md border border-sky-500/20 bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-600 dark:text-sky-400"><ArrowUpRight className="h-3 w-3" />Enviada</span>;
   if (isServicePayment(transaction)) return <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400"><Receipt className="h-3 w-3" />Servicio</span>;
   if (isAtmWithdrawal(transaction)) return <span className="inline-flex items-center gap-1 rounded-md border border-blue-500/20 bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400"><Landmark className="h-3 w-3" />Retiro</span>;

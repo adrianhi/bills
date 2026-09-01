@@ -1,6 +1,6 @@
 export const COMMON_CATEGORIES = [
-  'Ingresos / Transferencias', 'Supermercado', 'Restaurantes & Delivery',
-  'Servicios Financieros', 'Transferencias', 'Transporte', 'Combustible',
+  'Supermercado', 'Restaurantes & Delivery', 'Servicios Financieros',
+  'Transferencias', 'Transporte', 'Combustible',
   'Servicios', 'Suscripciones', 'Salud & Farmacia', 'Compras Online',
   'Hogar', 'Ropa & Moda', 'Entretenimiento', 'Tecnología', 'Otros',
 ] as const;
