@@ -44,7 +44,10 @@ export function buildTransactionWhere(workspaceId: string, query: Query): Prisma
   if (query.status) where.statusCode = normalizeTransactionStatus(query.status);
 
   const organization = query.institutionCode || query.organization || query.source;
-  if (organization && organization.toUpperCase() !== 'ALL') {
+  const institutionCodes = 'institutionCodes' in query ? query.institutionCodes : undefined;
+  if (institutionCodes?.length) {
+    where.institutionCode = { in: institutionCodes.map(institutionCode) };
+  } else if (organization && organization.toUpperCase() !== 'ALL') {
     where.institutionCode = institutionCode(organization);
   }
   if (query.transactionType) Object.assign(where, movementTypeFilter(query.transactionType));

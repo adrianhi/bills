@@ -5,7 +5,7 @@ import {
   FileSpreadsheet,
   FileText,
 } from 'lucide-react';
-import type { FinancialReportFormat } from '../api/report.service';
+import type { FinancialReportFormat, FinancialReportSection } from '../api/report.service';
 
 export type ExportFormat = FinancialReportFormat | 'json';
 
@@ -23,7 +23,7 @@ export const FORMAT_OPTIONS: FormatOption[] = [
     label: 'Excel (.xlsx)',
     badge: 'Recomendado',
     description:
-      'Libro contable completo: Resumen ejecutivo + hoja "Movimientos" con cada transacción individual.',
+      'Libro personalizable con resumen, desgloses y movimientos detallados.',
     icon: FileSpreadsheet,
   },
   {
@@ -35,7 +35,7 @@ export const FORMAT_OPTIONS: FormatOption[] = [
   {
     id: 'pdf',
     label: 'PDF (.pdf)',
-    description: 'Informe ejecutivo visual con gráficos e insights.',
+    description: 'Informe ejecutivo visual con métricas, gráficos y anexo paginado.',
     icon: FileText,
   },
   {
@@ -47,11 +47,10 @@ export const FORMAT_OPTIONS: FormatOption[] = [
   },
 ];
 
-export const BANK_OPTIONS = [
-  { value: '', label: 'Todos los bancos' },
-  { value: 'BANCO_BHD', label: 'Banco BHD' },
-  { value: 'POPULAR', label: 'Banco Popular' },
-  { value: 'QIK_BANCO_DIGITAL', label: 'Qik Banco Digital' },
-  { value: 'BANRESERVAS', label: 'Banreservas' },
-  { value: 'CASH', label: 'Manual / Efectivo' },
+export const REPORT_SECTION_OPTIONS: Array<{ id: FinancialReportSection; label: string }> = [
+  { id: 'summary', label: 'Resumen ejecutivo' },
+  { id: 'comparison', label: 'Comparación' },
+  { id: 'categories', label: 'Categorías' },
+  { id: 'merchants', label: 'Comercios' },
+  { id: 'movements', label: 'Movimientos' },
 ];

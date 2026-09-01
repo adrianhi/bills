@@ -16,8 +16,12 @@ describe('reportService.financialExport', () => {
     });
     const result = await reportService.financialExport({
       format: 'xlsx', currency: 'USD', month: '2026-08', category: 'Supermercado', includeNotes: true,
+      institutionCodes: ['BHD', 'POPULAR'], title: 'Gastos agosto', sections: ['summary', 'movements'],
     });
-    expect(captured).toMatchObject({ format: 'xlsx', currency: 'USD', month: '2026-08', category: 'Supermercado', includeNotes: 'true' });
+    expect(captured).toMatchObject({
+      format: 'xlsx', currency: 'USD', month: '2026-08', category: 'Supermercado', includeNotes: 'true',
+      institutionCodes: 'BHD,POPULAR', title: 'Gastos agosto', sections: 'summary,movements',
+    });
     expect(result.filename).toBe('bills-informe-2026-08.xlsx');
     expect(result.blob).toBeInstanceOf(Blob);
   });
@@ -28,9 +32,14 @@ describe('reportService.financialExport', () => {
       captured = config.params as Record<string, unknown>;
       return [200, new Blob(['data'])];
     });
-    await reportService.financialExport({ format: 'csv', currency: 'DOP', startDate: '2026-08-01', endDate: '2026-08-15' });
+    await reportService.financialExport({
+      format: 'csv', currency: 'DOP', startDate: '2026-08-01', endDate: '2026-08-15',
+      institutionCodes: [], sections: [],
+    });
     expect(captured.includeNotes).toBeUndefined();
     expect(captured.category).toBeUndefined();
+    expect(captured.institutionCodes).toBeUndefined();
+    expect(captured.sections).toBeUndefined();
     expect(captured).toMatchObject({ format: 'csv', currency: 'DOP', startDate: '2026-08-01', endDate: '2026-08-15' });
   });
 

@@ -1,14 +1,24 @@
-import { resolveDateRange, resolveInstitutionCode } from '../../transactions';
 import { resolveComparisonPeriods, type ComparablePeriod } from '../domain/comparison-period';
 import { summarizeTransactions } from '../domain/summarize-transactions';
 
-export interface SummaryRequest { month?: string; startDate?: string; endDate?: string; organization?: string; currency?: string }
+export interface SummaryRequest {
+  month?: string;
+  startDate?: string;
+  endDate?: string;
+  organization?: string;
+  institutionCode?: string;
+  institutionCodes?: string[];
+  currency?: string;
+  category?: string;
+  status?: string;
+  transactionType?: string;
+  search?: string;
+}
 
 interface AnalyticsRepository {
   findTransactions(
     workspaceId: string,
-    range: ReturnType<typeof resolveDateRange>,
-    institutionCode?: string
+    request: SummaryRequest,
   ): Promise<Parameters<typeof summarizeTransactions>[0]>;
   listCategories(workspaceId: string): Promise<Array<{ category: string; _count: { _all: number } }>>;
 }
@@ -134,15 +144,18 @@ export class AnalyticsService {
   constructor(private readonly repository: AnalyticsRepository) {}
   async getSummary(workspaceId: string, request: SummaryRequest) {
     const currency = (request.currency || 'DOP').toUpperCase();
-    const institution = request.organization && request.organization.toUpperCase() !== 'ALL' ? resolveInstitutionCode(request.organization, request.organization) : undefined;
     const periods = resolveComparisonPeriods(request);
-    const range = periods?.current.range ?? resolveDateRange(request.month, request.startDate, request.endDate);
-    const transactions = await this.repository.findTransactions(workspaceId, range, institution);
+    const currentRequest = periods ? {
+      ...request, month: undefined, startDate: periods.current.startDate, endDate: periods.current.endDate,
+    } : request;
+    const transactions = await this.repository.findTransactions(workspaceId, currentRequest);
     const current = summarizeTransactions(transactions, currency, periods?.current.days);
     const base = { period: request.month || (request.startDate && request.endDate ? `${request.startDate}:${request.endDate}` : 'all-time'), currency, ...current, byMerchant: current.topMerchants };
     if (!periods) return { ...base, comparisonBasis: null, insights: [] };
 
-    const previousTransactions = await this.repository.findTransactions(workspaceId, periods.previous.range, institution);
+    const previousTransactions = await this.repository.findTransactions(workspaceId, {
+      ...request, month: undefined, startDate: periods.previous.startDate, endDate: periods.previous.endDate,
+    });
     const previous = summarizeTransactions(previousTransactions, currency, periods.previous.days);
     const categoryDeltas = deltas(current.byCategory, previous.byCategory, 'category');
     const merchantDeltas = deltas(current.topMerchants, previous.topMerchants, 'merchant');

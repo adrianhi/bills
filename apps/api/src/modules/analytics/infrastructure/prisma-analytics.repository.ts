@@ -1,6 +1,11 @@
-import { Prisma } from '@prisma/client';
 import { prisma } from '../../../config/database';
-import { visibleTransactionWhere, type DateRange } from '../../transactions';
+import { buildTransactionWhere, visibleTransactionWhere } from '../../transactions';
+
+interface AnalyticsFilters {
+  month?: string; startDate?: string; endDate?: string; organization?: string;
+  institutionCode?: string; institutionCodes?: string[]; currency?: string;
+  category?: string; status?: string; transactionType?: string; search?: string;
+}
 
 const selection = {
   amount: true, currency: true, category: true, merchant: true, statusCode: true,
@@ -8,13 +13,8 @@ const selection = {
 } as const;
 
 export class PrismaAnalyticsRepository {
-  async findTransactions(workspaceId: string, range: DateRange, institutionCode?: string) {
-    const where: Prisma.TransactionWhereInput = {
-      workspaceId,
-      ...(range.gte || range.lte ? { transactionDate: range } : {}),
-      ...(institutionCode ? { institutionCode } : {}),
-      ...visibleTransactionWhere(),
-    };
+  async findTransactions(workspaceId: string, filters: AnalyticsFilters) {
+    const where = buildTransactionWhere(workspaceId, { ...filters, format: 'json' });
     return prisma.transaction.findMany({ where, select: selection, orderBy: { transactionDate: 'asc' } });
   }
   async listCategories(workspaceId: string) {

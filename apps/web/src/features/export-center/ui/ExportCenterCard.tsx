@@ -7,8 +7,6 @@ import { shareOrDownloadFile, supportsFileShare } from '@/shared/lib';
 import { reportService, type FinancialReportFormat } from '../api/report.service';
 import { ExportModal } from './ExportModal';
 
-type ExportFormat = FinancialReportFormat | 'json';
-
 interface ExportCenterCardProps {
   period: PeriodSelection;
   currency: string;
@@ -21,15 +19,14 @@ interface ExportCenterCardProps {
   };
 }
 
-const FORMATS: Array<{ id: ExportFormat; label: string; description: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { id: 'xlsx', label: 'Excel', description: '5 hojas: Resumen + todos los movimientos detallados.', icon: FileSpreadsheet },
+const FORMATS: Array<{ id: FinancialReportFormat; label: string; description: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { id: 'xlsx', label: 'Excel', description: 'Libro personalizable con resumen y movimientos.', icon: FileSpreadsheet },
   { id: 'csv', label: 'CSV', description: 'Lista plana de movimientos lista para importar o analizar.', icon: FileDown },
-  { id: 'pdf', label: 'PDF', description: 'Informe ejecutivo con gráficos, comparación e insights.', icon: FileText },
-  { id: 'json', label: 'JSON', description: 'Copia completa de seguridad de tu cuenta.', icon: FileJson },
+  { id: 'pdf', label: 'PDF', description: 'Informe visual con métricas y anexo paginado.', icon: FileText },
 ];
 
 export const ExportCenterCard: React.FC<ExportCenterCardProps> = ({ period, currency, filters }) => {
-  const [format, setFormat] = useState<ExportFormat>('xlsx');
+  const [format, setFormat] = useState<FinancialReportFormat>('xlsx');
   const [includeNotes, setIncludeNotes] = useState(false);
   const [working, setWorking] = useState(false);
   const [outcome, setOutcome] = useState<'shared' | 'downloaded' | null>(null);
@@ -43,33 +40,31 @@ export const ExportCenterCard: React.FC<ExportCenterCardProps> = ({ period, curr
     setError(null);
     setOutcome(null);
     try {
-      if (format === 'json') {
-        const blob = await accountService.exportData();
-        const filename = `bills-cuenta-${new Date().toISOString().slice(0, 10)}.json`;
-        const result = await shareOrDownloadFile(blob, filename, 'Copia de mi cuenta bills.');
-        setOutcome(result === 'cancelled' ? null : result);
-      } else {
-        const { blob, filename } = await reportService.financialExport({
-          format,
-          currency,
-          month: period.startDate ? undefined : period.month,
-          startDate: period.startDate,
-          endDate: period.endDate,
-          category: filters.category || undefined,
-          status: filters.status || undefined,
-          organization: filters.organization || undefined,
-          transactionType: filters.transactionType || undefined,
-          search: filters.search || undefined,
-          includeNotes: format === 'pdf' ? false : includeNotes,
-        });
-        const result = await shareOrDownloadFile(blob, filename, 'Informe financiero bills.');
-        setOutcome(result === 'cancelled' ? null : result);
-      }
+      const { blob, filename } = await reportService.financialExport({
+        format, currency, month: period.startDate ? undefined : period.month,
+        startDate: period.startDate, endDate: period.endDate,
+        category: filters.category || undefined, status: filters.status || undefined,
+        organization: filters.organization || undefined, transactionType: filters.transactionType || undefined,
+        search: filters.search || undefined, includeNotes,
+      });
+      const result = await shareOrDownloadFile(blob, filename, 'Informe financiero bills.');
+      setOutcome(result === 'cancelled' ? null : result);
     } catch (cause) {
       setError(cause);
     } finally {
       setWorking(false);
     }
+  };
+
+  const runAccountBackup = async () => {
+    setWorking(true); setError(null); setOutcome(null);
+    try {
+      const blob = await accountService.exportData();
+      const filename = `bills-cuenta-${new Date().toISOString().slice(0, 10)}.json`;
+      const result = await shareOrDownloadFile(blob, filename, 'Copia completa de mi cuenta bills.');
+      setOutcome(result === 'cancelled' ? null : result);
+    } catch (cause) { setError(cause); }
+    finally { setWorking(false); }
   };
 
   return (
@@ -99,7 +94,7 @@ export const ExportCenterCard: React.FC<ExportCenterCardProps> = ({ period, curr
             </Button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Formato de exportación">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Formato de exportación">
             {FORMATS.map(({ id, label, description, icon: Icon }) => (
               <button
                 key={id}
@@ -115,8 +110,7 @@ export const ExportCenterCard: React.FC<ExportCenterCardProps> = ({ period, curr
             ))}
           </div>
 
-          {format !== 'pdf' && format !== 'json' && (
-            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-border px-3">
+          <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-border px-3">
               <input
                 type="checkbox"
                 checked={includeNotes}
@@ -124,8 +118,7 @@ export const ExportCenterCard: React.FC<ExportCenterCardProps> = ({ period, curr
                 className="h-4 w-4 accent-emerald-600"
               />
               <span className="text-sm"><span className="font-semibold">Incluir notas</span> <span className="text-muted-foreground">· desactivado por defecto para compartir sin datos sensibles</span></span>
-            </label>
-          )}
+          </label>
 
           {error !== null && (
             <div className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3" role="alert">
@@ -150,6 +143,14 @@ export const ExportCenterCard: React.FC<ExportCenterCardProps> = ({ period, curr
               {working ? <Loader2 className="h-4 w-4 animate-spin" /> : canShare ? <Share2 className="h-4 w-4" /> : <FileDown className="h-4 w-4" />}
               {working ? 'Generando…' : canShare ? 'Descargar o compartir' : 'Descargar rápida'}
             </Button>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+            <div className="min-w-0">
+              <p className="flex items-center gap-1.5 text-xs font-bold"><FileJson className="h-3.5 w-3.5 text-sky-600" />Copia completa JSON</p>
+              <p className="text-[11px] text-muted-foreground">Respaldo de toda la cuenta; no aplica filtros del reporte.</p>
+            </div>
+            <Button type="button" variant="outline" size="sm" disabled={working} onClick={() => void runAccountBackup()} className="shrink-0">Descargar copia</Button>
           </div>
         </CardContent>
       </Card>

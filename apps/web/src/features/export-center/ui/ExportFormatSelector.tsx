@@ -5,15 +5,11 @@ import { FORMAT_OPTIONS, type ExportFormat } from '../model/export-options';
 interface ExportFormatSelectorProps {
   format: ExportFormat;
   setFormat: (fmt: ExportFormat) => void;
-  includeNotes: boolean;
-  setIncludeNotes: (inc: boolean) => void;
 }
 
 export const ExportFormatSelector: React.FC<ExportFormatSelectorProps> = ({
   format,
   setFormat,
-  includeNotes,
-  setIncludeNotes,
 }) => {
   return (
     <div className="space-y-3">
@@ -67,21 +63,6 @@ export const ExportFormatSelector: React.FC<ExportFormatSelectorProps> = ({
           );
         })}
       </div>
-
-      {format !== 'pdf' && (
-        <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={includeNotes}
-            onChange={(e) => setIncludeNotes(e.target.checked)}
-            className="rounded border-border text-primary focus:ring-primary h-4 w-4"
-          />
-          <span>
-            Incluir notas personales de movimientos (desactivado por defecto
-            para compartir con seguridad).
-          </span>
-        </label>
-      )}
     </div>
   );
 };

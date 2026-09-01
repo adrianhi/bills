@@ -7,6 +7,20 @@ import {
   transactionStatusSchema,
 } from '@bills/contracts';
 
+export const REPORT_SECTIONS = ['summary', 'comparison', 'categories', 'merchants', 'movements'] as const;
+
+const commaSeparatedInstitutionCodes = z.preprocess((input) => {
+  if (input === undefined || input === '') return undefined;
+  const values = Array.isArray(input) ? input : String(input).split(',');
+  return [...new Set(values.map((value) => String(value).trim().toUpperCase()).filter(Boolean))];
+}, z.array(z.string().regex(/^[A-Z0-9_]{2,32}$/)).max(10).optional());
+
+const commaSeparatedReportSections = z.preprocess((input) => {
+  if (input === undefined || input === '') return [...REPORT_SECTIONS];
+  const values = Array.isArray(input) ? input : String(input).split(',');
+  return [...new Set(values.map((value) => String(value).trim().toLowerCase()).filter(Boolean))];
+}, z.array(z.enum(REPORT_SECTIONS)).min(1));
+
 export const CreateTransactionSchema = createTransactionInputSchema;
 export const BatchCreateTransactionsSchema = batchCreateTransactionsInputSchema;
 export const UpdateTransactionSchema = updateTransactionInputSchema;
@@ -48,12 +62,15 @@ export const ExportQuerySchema = z.object({
   source: z.string().optional(),
   organization: z.string().optional(),
   institutionCode: z.string().optional().transform((val) => val?.toUpperCase()),
+  institutionCodes: commaSeparatedInstitutionCodes,
   search: z.string().optional(),
 });
 
 export const FinancialReportQuerySchema = ExportQuerySchema.omit({ format: true }).extend({
   format: z.enum(['csv', 'xlsx', 'pdf']),
   includeNotes: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  title: z.string().trim().min(1).max(100).optional(),
+  sections: commaSeparatedReportSections,
 });
 
 export const CreateCategoryRuleSchema = createCategoryRuleInputSchema;

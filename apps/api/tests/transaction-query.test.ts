@@ -33,4 +33,12 @@ describe('transaction query adapter', () => {
       ] },
     ]);
   });
+
+  it('uses canonical multi-bank codes in preference to the legacy organization filter', () => {
+    expect(buildTransactionWhere('workspace', {
+      format: 'json', organization: 'BHD', institutionCodes: ['POPULAR', 'QIK', 'CASH'],
+    })).toMatchObject({
+      workspaceId: 'workspace', institutionCode: { in: ['POPULAR', 'QIK', 'CASH'] },
+    });
+  });
 });
