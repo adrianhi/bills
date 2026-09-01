@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ProductGuideState } from '@bills/contracts';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -52,7 +52,7 @@ export function useDashboardShell(productGuide: ProductGuideState) {
     }
   }, [location.pathname, navigate]);
 
-  const selectSection = (
+  const selectSection = useCallback((
     section: AppSection,
     replace = false,
     behavior: ScrollBehavior = 'smooth'
@@ -60,11 +60,17 @@ export function useDashboardShell(productGuide: ProductGuideState) {
     const target = APP_SECTIONS.find((item) => item.id === section);
     if (target) navigate(target.path, { replace });
     window.scrollTo({ top: 0, behavior });
-  };
+  }, [navigate]);
+
+  const navigateForTour = useCallback((section: AppSection) => {
+    const target = APP_SECTIONS.find((item) => item.id === section);
+    if (target) navigate(target.path, { replace: true });
+  }, [navigate]);
 
   return {
     activeSection,
     selectSection,
+    navigateForTour,
     connectionsQuery,
     primaryConnection:
       connectionsQuery.data?.find((connection) => connection.status !== 'REVOKED') ??

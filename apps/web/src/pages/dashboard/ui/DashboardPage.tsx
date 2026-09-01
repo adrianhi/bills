@@ -30,6 +30,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const {
     activeSection,
     selectSection,
+    navigateForTour,
     connectionsQuery,
     primaryConnection,
     requiresBankSelection,
@@ -216,7 +217,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       <DashboardModals
         authToken={authToken}
         activeSection={activeSection}
-        onNavigate={(sec) => selectSection(sec, true, 'auto')}
+        onNavigate={navigateForTour}
         isQuickAddOpen={isQuickAddOpen}
         setIsQuickAddOpen={setIsQuickAddOpen}
         onRefresh={onRefresh}
