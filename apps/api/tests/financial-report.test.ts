@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { FinancialReportService, safeSpreadsheetText } from '../src/modules/reports/application/financial-report.service';
 import type { AnalyticsService } from '../src/modules/analytics/application/analytics.service';
 import type { TransactionApplicationService } from '../src/modules/transactions/application/transaction-application.service';
+import type { GetMonthlyBudget } from '../src/modules/budgets';
 import { FinancialReportQuerySchema, type FinancialReportQueryInput } from '../src/schemas/transaction.schema';
 
 const fakeTransaction = (overrides: Record<string, unknown> = {}) => ({
@@ -45,10 +46,30 @@ const fakeSummary = {
   },
 };
 
+const fakeBudget = {
+  month: '2026-08', currency: 'DOP', hasBudget: true,
+  totalSpent: 1500, totalPending: 200, unbudgetedSpent: 0,
+  global: {
+    scope: 'GLOBAL', categoryKey: null, categoryLabel: null, limit: 5000,
+    spent: 1500, pending: 200, remaining: 3500, exceededBy: 0,
+    percentUsed: 30, projected: null, status: 'ON_TRACK',
+  },
+  categories: [{
+    scope: 'CATEGORY', categoryKey: 'supermercado', categoryLabel: 'Supermercado', limit: 2000,
+    spent: 1500, pending: 200, remaining: 500, exceededBy: 0,
+    percentUsed: 75, projected: null, status: 'ON_TRACK',
+  }],
+  alerts: [],
+} as const;
+
+const budgetReader = {
+  execute: async () => fakeBudget,
+} as unknown as Pick<GetMonthlyBudget, 'execute'>;
+
 function buildService(transactions: Array<Record<string, unknown>>) {
   const analytics = { getSummary: async () => fakeSummary } as unknown as AnalyticsService;
   const transactionApp = { export: async () => transactions } as unknown as TransactionApplicationService;
-  return new FinancialReportService(analytics, transactionApp);
+  return new FinancialReportService(analytics, transactionApp, budgetReader);
 }
 
 const baseQuery: FinancialReportQueryInput = { format: 'csv', includeNotes: false, month: '2026-08', currency: 'DOP' };
@@ -84,7 +105,7 @@ describe('FinancialReportService', () => {
     const transactionApp = { export: async (_workspaceId: string, filters: Record<string, unknown>) => {
       exportedFilters = filters; return [fakeTransaction()];
     } } as unknown as TransactionApplicationService;
-    const service = new FinancialReportService(analytics, transactionApp);
+    const service = new FinancialReportService(analytics, transactionApp, budgetReader);
     await service.generate('ws-1', {
       ...baseQuery, format: 'pdf', institutionCodes: ['BHD', 'POPULAR'], category: 'Supermercado',
       status: 'APPROVED', transactionType: 'compra', search: 'Bravo', title: 'Privado', sections: ['summary'],
@@ -132,7 +153,7 @@ describe('FinancialReportService', () => {
     const movements = workbook.getWorksheet('Movimientos')!;
     expect(movements.rowCount).toBe(8);
     expect(movements.getRow(8).values).toContain('Bravo');
-    expect(movements.views[0]).toMatchObject({ state: 'frozen' });
+    expect(movements.views[0]).toMatchObject({ state: 'frozen', showGridLines: false });
     expect(movements.autoFilter).toBeTruthy();
   });
 
@@ -152,6 +173,39 @@ describe('FinancialReportService', () => {
     expect(workbook.getWorksheet('Movimientos')!.getCell('A8').numFmt).toBe('dd/mm/yyyy');
     expect(workbook.getWorksheet('Movimientos')!.getCell('B8').value).toBe("'=HYPERLINK(\"http://evil\")");
     expect(workbook.getWorksheet('Movimientos')!.getCell('J8').value).toBe('compra semanal');
+  });
+
+  it('includes resolved budget performance as an optional XLSX sheet', async () => {
+    const service = buildService([fakeTransaction()]);
+    const report = await service.generate('ws-1', {
+      ...baseQuery, format: 'xlsx', sections: ['budget'],
+    });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(report.buffer as unknown as ArrayBuffer);
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Presupuesto']);
+    const sheet = workbook.getWorksheet('Presupuesto')!;
+    expect(sheet.getColumn(1).values).toContain('Presupuesto global');
+    expect(sheet.getColumn(1).values).toContain('Supermercado');
+    expect(sheet.getColumn(2).values).toContain(5000);
+    expect(sheet.getColumn(8).values).toContain('En ritmo');
+  });
+
+  it('restricts budget sections to an unfiltered calendar month in PDF or XLSX', () => {
+    expect(FinancialReportQuerySchema.safeParse({
+      format: 'xlsx', month: '2026-08', currency: 'DOP', sections: 'budget',
+    }).success).toBe(true);
+    expect(FinancialReportQuerySchema.safeParse({
+      format: 'csv', month: '2026-08', currency: 'DOP', sections: 'budget',
+    }).success).toBe(false);
+    expect(FinancialReportQuerySchema.safeParse({
+      format: 'pdf', month: '2026-08', currency: 'DOP', sections: 'budget', institutionCodes: 'BHD',
+    }).success).toBe(false);
+    expect(FinancialReportQuerySchema.safeParse({
+      format: 'pdf', startDate: '2026-08-01', endDate: '2026-08-31', currency: 'DOP', sections: 'budget',
+    }).success).toBe(false);
+    expect(FinancialReportQuerySchema.safeParse({
+      format: 'pdf', month: '2026-13', currency: 'DOP', sections: 'budget',
+    }).success).toBe(false);
   });
 
   it('generates a PDF report in memory', async () => {

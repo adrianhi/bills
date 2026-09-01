@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
-import type { FinancialRow, ReportPresentation, ReportSummary } from './financial-report-data';
-import { safeSpreadsheetText } from './financial-report-data';
+import type { FinancialRow, ReportBudget, ReportPresentation, ReportSummary } from './financial-report-data';
+import { budgetStatusLabel, safeSpreadsheetText } from './financial-report-data';
 
 const GREEN = 'FF047857';
 const DARK = 'FF064E3B';
@@ -47,7 +47,7 @@ function styleTable(sheet: ExcelJS.Worksheet, headerRow: number, columns: number
     });
   }
   amountColumns.forEach((column) => { sheet.getColumn(column).numFmt = '#,##0.00'; });
-  sheet.views = [{ state: 'frozen', ySplit: headerRow }];
+  sheet.views = [{ state: 'frozen', ySplit: headerRow, showGridLines: false }];
   sheet.autoFilter = { from: { row: headerRow, column: 1 }, to: { row: headerRow, column: columns } };
 }
 
@@ -119,6 +119,7 @@ function addMovements(workbook: ExcelJS.Workbook, rows: FinancialRow[], presenta
   rows.forEach((row) => {
     const values = columns.map((column) => {
       const value = row[column as keyof FinancialRow] ?? '';
+      if (value === '') return null;
       if (column !== 'Fecha' || typeof value !== 'string') return value;
       const [day, month, year] = value.split('/').map(Number);
       return new Date(Date.UTC(year, month - 1, day, 12));
@@ -133,7 +134,22 @@ function addMovements(workbook: ExcelJS.Workbook, rows: FinancialRow[], presenta
   });
 }
 
-export async function renderXlsx(rows: FinancialRow[], summary: ReportSummary, presentation: ReportPresentation) {
+function addBudget(workbook: ExcelJS.Workbook, budget: ReportBudget, presentation: ReportPresentation) {
+  const sheet = workbook.addWorksheet('Presupuesto', { views: [{ showGridLines: false }] });
+  const headerRow = titleRows(sheet, presentation, 8) + 1;
+  sheet.addRow(['Objetivo', 'Límite', 'Aprobado', 'Pendiente', 'Restante', 'Exceso', '% consumido', 'Estado']);
+  const items = budget?.hasBudget ? [...(budget.global ? [budget.global] : []), ...budget.categories] : [];
+  if (!items.length) sheet.addRow(['Sin presupuesto configurado', '', '', '', '', '', '', '']);
+  items.forEach((item) => sheet.addRow([
+    safeSpreadsheetText(item.categoryLabel || 'Presupuesto global'), item.limit, item.spent, item.pending,
+    item.remaining, item.exceededBy, item.percentUsed / 100, budgetStatusLabel(item.status),
+  ]));
+  styleTable(sheet, headerRow, 8, [2, 3, 4, 5, 6]);
+  sheet.getColumn(1).width = 32; [2, 3, 4, 5, 6].forEach((column) => { sheet.getColumn(column).width = 16; });
+  sheet.getColumn(7).width = 16; sheet.getColumn(7).numFmt = '0.0%'; sheet.getColumn(8).width = 20;
+}
+
+export async function renderXlsx(rows: FinancialRow[], summary: ReportSummary, presentation: ReportPresentation, budget: ReportBudget = null) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'bills.'; workbook.created = new Date();
   const selected = new Set(presentation.sections);
@@ -147,5 +163,6 @@ export async function renderXlsx(rows: FinancialRow[], summary: ReportSummary, p
     percentage: summary.totalAmount > 0 ? item.total / summary.totalAmount * 100 : 0,
   })), presentation);
   if (selected.has('movements')) addMovements(workbook, rows, presentation);
+  if (selected.has('budget')) addBudget(workbook, budget, presentation);
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }

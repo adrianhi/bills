@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
-import type { FinancialRow, ReportPresentation, ReportSummary } from './financial-report-data';
-import { currencyValue } from './financial-report-data';
+import type { FinancialRow, ReportBudget, ReportPresentation, ReportSummary } from './financial-report-data';
+import { budgetStatusLabel, currencyValue } from './financial-report-data';
 
 const COLORS = {
   dark: '#064e3b', green: '#059669', mint: '#d1fae5', ink: '#0f172a',
@@ -106,6 +106,34 @@ function bars(doc: PDFKit.PDFDocument, title: string, items: Array<{ label: stri
   });
 }
 
+function budgetSection(doc: PDFKit.PDFDocument, budget: ReportBudget, currency: string) {
+  const contentHeight = budget?.hasBudget ? 112 + budget.categories.length * 27 : 70;
+  ensureSpace(doc, Math.min(contentHeight, 330));
+  heading(doc, 'Presupuesto del mes');
+  if (!budget?.hasBudget) {
+    doc.fillColor(COLORS.muted).font('Helvetica').fontSize(9).text('No hay un presupuesto configurado para este mes y moneda.');
+    return;
+  }
+  if (budget.global) {
+    ensureSpace(doc, 70);
+    const item = budget.global; const y = doc.y;
+    doc.roundedRect(48, y, 499, 58, 8).fill(COLORS.paper);
+    doc.fillColor(COLORS.muted).font('Helvetica-Bold').fontSize(8).text('LÍMITE GLOBAL', 61, y + 11);
+    doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(13).text(`${currencyValue(item.spent, currency)} de ${currencyValue(item.limit, currency)}`, 61, y + 27, { width: 330 });
+    doc.fillColor(item.status === 'EXCEEDED' ? '#b91c1c' : COLORS.green).font('Helvetica-Bold').fontSize(8.5)
+      .text(`${item.percentUsed.toFixed(1)}% - ${budgetStatusLabel(item.status)}`, 384, y + 29, { width: 146, align: 'right' });
+    doc.y = y + 70;
+  }
+  budget.categories.forEach((item) => {
+    ensureSpace(doc, 31); const y = doc.y;
+    doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.5).text(item.categoryLabel || 'Categoría', 48, y, { width: 200, ellipsis: true });
+    doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(`${currencyValue(item.spent, currency)} / ${currencyValue(item.limit, currency)}`, 250, y, { width: 170, align: 'right' });
+    doc.fillColor(item.status === 'EXCEEDED' ? '#b91c1c' : COLORS.green).font('Helvetica-Bold')
+      .text(`${item.percentUsed.toFixed(1)}% - ${budgetStatusLabel(item.status)}`, 427, y, { width: 120, align: 'right', ellipsis: true });
+    doc.strokeColor(COLORS.line).moveTo(48, y + 20).lineTo(547, y + 20).stroke(); doc.y = y + 27;
+  });
+}
+
 const movementColumns = [
   ['Fecha', 48, 57], ['Comercio', 105, 112], ['Categoría', 217, 98],
   ['Banco', 315, 91], ['Monto', 406, 78], ['Estado', 484, 63],
@@ -159,7 +187,7 @@ function footers(doc: PDFKit.PDFDocument) {
   }
 }
 
-export function renderPdf(rows: FinancialRow[], summary: ReportSummary, presentation: ReportPresentation, currency: string, includeNotes: boolean) {
+export function renderPdf(rows: FinancialRow[], summary: ReportSummary, presentation: ReportPresentation, currency: string, includeNotes: boolean, budget: ReportBudget = null) {
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 48, bufferPages: true, info: { Title: presentation.title, Author: 'bills.' } });
     const chunks: Buffer[] = [];
@@ -171,6 +199,7 @@ export function renderPdf(rows: FinancialRow[], summary: ReportSummary, presenta
     if (selected.has('comparison')) comparison(doc, summary, currency);
     if (selected.has('categories')) bars(doc, 'Principales categorías', summary.byCategory.map((item) => ({ label: item.category, total: item.total })), currency);
     if (selected.has('merchants')) bars(doc, 'Principales comercios', summary.byMerchant.map((item) => ({ label: item.merchant, total: item.total })), currency);
+    if (selected.has('budget')) budgetSection(doc, budget, currency);
     if (selected.has('movements')) movements(doc, rows, includeNotes);
     footers(doc);
     doc.end();

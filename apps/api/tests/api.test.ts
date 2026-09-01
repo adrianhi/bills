@@ -40,6 +40,7 @@ async function cleanDatabase() {
   await prisma.inboxConnection.deleteMany();
   await prisma.transaction.deleteMany();
   await prisma.categoryRule.deleteMany();
+  await prisma.spendingBudgetLimit.deleteMany();
   await prisma.workspaceMember.deleteMany();
   await prisma.workspace.deleteMany();
   await prisma.profile.deleteMany();
@@ -295,6 +296,53 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     expect(reversed.body.data.merchant).toBe('Uber');
   });
 
+  it('replaces and resolves a monthly budget without counting hidden income', async () => {
+    const membership = await prisma.workspaceMember.findFirstOrThrow({
+      where: { profileId: userA.id }, select: { workspaceId: true },
+    });
+    await prisma.transaction.create({
+      data: {
+        workspaceId: membership.workspaceId, externalId: 'budget-pending-001', institutionCode: 'POPULAR',
+        ingestionChannel: 'GMAIL_OAUTH', rawMerchant: 'Supermercado pendiente', merchant: 'Supermercado pendiente',
+        category: 'Supermercado', amount: 75, currency: 'DOP', status: 'Pendiente', statusCode: 'PENDING',
+        transactionType: 'Compra', transactionDate: new Date('2026-08-20T16:00:00.000Z'), source: 'POPULAR_CARD_PURCHASE',
+      },
+    });
+    const replaced = await request(app).put('/api/v1/budgets/monthly').set(auth(userA)).send({
+      month: '2026-08', currency: 'DOP', propagation: 'CURRENT_MONTH', globalLimit: 10_000,
+      categories: [{ categoryKey: 'supermercado', amount: 5_000 }],
+    });
+    expect(replaced.status).toBe(200);
+    expect(replaced.body.data).toMatchObject({ month: '2026-08', currency: 'DOP', hasBudget: true });
+
+    const monthly = await request(app).get('/api/v1/budgets/monthly?month=2026-08&currency=DOP').set(auth(userA));
+    expect(monthly.status).toBe(200);
+    expect(monthly.body.data.global.pending).toBe(75);
+    expect(monthly.body.data.categories[0]).toMatchObject({ categoryKey: 'supermercado', pending: 75 });
+
+    const allApproved = await prisma.transaction.aggregate({
+      where: {
+        workspaceId: membership.workspaceId, currency: 'DOP', statusCode: 'APPROVED',
+        transactionDate: { gte: new Date('2026-08-01T04:00:00.000Z'), lt: new Date('2026-09-01T04:00:00.000Z') },
+      },
+      _sum: { amount: true },
+    });
+    expect(monthly.body.data.global.spent).toBe(Number(allApproved._sum.amount) - 1500);
+
+    const isolated = await request(app).get('/api/v1/budgets/monthly?month=2026-08&currency=DOP').set(auth(userB));
+    expect(isolated.status).toBe(200);
+    expect(isolated.body.data.hasBudget).toBe(false);
+
+    const report = await request(app)
+      .get('/api/v1/reports/financial-export?format=xlsx&month=2026-08&currency=DOP&sections=budget')
+      .set(auth(userA));
+    expect(report.status).toBe(200);
+    const invalidReport = await request(app)
+      .get('/api/v1/reports/financial-export?format=pdf&month=2026-08&currency=DOP&sections=budget&institutionCodes=BHD')
+      .set(auth(userA));
+    expect(invalidReport.status).toBe(400);
+  });
+
   it('resolves a reversal that was ingested before its approval', async () => {
     const reversal = await request(app).post('/api/v1/transactions').set(auth(userB)).send({
       externalId: 'bhd-reversed-before-approved',
@@ -421,6 +469,9 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     const response = await request(app).post('/api/v1/me/data-export').set(auth(userA));
     expect(response.status).toBe(200);
     expect(response.body.data.profile.email).toBe(userA.email);
+    expect(response.body.data.spendingBudgets).toEqual(expect.arrayContaining([
+      expect.objectContaining({ workspaceId: expect.any(String), currency: 'DOP', kind: 'MONTH_OVERRIDE' }),
+    ]));
     expect(JSON.stringify(response.body)).not.toContain('encryptedAccessToken');
     expect(JSON.stringify(response.body)).not.toContain('rawContent');
   });

@@ -6,9 +6,12 @@ interface Props {
   title: string; setTitle: (value: string) => void;
   sections: FinancialReportSection[]; setSections: (value: FinancialReportSection[]) => void;
   includeNotes: boolean; setIncludeNotes: (value: boolean) => void;
+  budgetEligible: boolean;
 }
 
-export function ExportCustomizationFields({ format, title, setTitle, sections, setSections, includeNotes, setIncludeNotes }: Props) {
+export function ExportCustomizationFields({
+  format, title, setTitle, sections, setSections, includeNotes, setIncludeNotes, budgetEligible,
+}: Props) {
   if (format === 'json') return (
     <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-xs text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-200">
       <p className="font-bold">Copia completa de la cuenta</p>
@@ -32,12 +35,14 @@ export function ExportCustomizationFields({ format, title, setTitle, sections, s
             <legend className="mb-1.5 text-xs font-medium">Secciones incluidas</legend>
             <div className="grid grid-cols-2 gap-1.5">
               {REPORT_SECTION_OPTIONS.map((option) => (
-                <label key={option.id} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-2 text-xs">
-                  <input type="checkbox" checked={sections.includes(option.id)} onChange={() => toggle(option.id)} className="accent-emerald-600" />{option.label}
+                <label key={option.id} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-2 text-xs has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+                  <input type="checkbox" checked={sections.includes(option.id)} onChange={() => toggle(option.id)}
+                    disabled={option.id === 'budget' && !budgetEligible} className="accent-emerald-600" />{option.label}
                 </label>
               ))}
             </div>
             {sections.length === 0 && <p className="mt-1.5 text-xs text-destructive">Selecciona al menos una sección.</p>}
+            {!budgetEligible && <p className="mt-1.5 text-xs text-muted-foreground">Presupuesto requiere un mes completo, DOP o USD y ningún filtro adicional.</p>}
           </fieldset>
         </>
       )}

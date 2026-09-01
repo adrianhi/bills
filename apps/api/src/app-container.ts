@@ -115,7 +115,7 @@ export const appContainer = {
   analyticsController: new AnalyticsController(analyticsService),
   categoryRuleController: new CategoryRuleController(categoryRuleService),
   transactionController: new TransactionHttpController(transactionService),
-  financialReportController: new FinancialReportController(new FinancialReportService(analyticsService, transactionService)),
+  financialReportController: new FinancialReportController(new FinancialReportService(analyticsService, transactionService, getMonthlyBudget)),
   readinessController: new ReadinessController(new PrismaReadinessRepository()),
   identityController: new IdentityController(new IdentityApplicationService(
     new PrismaProfileRepository(),
@@ -129,7 +129,7 @@ export const appContainer = {
   gmailSyncService,
   ingestionJobService,
   ingestionRunner,
-  accountController: new AccountController(new AccountService(gmailLifecycleService)),
+  accountController: new AccountController(new AccountService(gmailLifecycleService, budgetRepository)),
   workspaceService: WorkspaceService,
   legalService: LegalService,
   legalController: new LegalController({

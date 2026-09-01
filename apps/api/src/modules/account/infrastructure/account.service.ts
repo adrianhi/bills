@@ -3,6 +3,7 @@ import { config } from '../../../config';
 import { prisma } from '../../../config/database';
 import { AppError } from '../../../errors/app-error';
 import type { GmailConnectionLifecycle } from '../../connections';
+import type { BudgetRepository } from '../../budgets';
 
 function subjectHash(profileId: string, email: string) {
   const salt = config.legalAuditSalt || config.ingestionEncryptionKey || 'bills-local-development';
@@ -10,7 +11,10 @@ function subjectHash(profileId: string, email: string) {
 }
 
 export class AccountService {
-  public constructor(private readonly gmail: GmailConnectionLifecycle) {}
+  public constructor(
+    private readonly gmail: GmailConnectionLifecycle,
+    private readonly budgets: Pick<BudgetRepository, 'exportForWorkspaces'>,
+  ) {}
 
   public async exportData(profileId: string) {
     const profile = await prisma.profile.findUnique({
@@ -77,7 +81,9 @@ export class AccountService {
       },
     });
     if (!profile) throw new AppError(404, 'PROFILE_NOT_FOUND', 'Profile was not found.');
-    return { exportedAt: new Date().toISOString(), profile };
+    const workspaceIds = profile.memberships.map((membership) => membership.workspaceId);
+    const spendingBudgets = await this.budgets.exportForWorkspaces(workspaceIds);
+    return { exportedAt: new Date().toISOString(), profile, spendingBudgets };
   }
 
   public async deleteAccount(profileId: string) {

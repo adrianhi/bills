@@ -5,7 +5,7 @@ import { accountService } from '@/entities/account';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, SafeDiagnosticButton } from '@/shared/ui';
 import { shareOrDownloadFile, supportsFileShare } from '@/shared/lib';
 import { reportService, type FinancialReportSection } from '../api/report.service';
-import { type ExportFormat } from '../model/export-options';
+import { currentReportDate, type ExportFormat } from '../model/export-options';
 import { useReportInstitutions } from '../model/useReportInstitutions';
 import { ExportCustomizationFields } from './ExportCustomizationFields';
 import { ExportFormatSelector } from './ExportFormatSelector';
@@ -27,8 +27,9 @@ export function ExportModal({ open, onOpenChange, initialPeriod, initialCurrency
   const [format, setFormat] = useState<ExportFormat>('xlsx');
   const [currency, setCurrency] = useState(initialCurrency);
   const [periodType, setPeriodType] = useState<'current' | 'all' | 'custom'>('current');
-  const [customStartDate, setCustomStartDate] = useState(initialPeriod?.startDate || `${new Date().toISOString().slice(0, 7)}-01`);
-  const [customEndDate, setCustomEndDate] = useState(initialPeriod?.endDate || new Date().toISOString().slice(0, 10));
+  const today = currentReportDate();
+  const [customStartDate, setCustomStartDate] = useState(initialPeriod?.startDate || `${today.slice(0, 7)}-01`);
+  const [customEndDate, setCustomEndDate] = useState(initialPeriod?.endDate || today);
   const [institutionCodes, setInstitutionCodes] = useState<string[]>(initialFilters.organization ? [initialFilters.organization] : []);
   const [category, setCategory] = useState(initialFilters.category || '');
   const [status, setStatus] = useState(initialFilters.status || '');
@@ -47,20 +48,28 @@ export function ExportModal({ open, onOpenChange, initialPeriod, initialCurrency
   useEffect(() => {
     if (!open) return;
     // oxlint-disable-next-line react/set-state-in-effect -- opening resets the form from the dashboard snapshot
+    setPeriodType('current');
+    setCustomStartDate(initialPeriod?.startDate || `${currentReportDate().slice(0, 7)}-01`);
+    setCustomEndDate(initialPeriod?.endDate || currentReportDate());
     setCurrency(initialCurrency);
     setInstitutionCodes(initialFilters.organization ? [initialFilters.organization] : []);
     setCategory(initialFilters.category || ''); setStatus(initialFilters.status || '');
     setTransactionType(initialFilters.transactionType || ''); setSearch(initialFilters.search || '');
     setOutcome(null); setError(null);
-  }, [open, initialCurrency, initialFilters.category, initialFilters.organization, initialFilters.search, initialFilters.status, initialFilters.transactionType]);
+  }, [open, initialCurrency, initialFilters.category, initialFilters.organization, initialFilters.search, initialFilters.status, initialFilters.transactionType, initialPeriod?.endDate, initialPeriod?.startDate]);
 
   const periodParams = () => {
     if (periodType === 'all') return {};
     if (periodType === 'custom') return { startDate: customStartDate, endDate: customEndDate };
     if (initialPeriod?.month) return { month: initialPeriod.month };
     if (initialPeriod?.startDate && initialPeriod?.endDate) return { startDate: initialPeriod.startDate, endDate: initialPeriod.endDate };
-    return { month: new Date().toISOString().slice(0, 7) };
+    return { month: currentReportDate().slice(0, 7) };
   };
+
+  const selectedPeriod = periodParams();
+  const budgetEligible = richFormat && 'month' in selectedPeriod && Boolean(selectedPeriod.month)
+    && (currency === 'DOP' || currency === 'USD') && institutionCodes.length === 0
+    && !category && !status && !transactionType && !search;
 
   const handleExport = async () => {
     setWorking(true); setError(null); setOutcome(null);
@@ -85,6 +94,7 @@ export function ExportModal({ open, onOpenChange, initialPeriod, initialCurrency
   };
 
   const invalidSections = richFormat && sections.length === 0;
+  const invalidBudget = richFormat && sections.includes('budget') && !budgetEligible;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto p-5 sm:max-w-2xl sm:p-6">
@@ -105,7 +115,7 @@ export function ExportModal({ open, onOpenChange, initialPeriod, initialCurrency
           />}
           <ExportFormatSelector format={format} setFormat={setFormat} />
           <ExportCustomizationFields format={format} title={title} setTitle={setTitle} sections={sections}
-            setSections={setSections} includeNotes={includeNotes} setIncludeNotes={setIncludeNotes} />
+            setSections={setSections} includeNotes={includeNotes} setIncludeNotes={setIncludeNotes} budgetEligible={budgetEligible} />
           {error !== null && <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
             <p className="font-semibold">No pudimos generar el archivo</p>
             <p className="mt-0.5">{error instanceof Error ? error.message : 'Error inesperado durante la exportación.'}</p>
@@ -116,7 +126,7 @@ export function ExportModal({ open, onOpenChange, initialPeriod, initialCurrency
           </div>}
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={working} className="min-h-11">Cerrar</Button>
-            <Button onClick={() => void handleExport()} disabled={working || invalidSections} className="min-h-11 gap-2 font-bold shadow-md">
+            <Button onClick={() => void handleExport()} disabled={working || invalidSections || invalidBudget} className="min-h-11 gap-2 font-bold shadow-md">
               {working ? <><Loader2 className="h-4 w-4 animate-spin" />Generando {format.toUpperCase()}...</>
                 : canShare ? <><Share2 className="h-4 w-4" />Compartir o descargar</>
                   : <><Download className="h-4 w-4" />Descargar {format.toUpperCase()}</>}

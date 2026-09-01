@@ -1,7 +1,7 @@
 import { httpClient } from '@/shared/api';
 
 export type FinancialReportFormat = 'csv' | 'xlsx' | 'pdf';
-export type FinancialReportSection = 'summary' | 'comparison' | 'categories' | 'merchants' | 'movements';
+export type FinancialReportSection = 'summary' | 'comparison' | 'categories' | 'merchants' | 'movements' | 'budget';
 
 export interface FinancialReportParams {
   format: FinancialReportFormat;

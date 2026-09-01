@@ -6,6 +6,7 @@ import { TransactionApplicationService } from '../../transactions/application/tr
 import { financialRows, reportPresentation } from './financial-report-data';
 import { renderPdf } from './pdf-report.renderer';
 import { renderXlsx } from './xlsx-report.renderer';
+import type { GetMonthlyBudget } from '../../budgets';
 
 export { safeSpreadsheetText } from './financial-report-data';
 
@@ -36,6 +37,7 @@ export class FinancialReportService {
   constructor(
     private readonly analytics: AnalyticsService,
     private readonly transactions: TransactionApplicationService,
+    private readonly budgets: Pick<GetMonthlyBudget, 'execute'>,
   ) {}
 
   async generate(workspaceId: string, query: FinancialReportQueryInput): Promise<GeneratedFinancialReport> {
@@ -54,15 +56,18 @@ export class FinancialReportService {
 
     const summary = await this.analytics.getSummary(workspaceId, filters);
     const presentation = reportPresentation(query, summary);
+    const budget = query.sections?.includes('budget')
+      ? await this.budgets.execute(workspaceId, query.month!, (query.currency || 'DOP') as 'DOP' | 'USD')
+      : null;
     if (format === 'xlsx') {
       return {
-        buffer: await renderXlsx(rows, summary, presentation),
+        buffer: await renderXlsx(rows, summary, presentation, budget),
         contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         extension: 'xlsx', rowCount: rows.length,
       };
     }
     return {
-      buffer: await renderPdf(rows, summary, presentation, filters.currency || 'DOP', includeNotes),
+      buffer: await renderPdf(rows, summary, presentation, filters.currency || 'DOP', includeNotes, budget),
       contentType: 'application/pdf', extension: 'pdf', rowCount: rows.length,
     };
   }

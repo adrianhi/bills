@@ -53,4 +53,11 @@ export const REPORT_SECTION_OPTIONS: Array<{ id: FinancialReportSection; label: 
   { id: 'categories', label: 'Categorías' },
   { id: 'merchants', label: 'Comercios' },
   { id: 'movements', label: 'Movimientos' },
+  { id: 'budget', label: 'Presupuesto' },
 ];
+
+export function currentReportDate(now = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santo_Domingo', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
+}
