@@ -23,12 +23,18 @@ export type ReportPeriod =
   | { kind: 'month'; month: string }
   | { kind: 'range'; startDate: string; endDate: string };
 
-export function computePresetRange(preset: 'last3' | 'last6', today = currentReportDate()): { startDate: string; endDate: string } {
+export function calculatePresetRange(monthsBack: number, today = currentReportDate()): { startDate: string; endDate: string } {
   const [year, month] = today.split('-').map(Number);
-  const monthsBack = preset === 'last3' ? 2 : 5;
-  const start = new Date(year, month - 1 - monthsBack, 1);
-  const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-01`;
+  const startDateObj = new Date(Date.UTC(year, (month - 1) - (monthsBack - 1), 1));
+  const startYear = startDateObj.getUTCFullYear();
+  const startMonth = String(startDateObj.getUTCMonth() + 1).padStart(2, '0');
+  const startDate = `${startYear}-${startMonth}-01`;
   return { startDate, endDate: today };
+}
+
+export function computePresetRange(preset: 'last3' | 'last6', today = currentReportDate()): { startDate: string; endDate: string } {
+  const monthsBack = preset === 'last3' ? 3 : 6;
+  return calculatePresetRange(monthsBack, today);
 }
 
 export function createExportForm(initial: ExportFormInitial, today = currentReportDate()): ExportFormState {
