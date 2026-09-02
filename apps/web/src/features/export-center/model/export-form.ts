@@ -10,6 +10,8 @@ export interface ExportFormInitial {
   initialCurrency?: string;
   initialFilters?: ExportFilters;
 }
+export type ExportPeriodType = 'current' | 'last3' | 'last6' | 'all' | 'custom';
+
 export interface ExportFormState {
   format: ExportFormat; currency: string; periodType: ExportPeriodType;
   customStartDate: string; customEndDate: string; institutionCodes: string[];
@@ -21,12 +23,11 @@ export type ReportPeriod =
   | { kind: 'month'; month: string }
   | { kind: 'range'; startDate: string; endDate: string };
 
-export function calculatePresetRange(monthsBack: number, today = currentReportDate()): { startDate: string; endDate: string } {
+export function computePresetRange(preset: 'last3' | 'last6', today = currentReportDate()): { startDate: string; endDate: string } {
   const [year, month] = today.split('-').map(Number);
-  const startDateObj = new Date(Date.UTC(year, (month - 1) - (monthsBack - 1), 1));
-  const startYear = startDateObj.getUTCFullYear();
-  const startMonth = String(startDateObj.getUTCMonth() + 1).padStart(2, '0');
-  const startDate = `${startYear}-${startMonth}-01`;
+  const monthsBack = preset === 'last3' ? 2 : 5;
+  const start = new Date(year, month - 1 - monthsBack, 1);
+  const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-01`;
   return { startDate, endDate: today };
 }
 
@@ -45,6 +46,10 @@ export function createExportForm(initial: ExportFormInitial, today = currentRepo
 
 export function selectedReportPeriod(state: ExportFormState, initial?: PeriodSelection, today = currentReportDate()): ReportPeriod {
   if (state.periodType === 'all') return { kind: 'all' };
+  if (state.periodType === 'last3' || state.periodType === 'last6') {
+    const range = computePresetRange(state.periodType, today);
+    return { kind: 'range', startDate: range.startDate, endDate: range.endDate };
+  }
   if (state.periodType === 'custom') return { kind: 'range', startDate: state.customStartDate, endDate: state.customEndDate };
   if (state.periodType === '3m' || state.periodType === 'last_3_months') {
     return { kind: 'range', ...calculatePresetRange(3, today) };

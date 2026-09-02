@@ -9,7 +9,13 @@ import { renderPdf } from './pdf-report.renderer';
 import { renderXlsx } from './xlsx-report.renderer';
 import type { GetMonthlyBudget } from '../../budgets';
 
-export { safeSpreadsheetText } from './financial-report-data';
+export {
+  safeSpreadsheetText,
+  budgetHealthSummary,
+  categoryBudgetRows,
+  formatDelta,
+  sortAndRankItems,
+} from './financial-report-data';
 
 const PDF_REPORT_LIMIT = 500;
 const XLSX_REPORT_LIMIT = 5_000;

@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react';
-import { Download } from 'lucide-react';
+import { FileDown } from 'lucide-react';
 import type { StatsSummary } from '@/entities/stat';
 import { ComparisonDetails } from '@/widgets/spending-perspective';
 import { Button, Card, CardContent } from '@/shared/ui';
@@ -52,16 +52,17 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
             Tendencias y categorías para tomar mejores decisiones.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {periodToolbar}
           {onExport && (
             <Button
               variant="outline"
+              size="sm"
+              className="gap-2 shrink-0 cursor-pointer"
               onClick={onExport}
-              className="min-h-12 cursor-pointer gap-2 rounded-2xl border-border px-4 text-xs font-semibold shadow-sm hover:bg-muted"
             >
-              <Download className="h-4 w-4 text-emerald-500" />
-              <span>Exportar informe</span>
+              <FileDown className="h-4 w-4 text-emerald-500" />
+              <span>Exportar reporte</span>
             </Button>
           )}
         </div>
