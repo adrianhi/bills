@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { AuthScreen, useAuthSession } from '@/features/auth';
 import { BankOnboarding } from '@/features/onboarding';
 import { LegalAcceptanceScreen, LegalDocumentPage } from '@/features/legal';
+import { LoadingScreen } from '@/shared/ui';
 
 const DashboardPage = lazy(async () => {
   const module = await import('@/pages/dashboard');
@@ -23,6 +24,15 @@ export function App() {
     setProductGuide,
     handleLock,
   } = useAuthSession();
+
+  if (checkingSession) {
+    return (
+      <LoadingScreen
+        message="Iniciando Bills…"
+        description="Validando tus credenciales seguras…"
+      />
+    );
+  }
 
   let protectedContent;
   if (!authToken) {
@@ -45,21 +55,22 @@ export function App() {
     );
   } else {
     protectedContent = (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-          Cargando tu dashboard…
-        </div>
-      }
-    >
-      <DashboardPage
-        authToken={authToken}
-        productGuide={productGuide}
-        onProductGuideChange={setProductGuide}
-        onLock={() => void handleLock()}
-        onAccountDeleted={() => void handleLock()}
-      />
-    </Suspense>
+      <Suspense
+        fallback={
+          <LoadingScreen
+            message="Cargando Bills…"
+            description="Preparando tu dashboard y herramientas…"
+          />
+        }
+      >
+        <DashboardPage
+          authToken={authToken}
+          productGuide={productGuide}
+          onProductGuideChange={setProductGuide}
+          onLock={() => void handleLock()}
+          onAccountDeleted={() => void handleLock()}
+        />
+      </Suspense>
     );
   }
 

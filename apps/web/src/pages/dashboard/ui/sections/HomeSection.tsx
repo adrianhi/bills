@@ -4,7 +4,7 @@ import type { StatsSummary } from '@/entities/stat';
 import type { Transaction } from '@/entities/transaction';
 import { MetricCards } from '@/widgets/metric-summary';
 import { MonthPerspectiveCard } from '@/widgets/spending-perspective';
-import { Button, Card, CardContent } from '@/shared/ui';
+import { Button, Card, CardContent, LoadingScreen } from '@/shared/ui';
 import { ConnectionHealthCard } from '../ConnectionHealthCard';
 import { RecentTransactionsCard } from './RecentTransactionsCard';
 import { CurrentBudgetCard } from './CurrentBudgetCard';
@@ -59,6 +59,16 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
   onSelectTransaction,
   onAddManual,
 }) => {
+  if ((loadingTransactions && transactions.length === 0) || (loadingStats && !stats)) {
+    return (
+      <LoadingScreen
+        message="Cargando tu panorama…"
+        description="Sincronizando tus cuentas y métricas principales."
+        fullPage
+      />
+    );
+  }
+
   return (
     <>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">

@@ -1,7 +1,7 @@
 import React, { type ReactNode } from 'react';
 import type { StatsSummary } from '@/entities/stat';
 import { ComparisonDetails } from '@/widgets/spending-perspective';
-import { Button, Card, CardContent } from '@/shared/ui';
+import { Button, Card, CardContent, LoadingScreen } from '@/shared/ui';
 import type { PeriodSelection } from '@/entities/period';
 import { AnalyticsBudgetCard } from './AnalyticsBudgetCard';
 
@@ -38,6 +38,16 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
   hideBalances,
   onRefresh,
 }) => {
+  if (loadingStats && !stats) {
+    return (
+      <LoadingScreen
+        message="Preparando analítica…"
+        description="Calculando tendencias, categorías y comparativas."
+        fullPage
+      />
+    );
+  }
+
   return (
     <>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
