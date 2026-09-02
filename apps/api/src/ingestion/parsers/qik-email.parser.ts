@@ -37,11 +37,27 @@ function amountFrom(content: string) {
 function field(content: string, labels: string[]) {
   const match = content.match(
     new RegExp(
-      `(?:${labels.join('|')})\\s*:?\\s*(.{2,100}?)(?=\\s+(?:Monto|Importe|Fecha|Hora|Estado|Tarjeta|Comercio|Beneficiario|Remitente|Referencia)\\s*:|$)`,
+      `(?:${labels.join('|')})\\s*:?\\s*(.{2,100}?)(?=\\s+(?:Monto|Importe|Fecha(?:\\s+y\\s+hora)?|Hora|Estado|Tarjeta|Comercio|Beneficiario|Remitente|Referencia|Balance)\\s*:|$)`,
       'i'
     )
   );
   return match?.[1]?.trim() || null;
+}
+
+function dateFrom(content: string): Date | null {
+  const match = content.match(/Fecha(?:\s+y\s+hora)?\s*:\s*(\d{2})[-/](\d{2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{2})(?:\s*([ap]\.?m\.?))?)?/i);
+  if (!match) return null;
+  const [, p1, p2, yearStr, hourStr, minStr, ampm] = match;
+  const n1 = Number(p1);
+  const n2 = Number(p2);
+  const month = n1 > 12 ? n2 : n1;
+  const day = month === n1 ? n2 : n1;
+  const year = Number(yearStr);
+  let hours = hourStr ? Number(hourStr) : 12;
+  const minutes = minStr ? Number(minStr) : 0;
+  if (ampm && /pm/i.test(ampm) && hours < 12) hours += 12;
+  if (ampm && /am/i.test(ampm) && hours === 12) hours = 0;
+  return new Date(Date.UTC(year, month - 1, day, hours + 4, minutes));
 }
 
 function safeId(value: string) {
@@ -50,11 +66,11 @@ function safeId(value: string) {
 
 export class QikEmailParser implements BankEmailParser {
   public readonly institutionCode = 'QIK';
-  public readonly version = '0.1.0-beta';
+  public readonly version = '0.2.0';
 
   public canParse(email: NormalizedEmail) {
     const source = `${email.from} ${email.text || ''} ${toText(email.html || '')}`.toLowerCase();
-    return /@(?:[\w-]+\.)*qik(?:\.com)?\.do\b/.test(source);
+    return /@(?:[\w-]+\.)*qik(?:\.com)?\.do\b/.test(source) || /tarjeta\s+de\s+d[eé]bito\s+qik/i.test(source);
   }
 
   public async parse(email: NormalizedEmail, context?: ParserContext): Promise<ParseResult> {
@@ -80,13 +96,18 @@ export class QikEmailParser implements BankEmailParser {
       ? field(content, ['Remitente', 'Ordenante']) || 'Transferencia recibida'
       : sent
         ? field(content, ['Beneficiario', 'Destinatario']) || 'Transferencia enviada'
-        : field(content, ['Comercio', 'Establecimiento', 'Descripci[oó]n']);
+        : field(content, ['Comercio', 'Establecimiento', 'Descripci[oó]n', 'Localidad'])
+          || content.match(/(?:en|comercio|establecimiento)\s+([^.]+?)\s+con\s+tu\s+tarjeta/i)?.[1]?.trim()
+          || null;
 
     if (!merchant) return { status: 'unsupported', reason: 'MERCHANT_NOT_FOUND' };
 
     const reference = content.match(/(?:Referencia|Confirmaci[oó]n)\s*:\s*([A-Z0-9-]{5,})/i)?.[1];
-    const cardLast4 = content.match(/(?:tarjeta|terminada en)\D{0,24}(\d{4})\b/i)?.[1] || null;
+    const cardLast4 = content.match(/\*{4,}(\d{4})\b/)?.[1]
+      || content.match(/(?:tarjeta|termina(?:da)? en)\D{0,24}(\d{4})\b/i)?.[1]
+      || null;
     const statusCode = normalizeTransactionStatus(content);
+    const parsedDate = dateFrom(content);
     const transaction: NormalizedTransaction = {
       externalId: `qik_${safeId(reference || email.messageId || email.id)}`,
       cardLast4,
@@ -97,7 +118,7 @@ export class QikEmailParser implements BankEmailParser {
       status: transactionStatusLabel(statusCode),
       statusCode,
       transactionType,
-      transactionDate: email.receivedAt,
+      transactionDate: parsedDate || email.receivedAt,
       source: received ? 'QIK_TRANSFER_INCOME' : sent ? 'QIK_TRANSFER_EMAIL' : 'QIK_EMAIL',
       institutionCode: this.institutionCode,
       ingestionChannel: context?.ingestionChannel || 'GMAIL_OAUTH',
