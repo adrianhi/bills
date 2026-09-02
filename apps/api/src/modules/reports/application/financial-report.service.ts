@@ -1,8 +1,9 @@
 import { stringify } from 'csv-stringify/sync';
 import { AppError } from '../../../errors/app-error';
 import type { FinancialReportQueryInput } from '../../../schemas/transaction.schema';
-import { AnalyticsService } from '../../analytics/application/analytics.service';
-import { TransactionApplicationService } from '../../transactions/application/transaction-application.service';
+import type { AnalyticsService } from '../../analytics';
+import type { TransactionApplicationService } from '../../transactions';
+import { resolveReportScope } from '../domain/report-scope';
 import { financialRows, reportPresentation } from './financial-report-data';
 import { renderPdf } from './pdf-report.renderer';
 import { renderXlsx } from './xlsx-report.renderer';
@@ -35,13 +36,18 @@ function oversizedMessage(format: FinancialReportQueryInput['format'], limit: nu
 
 export class FinancialReportService {
   constructor(
-    private readonly analytics: AnalyticsService,
-    private readonly transactions: TransactionApplicationService,
+    private readonly analytics: Pick<AnalyticsService, 'getSummary'>,
+    private readonly transactions: Pick<TransactionApplicationService, 'export'>,
     private readonly budgets: Pick<GetMonthlyBudget, 'execute'>,
   ) {}
 
   async generate(workspaceId: string, query: FinancialReportQueryInput): Promise<GeneratedFinancialReport> {
-    const { format, includeNotes, title: _title, sections: _sections, ...filters } = query;
+    const scope = resolveReportScope(query);
+    const { format, includeNotes, title: _title, sections: _sections, ...requestedFilters } = query;
+    const filters = {
+      ...requestedFilters, currency: scope.currency, month: undefined,
+      startDate: scope.comparison?.current.startDate, endDate: scope.comparison?.current.endDate,
+    };
     const limit = reportLimit(format);
     const transactions = await this.transactions.export(workspaceId, { ...filters, format: 'json' }, limit + 1);
     if (transactions.length > limit) throw new AppError(413, 'REPORT_TOO_LARGE', oversizedMessage(format, limit));
@@ -54,10 +60,10 @@ export class FinancialReportService {
       };
     }
 
-    const summary = await this.analytics.getSummary(workspaceId, filters);
-    const presentation = reportPresentation(query, summary);
+    const summary = await this.analytics.getSummary(workspaceId, filters, scope.comparison);
+    const presentation = reportPresentation(query, scope);
     const budget = query.sections?.includes('budget')
-      ? await this.budgets.execute(workspaceId, query.month!, (query.currency || 'DOP') as 'DOP' | 'USD')
+      ? await this.budgets.execute(workspaceId, query.month!, scope.currency)
       : null;
     if (format === 'xlsx') {
       return {
@@ -67,7 +73,7 @@ export class FinancialReportService {
       };
     }
     return {
-      buffer: await renderPdf(rows, summary, presentation, filters.currency || 'DOP', includeNotes, budget),
+      buffer: await renderPdf(rows, summary, presentation, scope.currency, includeNotes, budget),
       contentType: 'application/pdf', extension: 'pdf', rowCount: rows.length,
     };
   }
