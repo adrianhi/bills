@@ -9,6 +9,8 @@ import {
   DARK,
   GREEN,
   MINT,
+  RED_FILL,
+  RED_TEXT,
   getColumnLetter,
   styleDataRow,
   styleTableHeader,
@@ -105,6 +107,7 @@ function addMovements(workbook: ExcelJS.Workbook, rows: FinancialRow[], presenta
 
   const amountColIndex = columns.indexOf('Monto') + 1;
   const dateColIndex = columns.indexOf('Fecha') + 1;
+  const statusColIndex = columns.indexOf('Estado') + 1;
 
   rows.forEach((row, idx) => {
     const values = columns.map((column) => {
@@ -119,6 +122,13 @@ function addMovements(workbook: ExcelJS.Workbook, rows: FinancialRow[], presenta
 
     const dataRow = sheet.addRow(values);
     styleDataRow(dataRow, idx % 2 === 1);
+
+    if (statusColIndex > 0 && /rechazada|declinada/i.test(String(row.Estado || ''))) {
+      const cell = dataRow.getCell(statusColIndex);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: RED_FILL } };
+      cell.font = { bold: true, color: { argb: RED_TEXT } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
 
     if (String(row.Comercio).length > 28 || ('Notas' in row && row.Notas)) {
       dataRow.height = 36;
