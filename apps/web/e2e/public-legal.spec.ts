@@ -13,6 +13,6 @@ test('public legal route renders through the real router and API contract', asyn
 test('an unauthenticated visitor reaches the sign-in experience', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: /bills/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Continuar con Google' })).toBeVisible();
-  await expect(page.getByPlaceholder('tu@email.com')).toBeVisible();
+  await expect(page.getByRole('button', { name: /continuar con google/i })).toBeVisible();
+  await expect(page.getByText(/autenticación rápida y segura con tu cuenta de gmail/i)).toBeVisible();
 });
