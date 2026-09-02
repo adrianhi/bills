@@ -1,4 +1,5 @@
 import React, { type ReactNode } from 'react';
+import { FileDown } from 'lucide-react';
 import type { StatsSummary } from '@/entities/stat';
 import { ComparisonDetails } from '@/widgets/spending-perspective';
 import { Button, Card, CardContent } from '@/shared/ui';
@@ -26,6 +27,7 @@ interface AnalyticsSectionProps {
   currency: string;
   hideBalances: boolean;
   onRefresh: () => void;
+  onExport?: () => void;
 }
 
 export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
@@ -37,6 +39,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
   currency,
   hideBalances,
   onRefresh,
+  onExport,
 }) => {
   return (
     <>
@@ -49,7 +52,18 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
             Tendencias y categorías para tomar mejores decisiones.
           </p>
         </div>
-        {periodToolbar}
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          {periodToolbar}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 shrink-0"
+            onClick={onExport}
+          >
+            <FileDown className="h-4 w-4 text-muted-foreground" />
+            <span>Exportar reporte</span>
+          </Button>
+        </div>
       </div>
 
       {statsError && !stats ? (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canIncludeBudget, createExportForm, exportFormError, reportPeriodParams, selectedReportPeriod } from './export-form';
+import { canIncludeBudget, computePresetRange, createExportForm, exportFormError, reportPeriodParams, selectedReportPeriod } from './export-form';
 
 const today = '2026-09-02';
 describe('export form scope', () => {
@@ -17,6 +17,32 @@ describe('export form scope', () => {
     expect(reportPeriodParams(selectedReportPeriod(state, { label: 'Julio', month: '2026-07' }, today))).toEqual({ month: '2026-07' });
     const range = { startDate: '2026-01-01', endDate: '2026-01-01' };
     expect(reportPeriodParams(selectedReportPeriod(state, { ...range, label: 'Un día' }, today))).toEqual(range);
+  });
+  it('computes last3 and last6 quick presets smoothly', () => {
+    expect(computePresetRange('last3', today)).toEqual({
+      startDate: '2026-07-01',
+      endDate: '2026-09-02',
+    });
+    expect(computePresetRange('last6', today)).toEqual({
+      startDate: '2026-04-01',
+      endDate: '2026-09-02',
+    });
+
+    const state3 = { ...createExportForm({}, today), periodType: 'last3' as const };
+    const period3 = selectedReportPeriod(state3, undefined, today);
+    expect(reportPeriodParams(period3)).toEqual({
+      startDate: '2026-07-01',
+      endDate: '2026-09-02',
+    });
+    expect(exportFormError(state3, period3, today)).toBeNull();
+
+    const state6 = { ...createExportForm({}, today), periodType: 'last6' as const };
+    const period6 = selectedReportPeriod(state6, undefined, today);
+    expect(reportPeriodParams(period6)).toEqual({
+      startDate: '2026-04-01',
+      endDate: '2026-09-02',
+    });
+    expect(exportFormError(state6, period6, today)).toBeNull();
   });
   it('keeps an incompatible budget selected until the user removes it', () => {
     const period = { kind: 'month', month: '2026-08' } as const;

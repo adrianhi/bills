@@ -2,13 +2,15 @@ import type { Institution } from '@/entities/connection';
 import type { PeriodSelection } from '@/entities/period';
 import { Building2, Calendar, Coins, Filter, Search } from 'lucide-react';
 import { COMMON_CATEGORIES } from '@/shared/config/financial-options';
+import { formatDateLabel } from '@/shared/lib';
 import { DatePickerField } from '@/shared/ui';
+import { computePresetRange, type ExportPeriodType } from '../model/export-form';
 import { currentReportDate } from '../model/export-options';
 
 interface ExportScopeFieldsProps {
   initialPeriod?: PeriodSelection;
-  periodType: 'current' | 'all' | 'custom';
-  setPeriodType: (value: 'current' | 'all' | 'custom') => void;
+  periodType: ExportPeriodType;
+  setPeriodType: (value: ExportPeriodType) => void;
   customStartDate: string; setCustomStartDate: (value: string) => void;
   customEndDate: string; setCustomEndDate: (value: string) => void;
   currency: string; setCurrency: (value: string) => void;
@@ -28,6 +30,16 @@ export function ExportScopeFields(props: ExportScopeFieldsProps) {
       ? props.institutionCodes.filter((item) => item !== code)
       : [...props.institutionCodes, code],
   );
+
+  const handlePeriodType = (value: ExportPeriodType) => {
+    props.setPeriodType(value);
+    if (value === 'last3' || value === 'last6') {
+      const range = computePresetRange(value);
+      props.setCustomStartDate(range.startDate);
+      props.setCustomEndDate(range.endDate);
+    }
+  };
+
   return (
     <div className="space-y-4 rounded-2xl border border-border/70 bg-card/60 p-4">
       <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -36,18 +48,28 @@ export function ExportScopeFields(props: ExportScopeFieldsProps) {
 
       <div>
         <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><Calendar className="h-3.5 w-3.5 text-muted-foreground" />Período a exportar</label>
-        <div className="grid grid-cols-3 gap-1.5 text-xs font-semibold">
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 text-xs font-semibold">
           {([
             ['current', props.initialPeriod?.label || 'Mes actual'],
+            ['last3', 'Últimos 3 meses - Comparativa MoM'],
+            ['last6', 'Últimos 6 meses'],
             ['all', 'Todo el histórico'],
             ['custom', 'Personalizado'],
           ] as const).map(([value, label]) => (
-            <button key={value} type="button" onClick={() => props.setPeriodType(value)}
-              className={`rounded-xl border px-2 py-2 transition-all ${props.periodType === value ? 'border-primary bg-primary/10 text-primary shadow-sm' : 'border-border bg-background text-muted-foreground hover:text-foreground'}`}>
+            <button key={value} type="button" onClick={() => handlePeriodType(value)}
+              className={`rounded-xl border px-2 py-2 transition-all text-center ${props.periodType === value ? 'border-primary bg-primary/10 text-primary shadow-sm font-bold' : 'border-border bg-background text-muted-foreground hover:text-foreground'} ${value === 'custom' ? 'col-span-2 sm:col-span-1' : ''}`}>
               {label}
             </button>
           ))}
         </div>
+        {(props.periodType === 'last3' || props.periodType === 'last6') && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Rango:{' '}
+            <span className="font-medium text-foreground">
+              {formatDateLabel(computePresetRange(props.periodType).startDate, { day: 'numeric', month: 'short', year: 'numeric' })} — {formatDateLabel(computePresetRange(props.periodType).endDate, { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          </p>
+        )}
         {props.periodType === 'custom' && (
           <div className="mt-2.5">
             <DatePickerField mode="range" value={{ from: props.customStartDate, to: props.customEndDate }}

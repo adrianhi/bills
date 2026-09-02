@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowUpRight, CreditCard, Search, ShoppingCart, SlidersHorizontal, Utensils, X } from 'lucide-react';
+import { ArrowUpRight, CreditCard, FileDown, Search, ShoppingCart, SlidersHorizontal, Utensils, X } from 'lucide-react';
 import { Badge, Button, CardHeader, CardTitle, Input } from '@/shared/ui';
 
 export interface TransactionFilterState {
@@ -16,13 +16,14 @@ interface Props {
   onFilterChange: (filter: keyof TransactionFilterState, value: string) => void;
   onReset: () => void;
   onOpenFilters: () => void;
+  onExport?: () => void;
 }
 
 const QuickChip = ({ active, icon, label, onClick }: { active: boolean; icon?: ReactNode; label: string; onClick: () => void }) => (
   <button type="button" onClick={onClick} className={`flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold transition-all ${active ? 'bg-emerald-500/20 text-emerald-600 ring-1 ring-emerald-500/40 dark:text-emerald-400' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}>{icon}{label}</button>
 );
 
-export const TransactionTableHeader = ({ total, filters, onFilterChange, onReset, onOpenFilters }: Props) => {
+export const TransactionTableHeader = ({ total, filters, onFilterChange, onReset, onOpenFilters, onExport }: Props) => {
   const activeCount = [filters.category, filters.status, filters.organization, filters.type].filter(Boolean).length;
   const toggle = (filter: keyof TransactionFilterState, value: string) => onFilterChange(filter, filters[filter] === value ? '' : value);
   const activeFilters: Array<[keyof TransactionFilterState, string, string]> = [
@@ -46,6 +47,7 @@ export const TransactionTableHeader = ({ total, filters, onFilterChange, onReset
             {filters.search && <button type="button" onClick={() => onFilterChange('search', '')} className="absolute right-2.5 top-2.5 cursor-pointer text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>}
           </div>
           <Button variant="outline" size="sm" onClick={onOpenFilters} className="h-9 shrink-0 cursor-pointer gap-2 px-3"><SlidersHorizontal className="h-3.5 w-3.5 text-emerald-500" /><span className="text-xs font-semibold">Filtros</span>{activeCount > 0 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">{activeCount}</span>}</Button>
+          <Button variant="outline" size="sm" onClick={onExport} className="h-9 shrink-0 cursor-pointer gap-2 px-3"><FileDown className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-semibold">Exportar</span></Button>
         </div>
       </div>
 

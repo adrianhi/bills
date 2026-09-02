@@ -10,8 +10,10 @@ export interface ExportFormInitial {
   initialCurrency?: string;
   initialFilters?: ExportFilters;
 }
+export type ExportPeriodType = 'current' | 'last3' | 'last6' | 'all' | 'custom';
+
 export interface ExportFormState {
-  format: ExportFormat; currency: string; periodType: 'current' | 'all' | 'custom';
+  format: ExportFormat; currency: string; periodType: ExportPeriodType;
   customStartDate: string; customEndDate: string; institutionCodes: string[];
   category: string; status: string; transactionType: string; search: string;
   title: string; sections: FinancialReportSection[]; includeNotes: boolean;
@@ -20,6 +22,14 @@ export type ReportPeriod =
   | { kind: 'all' }
   | { kind: 'month'; month: string }
   | { kind: 'range'; startDate: string; endDate: string };
+
+export function computePresetRange(preset: 'last3' | 'last6', today = currentReportDate()): { startDate: string; endDate: string } {
+  const [year, month] = today.split('-').map(Number);
+  const monthsBack = preset === 'last3' ? 2 : 5;
+  const start = new Date(year, month - 1 - monthsBack, 1);
+  const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-01`;
+  return { startDate, endDate: today };
+}
 
 export function createExportForm(initial: ExportFormInitial, today = currentReportDate()): ExportFormState {
   const filters = initial.initialFilters || {};
@@ -36,6 +46,10 @@ export function createExportForm(initial: ExportFormInitial, today = currentRepo
 
 export function selectedReportPeriod(state: ExportFormState, initial?: PeriodSelection, today = currentReportDate()): ReportPeriod {
   if (state.periodType === 'all') return { kind: 'all' };
+  if (state.periodType === 'last3' || state.periodType === 'last6') {
+    const range = computePresetRange(state.periodType, today);
+    return { kind: 'range', startDate: range.startDate, endDate: range.endDate };
+  }
   if (state.periodType === 'custom') return { kind: 'range', startDate: state.customStartDate, endDate: state.customEndDate };
   if (!initial) return { kind: 'month', month: today.slice(0, 7) };
   if (initial.startDate !== undefined || initial.endDate !== undefined) {

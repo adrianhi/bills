@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
-import { FinancialReportService, safeSpreadsheetText } from '../src/modules/reports/application/financial-report.service';
+import {
+  FinancialReportService,
+  safeSpreadsheetText,
+  budgetHealthSummary,
+  categoryBudgetRows,
+  formatDelta,
+  sortAndRankItems,
+} from '../src/modules/reports/application/financial-report.service';
 import type { AnalyticsService } from '../src/modules/analytics/application/analytics.service';
 import type { TransactionApplicationService } from '../src/modules/transactions/application/transaction-application.service';
 import type { GetMonthlyBudget } from '../src/modules/budgets';
@@ -84,6 +91,170 @@ describe('safeSpreadsheetText', () => {
   it('keeps normal text untouched', () => {
     expect(safeSpreadsheetText('Bravo Supermercado')).toBe('Bravo Supermercado');
     expect(safeSpreadsheetText(null)).toBe('');
+  });
+});
+
+describe('budgetHealthSummary', () => {
+  it('detects exceeded global budget (spent > limit) with excessAmount and danger tone', () => {
+    const exceededBudget = {
+      ...fakeBudget,
+      global: {
+        ...fakeBudget.global,
+        limit: 5000,
+        spent: 6200,
+        remaining: 0,
+        exceededBy: 1200,
+        percentUsed: 124,
+        status: 'EXCEEDED' as const,
+      },
+    };
+    const health = budgetHealthSummary(exceededBudget, 'DOP');
+    expect(health).not.toBeNull();
+    expect(health?.isExceeded).toBe(true);
+    expect(health?.excessAmount).toBe(1200);
+    expect(health?.availableAmount).toBe(0);
+    expect(health?.statusTone).toBe('danger');
+    expect(health?.statusLabel).toBe('Excedido');
+    expect(health?.percentUsed).toBe(124);
+  });
+
+  it('detects healthy global budget (spent < limit) with availableAmount and success tone', () => {
+    const health = budgetHealthSummary(fakeBudget, 'DOP');
+    expect(health).not.toBeNull();
+    expect(health?.isExceeded).toBe(false);
+    expect(health?.availableAmount).toBe(3500);
+    expect(health?.excessAmount).toBe(0);
+    expect(health?.statusTone).toBe('success');
+    expect(health?.statusLabel).toBe('En ritmo');
+    expect(health?.percentUsed).toBe(30);
+  });
+
+  it('handles null budget gracefully by returning null', () => {
+    expect(budgetHealthSummary(null, 'DOP')).toBeNull();
+    expect(budgetHealthSummary({ ...fakeBudget, global: null }, 'DOP')).toBeNull();
+    expect(budgetHealthSummary({ ...fakeBudget, hasBudget: false, global: null }, 'DOP')).toBeNull();
+  });
+});
+
+describe('categoryBudgetRows', () => {
+  it('maps category rows with limits, spent, availableOrExcess, and status info', () => {
+    const multiCategoryBudget = {
+      ...fakeBudget,
+      categories: [
+        {
+          scope: 'CATEGORY' as const,
+          categoryKey: 'supermercado',
+          categoryLabel: 'Supermercado',
+          limit: 2000,
+          spent: 1500,
+          pending: 200,
+          remaining: 500,
+          exceededBy: 0,
+          percentUsed: 75,
+          projected: null,
+          status: 'ON_TRACK' as const,
+        },
+        {
+          scope: 'CATEGORY' as const,
+          categoryKey: 'restaurantes',
+          categoryLabel: 'Restaurantes',
+          limit: 1000,
+          spent: 1450,
+          pending: 0,
+          remaining: 0,
+          exceededBy: 450,
+          percentUsed: 145,
+          projected: null,
+          status: 'EXCEEDED' as const,
+        },
+      ],
+    };
+
+    const rows = categoryBudgetRows(multiCategoryBudget, 'DOP');
+    expect(rows).toHaveLength(2);
+
+    expect(rows[0]).toMatchObject({
+      categoryKey: 'supermercado',
+      categoryLabel: 'Supermercado',
+      limit: 2000,
+      spent: 1500,
+      availableOrExcess: 500,
+      isExceeded: false,
+      percentUsed: 75,
+      statusLabel: 'En ritmo',
+      statusTone: 'success',
+      formattedLimit: 'DOP 2,000.00',
+      formattedSpent: 'DOP 1,500.00',
+    });
+
+    expect(rows[1]).toMatchObject({
+      categoryKey: 'restaurantes',
+      categoryLabel: 'Restaurantes',
+      limit: 1000,
+      spent: 1450,
+      availableOrExcess: -450,
+      isExceeded: true,
+      percentUsed: 145,
+      statusLabel: 'Excedido',
+      statusTone: 'danger',
+      formattedLimit: 'DOP 1,000.00',
+      formattedSpent: 'DOP 1,450.00',
+    });
+  });
+
+  it('returns empty array when budget is null or has no categories', () => {
+    expect(categoryBudgetRows(null, 'DOP')).toEqual([]);
+    expect(categoryBudgetRows({ ...fakeBudget, categories: [] }, 'DOP')).toEqual([]);
+  });
+});
+
+describe('formatDelta', () => {
+  it('formats positive values with explicit plus sign and currency', () => {
+    expect(formatDelta(2500, 'RD$', 14.5)).toBe('+RD$ 2,500.00 (+14.5%)');
+    expect(formatDelta(2500, 'DOP', 14.5)).toBe('+RD$ 2,500.00 (+14.5%)');
+    expect(formatDelta(1500, 'DOP')).toBe('+RD$ 1,500.00');
+  });
+
+  it('formats negative values with minus sign and currency', () => {
+    expect(formatDelta(-1200, 'RD$', -8.2)).toBe('-RD$ 1,200.00 (-8.2%)');
+    expect(formatDelta(-1200, 'DOP', -8.2)).toBe('-RD$ 1,200.00 (-8.2%)');
+    expect(formatDelta(-1200, 'DOP')).toBe('-RD$ 1,200.00');
+  });
+
+  it('formats zero values correctly without negative sign', () => {
+    expect(formatDelta(0, 'DOP')).toBe('RD$ 0.00');
+    expect(formatDelta(0, 'DOP', 0)).toBe('RD$ 0.00 (0.0%)');
+    expect(formatDelta(0, 'RD$')).toBe('RD$ 0.00');
+  });
+
+  it('formats alternative currencies like USD', () => {
+    expect(formatDelta(500, 'USD', 12.3)).toBe('+$ 500.00 (+12.3%)');
+    expect(formatDelta(-75, '$')).toBe('-$ 75.00');
+  });
+});
+
+describe('sortAndRankItems', () => {
+  it('sorts descending, calculates share of total, and assigns rank #1, #2, etc.', () => {
+    const items = [
+      { name: 'Bravo', total: 1500 },
+      { name: 'Sirena', total: 3000 },
+      { name: 'Farmacia Carol', total: 500 },
+    ];
+    const ranked = sortAndRankItems(items, 6);
+    expect(ranked).toHaveLength(3);
+    expect(ranked[0]).toMatchObject({ name: 'Sirena', total: 3000, rank: '#1', rankIndex: 1, share: 60 });
+    expect(ranked[1]).toMatchObject({ name: 'Bravo', total: 1500, rank: '#2', rankIndex: 2, share: 30 });
+    expect(ranked[2]).toMatchObject({ name: 'Farmacia Carol', total: 500, rank: '#3', rankIndex: 3, share: 10 });
+  });
+
+  it('respects max limit and handles empty items', () => {
+    const items = [
+      { name: 'A', total: 100 },
+      { name: 'B', total: 200 },
+      { name: 'C', total: 300 },
+    ];
+    expect(sortAndRankItems(items, 2)).toHaveLength(2);
+    expect(sortAndRankItems([])).toEqual([]);
   });
 });
 
@@ -214,6 +385,59 @@ describe('FinancialReportService', () => {
     const report = await service.generate('ws-1', { ...baseQuery, format: 'pdf' });
     expect(report.extension).toBe('pdf');
     expect(report.buffer.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  });
+
+  it('generates a PDF report with all sections (summary, comparison, budget, categories, merchants, movements)', async () => {
+    const service = buildService([fakeTransaction()]);
+    const report = await service.generate('ws-1', {
+      ...baseQuery,
+      format: 'pdf',
+      sections: ['summary', 'comparison', 'budget', 'categories', 'merchants', 'movements'],
+    });
+    expect(report.extension).toBe('pdf');
+    expect(report.contentType).toBe('application/pdf');
+    expect(report.rowCount).toBe(1);
+    expect(report.buffer.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+    expect(report.buffer.length).toBeGreaterThan(1000);
+  });
+
+  it('generates a PDF report with exceeded budget highlighting and notes included across pages', async () => {
+    const exceededBudget = {
+      ...fakeBudget,
+      global: {
+        ...fakeBudget.global,
+        limit: 5000,
+        spent: 6200,
+        remaining: 0,
+        exceededBy: 1200,
+        percentUsed: 124,
+        status: 'EXCEEDED' as const,
+      },
+    };
+    const exceededBudgetReader = {
+      execute: async () => exceededBudget,
+    } as unknown as Pick<GetMonthlyBudget, 'execute'>;
+
+    const analytics = { getSummary: async () => fakeSummary } as unknown as AnalyticsService;
+    const multiTx = Array.from({ length: 40 }, (_, i) => fakeTransaction({
+      id: `tx-${i}`,
+      notes: i % 2 === 0 ? 'Compra quincenal despensa' : undefined,
+    }));
+    const transactionApp = { export: async () => multiTx } as unknown as TransactionApplicationService;
+    const service = new FinancialReportService(analytics, transactionApp, exceededBudgetReader);
+
+    const report = await service.generate('ws-1', {
+      ...baseQuery,
+      format: 'pdf',
+      includeNotes: true,
+      sections: ['summary', 'comparison', 'budget', 'categories', 'merchants', 'movements'],
+    });
+
+    expect(report.extension).toBe('pdf');
+    expect(report.contentType).toBe('application/pdf');
+    expect(report.rowCount).toBe(40);
+    expect(report.buffer.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+    expect(report.buffer.length).toBeGreaterThan(5000);
   });
 
   it('rejects PDFs over 500 rows and suggests a filtered or tabular export', async () => {

@@ -187,6 +187,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             currency={currency}
             hideBalances={hideBalances}
             onRefresh={onRefresh}
+            onExport={() => setIsExportModalOpen(true)}
           />
         )}
         {activeSection === 'budget' && (
@@ -234,7 +235,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         setIsExportModalOpen={setIsExportModalOpen}
         currentPeriod={currentPeriod}
         currency={currency}
-        filters={currentFilters}
+        filters={activeSection === 'transactions' ? currentFilters : {}}
       />
     </div>
   );
