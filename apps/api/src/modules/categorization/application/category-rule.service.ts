@@ -1,18 +1,12 @@
-import type { CreateCategoryRuleInput } from '../../../schemas/transaction.schema';
-import { AppError } from '../../../errors/app-error';
-
-interface CategoryRuleRepository {
-  list(workspaceId: string): Promise<unknown[]>;
-  create(workspaceId: string, input: CreateCategoryRuleInput): Promise<unknown>;
-  remove(workspaceId: string, id: string): Promise<{ count: number }>;
-}
+import type { CreateCategoryRuleInput, UpdateCategoryRuleInput } from '@bills/contracts';
+import type { CategoryRuleRepository, ExpenseCategoryCatalog, RuleCatalogSource } from './rule.ports';
+import type { SaveCategoryRule } from './save-category-rule';
 
 export class CategoryRuleApplicationService {
-  constructor(private readonly repository: CategoryRuleRepository) {}
+  constructor(private readonly repository: CategoryRuleRepository, private readonly save: SaveCategoryRule,
+    readonly categories: ExpenseCategoryCatalog, readonly catalog: RuleCatalogSource) {}
   list(workspaceId: string) { return this.repository.list(workspaceId); }
-  create(workspaceId: string, input: CreateCategoryRuleInput) { return this.repository.create(workspaceId, input); }
-  async remove(workspaceId: string, id: string) {
-    const result = await this.repository.remove(workspaceId, id);
-    if (!result.count) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Rule not found');
-  }
+  create(workspaceId: string, input: CreateCategoryRuleInput) { return this.save.execute(workspaceId, input); }
+  update(workspaceId: string, id: string, input: UpdateCategoryRuleInput) { return this.save.execute(workspaceId, input, id); }
+  remove(workspaceId: string, id: string) { return this.repository.remove(workspaceId, id); }
 }

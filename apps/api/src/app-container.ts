@@ -1,9 +1,11 @@
 import { AnalyticsService } from './modules/analytics/application/analytics.service';
 import { PrismaAnalyticsRepository } from './modules/analytics/infrastructure/prisma-analytics.repository';
 import { AnalyticsController } from './modules/analytics/http/analytics.controller';
-import { CategoryRuleApplicationService } from './modules/categorization/application/category-rule.service';
-import { PrismaCategoryRuleRepository } from './modules/categorization/infrastructure/prisma-category-rule.repository';
-import { CategoryRuleController } from './modules/categorization/http/category-rule.controller';
+import { CategoryRuleApplicationService, PrismaCategoryRuleRepository, CategoryRuleController,
+  SaveCategoryRule, ListExpenseCategories, PrismaRuleCatalog, CategorizeTransaction,
+  PrismaRuleApplications, ProcessRuleApplication, RuleApplicationRunner, RuleApplicationController,
+  PreviewRuleApplication, ConfirmRuleApplication, RetryRuleApplication, PrismaRuleApplicationUnit } from './modules/categorization';
+import { PrismaClassificationCandidates, PrismaClassificationWriter } from './modules/transactions';
 import { TransactionApplicationService } from './modules/transactions/application/transaction-application.service';
 import { TransactionHttpController } from './modules/transactions/http/transaction.controller';
 import { ReadinessController } from './modules/system/http/readiness.controller';
@@ -39,7 +41,6 @@ import { WorkspaceService } from './modules/identity/infrastructure/workspace.se
 import { PrismaTransactionWriter } from './modules/transactions/infrastructure/prisma-transaction.writer';
 import { PrismaTransactionQuery } from './modules/transactions/infrastructure/prisma-transaction.query';
 import { PrismaReversalService } from './modules/transactions/infrastructure/prisma-reversal.service';
-import { CategorizationService } from './modules/categorization/infrastructure/categorization.service';
 import { NormalizedEmailProcessor } from './modules/ingestion/infrastructure/normalized-email.processor';
 import { FinancialInstitutionService } from './modules/connections/infrastructure/financial-institution.service';
 import { BankConnectionController } from './controllers/bank-connection.controller';
@@ -50,9 +51,19 @@ import {
 } from './modules/budgets';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
+const ruleRepository = new PrismaCategoryRuleRepository();
+const ruleCatalog = new PrismaRuleCatalog();
+const expenseCategories = new ListExpenseCategories(ruleCatalog);
+const categorizer = new CategorizeTransaction(ruleRepository);
+const ruleApplications = new PrismaRuleApplications((tx) => new PrismaClassificationWriter(tx));
+const ruleApplicationUnit = new PrismaRuleApplicationUnit();
+const previewRuleApplication = new PreviewRuleApplication(ruleApplicationUnit, ruleApplications);
+const confirmRuleApplication = new ConfirmRuleApplication(ruleApplicationUnit, ruleApplications);
+const retryRuleApplication = new RetryRuleApplication(ruleApplicationUnit, ruleApplications);
+const ruleApplicationRunner = new RuleApplicationRunner(new ProcessRuleApplication(ruleApplications, new PrismaClassificationCandidates()));
 const budgetRepository = new PrismaBudgetRepository();
 const budgetExpenses = new PrismaBudgetExpenseReadModel();
-const budgetCategories = new ListBudgetCategories(budgetExpenses);
+const budgetCategories = new ListBudgetCategories(budgetExpenses, expenseCategories);
 const getMonthlyBudget = new GetMonthlyBudget(budgetRepository, budgetExpenses);
 const budgetController = new BudgetController({
   getMonthly: getMonthlyBudget,
@@ -60,9 +71,10 @@ const budgetController = new BudgetController({
   suggest: new SuggestBudget(budgetExpenses, budgetCategories),
   listCategories: budgetCategories,
 });
-const categoryRuleService = new CategoryRuleApplicationService(new PrismaCategoryRuleRepository());
+const categoryRuleService = new CategoryRuleApplicationService(ruleRepository,
+  new SaveCategoryRule(ruleRepository, expenseCategories, ruleCatalog), expenseCategories, ruleCatalog);
 const transactionWriter = new PrismaTransactionWriter(
-  { categorize: CategorizationService.categorize.bind(CategorizationService) },
+  categorizer,
   new PrismaReversalService()
 );
 const transactionService = new TransactionApplicationService(
@@ -111,6 +123,13 @@ const inboxConnectionController = new InboxConnectionController(
 );
 
 export const appContainer = {
+  ruleApplicationRunner,
+  ruleApplicationController: new RuleApplicationController({
+    preview: previewRuleApplication.execute.bind(previewRuleApplication),
+    confirm: confirmRuleApplication.execute.bind(confirmRuleApplication),
+    retry: retryRuleApplication.execute.bind(retryRuleApplication),
+    get: ruleApplications.get.bind(ruleApplications), recent: ruleApplications.recent.bind(ruleApplications),
+  }),
   budgetController,
   analyticsController: new AnalyticsController(analyticsService),
   categoryRuleController: new CategoryRuleController(categoryRuleService),
@@ -129,7 +148,7 @@ export const appContainer = {
   gmailSyncService,
   ingestionJobService,
   ingestionRunner,
-  accountController: new AccountController(new AccountService(gmailLifecycleService, budgetRepository)),
+  accountController: new AccountController(new AccountService(gmailLifecycleService, budgetRepository, ruleRepository)),
   workspaceService: WorkspaceService,
   legalService: LegalService,
   legalController: new LegalController({

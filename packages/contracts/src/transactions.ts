@@ -9,6 +9,8 @@ export const transactionSchema = z.object({
   status: z.string(), statusCode: transactionStatusSchema, transactionType: z.string(), category: z.string(),
   notes: z.string().nullable().optional(), source: z.string().optional(), institutionCode: z.string().optional(),
   ingestionChannel: z.string().optional(), transactionDate: z.string(), createdAt: z.string(),
+  merchantKey: z.string().nullable().optional(), merchantIdentityLabel: z.string().nullable().optional(),
+  categoryOrigin: z.string().optional(), merchantOrigin: z.string().optional(),
 });
 export type TransactionDto = z.infer<typeof transactionSchema>;
 

@@ -42,12 +42,9 @@ export class PrismaBudgetExpenseReadModel implements BudgetExpenseReadModel {
   }
 
   async listCategoryLabels(workspaceId: string) {
-    const [transactions, rules] = await Promise.all([
-      prisma.transaction.groupBy({
+    const transactions = await prisma.transaction.groupBy({
         by: ['category'], where: { workspaceId, ...visibleTransactionWhere() }, _count: { _all: true },
-      }),
-      prisma.categoryRule.findMany({ where: { workspaceId, isActive: true }, select: { category: true } }),
-    ]);
-    return [...transactions.map((item) => item.category), ...rules.map((item) => item.category)];
+      });
+    return transactions.map((item) => item.category);
   }
 }

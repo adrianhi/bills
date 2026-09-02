@@ -1,6 +1,7 @@
 import { COMMON_EXPENSE_CATEGORIES, type BudgetCategoryDto } from '@bills/contracts';
 import type { BudgetExpenseReadModel } from './budget.ports';
 import { normalizeCategoryKey } from '../domain/category-key';
+import type { ExpenseCategoryCatalog } from '../../categorization';
 
 const isIncomeLabel = (label: string) => {
   const key = normalizeCategoryKey(label);
@@ -8,9 +9,10 @@ const isIncomeLabel = (label: string) => {
 };
 
 export class ListBudgetCategories {
-  constructor(private readonly expenses: BudgetExpenseReadModel) {}
+  constructor(private readonly expenses: BudgetExpenseReadModel, private readonly catalog?: ExpenseCategoryCatalog) {}
 
   async execute(workspaceId: string): Promise<BudgetCategoryDto[]> {
+    if (this.catalog) return this.catalog.list(workspaceId);
     const labels = [...COMMON_EXPENSE_CATEGORIES, ...await this.expenses.listCategoryLabels(workspaceId)];
     const categories = new Map<string, string>();
     for (const label of labels) {

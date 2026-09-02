@@ -15,3 +15,5 @@ export {
 export type { DateRange } from './domain/transaction-policy';
 export { hiddenIncomeWhere, visibleTransactionWhere } from './infrastructure/income-visibility.where';
 export { buildTransactionWhere } from './infrastructure/prisma-transaction.query';
+export type { ClassificationCandidate, ClassificationChange, ClassificationWriter, ClassificationCandidates } from './application/classification.port';
+export { PrismaClassificationCandidates, PrismaClassificationWriter } from './infrastructure/prisma-classification.adapter';

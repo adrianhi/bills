@@ -4,6 +4,7 @@ import { prisma } from '../../../config/database';
 import { AppError } from '../../../errors/app-error';
 import type { GmailConnectionLifecycle } from '../../connections';
 import type { BudgetRepository } from '../../budgets';
+import type { CategoryRuleRepository } from '../../categorization';
 
 function subjectHash(profileId: string, email: string) {
   const salt = config.legalAuditSalt || config.ingestionEncryptionKey || 'bills-local-development';
@@ -14,6 +15,7 @@ export class AccountService {
   public constructor(
     private readonly gmail: GmailConnectionLifecycle,
     private readonly budgets: Pick<BudgetRepository, 'exportForWorkspaces'>,
+    private readonly rules: Pick<CategoryRuleRepository, 'exportForWorkspaces'>,
   ) {}
 
   public async exportData(profileId: string) {
@@ -41,7 +43,6 @@ export class AccountService {
             workspace: {
               include: {
                 transactions: true,
-                categoryRules: true,
                 bankConnections: { include: { institution: true, ingestionAddress: true } },
                 inboxConnections: {
                   select: {
@@ -83,7 +84,11 @@ export class AccountService {
     if (!profile) throw new AppError(404, 'PROFILE_NOT_FOUND', 'Profile was not found.');
     const workspaceIds = profile.memberships.map((membership) => membership.workspaceId);
     const spendingBudgets = await this.budgets.exportForWorkspaces(workspaceIds);
-    return { exportedAt: new Date().toISOString(), profile, spendingBudgets };
+    const categoryRules = await this.rules.exportForWorkspaces(workspaceIds) as { workspaceId: string }[];
+    const portableProfile = { ...profile, memberships: profile.memberships.map((membership) => ({ ...membership,
+      workspace: { ...membership.workspace, categoryRules: categoryRules.filter((rule) => rule.workspaceId === membership.workspaceId) },
+    })) };
+    return { exportedAt: new Date().toISOString(), profile: portableProfile, spendingBudgets };
   }
 
   public async deleteAccount(profileId: string) {

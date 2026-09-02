@@ -6,6 +6,8 @@ import { resolveInstitutionCode } from '../domain/transaction-policy';
 import { isFuzzyTransferMatch, mostCompleteMerchant } from '../domain/transaction-deduplication';
 import { PrismaReversalService } from './prisma-reversal.service';
 import { visibleTransactionWhere } from './income-visibility.where';
+import { isIncomeMovement } from '../domain/transaction-policy';
+import { AppError } from '../../../errors/app-error';
 
 interface Categorizer {
   categorize(
@@ -13,7 +15,8 @@ interface Categorizer {
     merchant: string | null | undefined,
     category: string | null | undefined,
     workspaceId: string
-  ): Promise<{ merchant: string; category: string }>;
+  ): Promise<{ merchant: string; category: string; merchantKey?: string; merchantIdentityLabel?: string;
+    categoryOrigin?: string; merchantOrigin?: string; categoryRuleId?: string | null; merchantRuleId?: string | null }>;
 }
 
 export class PrismaTransactionWriter implements TransactionWriter {
@@ -44,8 +47,7 @@ export class PrismaTransactionWriter implements TransactionWriter {
           transactionDate: txDate,
           amount: data.amount,
           currency: data.currency,
-          merchant: data.merchant || existing.merchant,
-          category: data.category || existing.category,
+          classificationVersion: { increment: 1 },
           cardLast4: data.cardLast4 || existing.cardLast4,
           cardType: data.cardType || existing.cardType,
           transactionType: data.transactionType || existing.transactionType,
@@ -79,8 +81,9 @@ export class PrismaTransactionWriter implements TransactionWriter {
       const transaction = await prisma.transaction.update({
         where: { id: candidate.id },
         data: {
-          merchant: mostCompleteMerchant(candidate, data),
+          ...(candidate.merchantOrigin === 'SYSTEM' ? { merchant: mostCompleteMerchant(candidate, data) } : {}),
           rawMerchant: data.rawMerchant.length > candidate.rawMerchant.length ? data.rawMerchant : candidate.rawMerchant,
+          classificationVersion: { increment: 1 },
           notes: data.notes || candidate.notes,
           cardLast4: data.cardLast4 || candidate.cardLast4,
           transactionType: data.transactionType || candidate.transactionType,
@@ -94,7 +97,7 @@ export class PrismaTransactionWriter implements TransactionWriter {
       return { isDuplicate: true, transaction };
     }
 
-    const normalized = await this.categorizer.categorize(
+    const normalized: Awaited<ReturnType<Categorizer['categorize']>> = isIncomeMovement(data) ? { merchant: data.merchant || data.rawMerchant, category: data.category || 'Ingresos / Transferencias' } : await this.categorizer.categorize(
       data.rawMerchant, data.merchant, data.category, workspaceId
     );
     const transaction = await prisma.transaction.create({
@@ -106,8 +109,14 @@ export class PrismaTransactionWriter implements TransactionWriter {
         cardLast4: data.cardLast4 || null,
         cardType: data.cardType || null,
         rawMerchant: data.rawMerchant,
-        merchant: normalized.merchant,
-        category: normalized.category,
+        merchant: ingestionChannel === 'MANUAL' && data.merchant ? data.merchant : normalized.merchant,
+        category: ingestionChannel === 'MANUAL' && data.category ? data.category : normalized.category,
+        merchantKey: normalized.merchantKey,
+        merchantIdentityLabel: normalized.merchantIdentityLabel,
+        categoryOrigin: ingestionChannel === 'MANUAL' && data.category ? 'MANUAL' : normalized.categoryOrigin || 'SYSTEM',
+        merchantOrigin: ingestionChannel === 'MANUAL' && data.merchant ? 'MANUAL' : normalized.merchantOrigin || 'SYSTEM',
+        categoryRuleId: ingestionChannel === 'MANUAL' && data.category ? null : normalized.categoryRuleId,
+        merchantRuleId: ingestionChannel === 'MANUAL' && data.merchant ? null : normalized.merchantRuleId,
         amount: data.amount,
         currency: data.currency,
         status,
@@ -128,11 +137,18 @@ export class PrismaTransactionWriter implements TransactionWriter {
 
   public async update(workspaceId: string, id: string, data: UpdateTransactionInput) {
     const requestedStatus = data.statusCode || (data.status ? normalizeTransactionStatus(data.status) : undefined);
+    const current = await prisma.transaction.findFirst({ where: { id, workspaceId, ...visibleTransactionWhere() } });
+    if (!current) return null;
+    const categoryChanged = Boolean(data.category && data.category !== current.category);
+    const merchantChanged = Boolean(data.merchant && data.merchant !== current.merchant);
     const result = await prisma.transaction.updateMany({
-      where: { id, workspaceId, ...visibleTransactionWhere() },
+      where: { id, workspaceId, classificationVersion: current.classificationVersion, ...visibleTransactionWhere() },
       data: {
         ...(data.merchant && { merchant: data.merchant }),
         ...(data.category && { category: data.category }),
+        ...(categoryChanged ? { categoryOrigin: 'MANUAL', categoryRuleId: null } : {}),
+        ...(merchantChanged ? { merchantOrigin: 'MANUAL', merchantRuleId: null } : {}),
+        classificationVersion: { increment: 1 },
         ...(data.notes !== undefined && { notes: data.notes }),
         ...(requestedStatus && {
           statusCode: requestedStatus,
@@ -141,7 +157,8 @@ export class PrismaTransactionWriter implements TransactionWriter {
         }),
       },
     });
-    return result.count ? prisma.transaction.findFirst({ where: { id, workspaceId } }) : null;
+    if (!result.count) throw new AppError(409, 'TRANSACTION_VERSION_CONFLICT', 'El movimiento cambió. Actualiza e inténtalo nuevamente.');
+    return prisma.transaction.findFirst({ where: { id, workspaceId } });
   }
 
   public async remove(workspaceId: string, id: string): Promise<number> {

@@ -12,7 +12,10 @@ async function bootstrap() {
     logger.info('http_server_started', { port: config.port, apiBase: '/api/v1', processRole: config.processRole });
   });
 
-  if (config.processRole === 'all' || config.processRole === 'worker') appContainer.ingestionRunner.start();
+  if (config.processRole === 'all' || config.processRole === 'worker') {
+    appContainer.ingestionRunner.start();
+    appContainer.ruleApplicationRunner.start();
+  }
 
   let shuttingDown = false;
   const shutdown = async () => {
@@ -20,6 +23,7 @@ async function bootstrap() {
     shuttingDown = true;
     logger.info('http_server_stopping');
     await appContainer.ingestionRunner.stop();
+    await appContainer.ruleApplicationRunner.stop();
     server.close(async () => {
       await disconnectDB();
       logger.info('http_server_stopped');
