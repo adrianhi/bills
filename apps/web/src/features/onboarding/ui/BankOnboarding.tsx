@@ -59,12 +59,22 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
                   <div className="flex gap-2 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300" role="alert"><AlertCircle className="h-4 w-4 shrink-0" /><span>No pudimos completar la última sincronización. Puedes reintentarlo sin duplicar movimientos.</span></div>
                 )}
                 {notice && <div className="rounded-xl bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-300">{notice}</div>}
-                {(activeInbox.failedEvents || 0) > 0 && <div className="flex gap-2 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"><AlertCircle className="h-4 w-4 shrink-0" /><span>{activeInbox.failedEvents} correo{activeInbox.failedEvents === 1 ? '' : 's'} necesita{activeInbox.failedEvents === 1 ? '' : 'n'} reprocesamiento. La conexión sigue activa, pero la última sincronización fue parcial.</span></div>}
-                {summary && <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-xl bg-muted p-3"><p className="text-lg font-bold">{summary.scanned}</p><p className="text-[10px] text-muted-foreground">revisados</p></div>
-                  <div className="rounded-xl bg-muted p-3"><p className="text-lg font-bold">{summary.parsed}</p><p className="text-[10px] text-muted-foreground">reconocidos</p></div>
-                  <div className="rounded-xl bg-muted p-3"><p className="text-lg font-bold text-emerald-600">{summary.created}</p><p className="text-[10px] text-muted-foreground">agregados</p></div>
-                </div>}
+                {summary && (
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl bg-muted p-3">
+                      <p className="text-lg font-bold">{summary.scanned}</p>
+                      <p className="text-[10px] text-muted-foreground">revisados</p>
+                    </div>
+                    <div className="rounded-xl bg-muted p-3">
+                      <p className="text-lg font-bold">{summary.parsed}</p>
+                      <p className="text-[10px] text-muted-foreground">reconocidos</p>
+                    </div>
+                    <div className="rounded-xl bg-muted p-3">
+                      <p className="text-lg font-bold text-emerald-600">{summary.created}</p>
+                      <p className="text-[10px] text-muted-foreground">agregados</p>
+                    </div>
+                  </div>
+                )}
                 <Button variant="outline" className="min-h-11 w-full gap-2" disabled={activeInbox.requiresBankSelection || busy === 'sync' || isSyncing} onClick={() => sync(activeInbox)}>
                   {busy === 'sync' || isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} {isSyncing ? 'Sincronizando…' : syncState === 'FAILED' ? 'Reintentar sincronización' : 'Sincronizar de nuevo'}
                 </Button>

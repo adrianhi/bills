@@ -28,10 +28,10 @@ export function AccountConnectionsSection({ model }: { model: AccountSettingsMod
                   {connection.status === 'REAUTH_REQUIRED' ? 'Necesita reconexión'
                     : connection.currentJob?.status === 'PROCESSING' ? 'Sincronizando'
                       : connection.currentJob?.status === 'PENDING' ? 'Sincronización en cola'
-                        : (connection.failedEvents || 0) > 0 ? 'Activa con fallos parciales' : 'Activa'}
+                        : 'Activa'}
                 </p>
               </div>
-              <ShieldCheck className={`h-4 w-4 ${(connection.failedEvents || 0) > 0 || connection.status !== 'ACTIVE' ? 'text-amber-500' : 'text-emerald-500'}`} />
+              <ShieldCheck className={`h-4 w-4 ${connection.status !== 'ACTIVE' ? 'text-amber-500' : 'text-emerald-500'}`} />
             </div>
             <div className="mt-3 rounded-xl border bg-background/70 p-3">
               <BankSelector institutions={institutions} selectedCodes={selection} onChange={(codes) => setBankSelection(connection.id, codes)} disabled={Boolean(busy)} />
@@ -41,10 +41,10 @@ export function AccountConnectionsSection({ model }: { model: AccountSettingsMod
             </div>
             <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
               <p>Última sincronización: {connection.lastSuccessfulSyncAt ? new Date(connection.lastSuccessfulSyncAt).toLocaleString('es-DO') : 'pendiente'}</p>
-              {connection.lastSyncSummary && <p>{connection.lastSyncSummary.created} creados · {connection.lastSyncSummary.ignored} ignorados · {connection.lastSyncSummary.failed} fallidos</p>}
-              {(connection.failedEvents || 0) > 0 && (
-                <p className="text-amber-600 dark:text-amber-400">
-                  {connection.failedEvents} correos pendientes de reprocesamiento{connection.lastErrorCode ? ` · ${connection.lastErrorCode}` : ''}
+              {connection.lastSyncSummary && (
+                <p>
+                  {connection.lastSyncSummary.created} agregados
+                  {(connection.lastSyncSummary.ignored ?? 0) > 0 ? ` · ${connection.lastSyncSummary.ignored} omitidos` : ''}
                 </p>
               )}
             </div>
