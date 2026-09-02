@@ -1,6 +1,7 @@
 import { httpClient } from '@/shared/api';
 
 export type FinancialReportFormat = 'csv' | 'xlsx' | 'pdf';
+export type FinancialReportSection = 'summary' | 'comparison' | 'categories' | 'merchants' | 'movements' | 'budget';
 
 export interface FinancialReportParams {
   format: FinancialReportFormat;
@@ -11,9 +12,12 @@ export interface FinancialReportParams {
   category?: string;
   status?: string;
   organization?: string;
+  institutionCodes?: string[];
   transactionType?: string;
   search?: string;
   includeNotes?: boolean;
+  title?: string;
+  sections?: FinancialReportSection[];
 }
 
 export interface FinancialReportFile {
@@ -33,9 +37,15 @@ export function filenameFromDisposition(disposition: string | undefined, fallbac
 
 export const reportService = {
   async financialExport(params: FinancialReportParams): Promise<FinancialReportFile> {
-    const { format, includeNotes, ...filters } = params;
+    const { format, includeNotes, institutionCodes, sections, ...filters } = params;
     const response = await httpClient.get<Blob>('/reports/financial-export', {
-      params: compactParams({ ...filters, format, includeNotes: includeNotes ? 'true' : undefined }),
+      params: compactParams({
+        ...filters,
+        format,
+        institutionCodes: institutionCodes?.length ? institutionCodes.join(',') : undefined,
+        sections: sections?.length ? sections.join(',') : undefined,
+        includeNotes: includeNotes ? 'true' : undefined,
+      }),
       responseType: 'blob',
     });
     const period = filters.month || `${filters.startDate ?? 'inicio'}-${filters.endDate ?? 'hoy'}`;

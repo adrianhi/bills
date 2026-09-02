@@ -11,10 +11,10 @@ export function useQuickAddTransaction(onSuccess: () => void, onClose: () => voi
   const externalIdRef = useRef(`manual_${crypto.randomUUID()}`);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('DOP');
-  const [movementType, setMovementType] = useState('recibida');
+  const [movementType, setMovementType] = useState('compra');
   const [organization, setOrganization] = useState('BHD');
   const [merchant, setMerchant] = useState('');
-  const [category, setCategory] = useState('Ingresos / Transferencias');
+  const [category, setCategory] = useState('Supermercado');
   const [dateTime, setDateTime] = useState(currentLocalDateTime());
   const [notes, setNotes] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -86,7 +86,7 @@ export function useQuickAddTransaction(onSuccess: () => void, onClose: () => voi
       merchant: merchant.trim(),
       category,
       status: 'Aprobada',
-      transactionType: transactionTypes[movementType] ?? 'Transferencia Recibida',
+      transactionType: transactionTypes[movementType] ?? 'Compra',
       transactionDate: new Date(dateTime).toISOString(),
       source: institution?.source ?? 'MANUAL',
       institutionCode: institution?.id === 'MANUAL' ? 'CASH' : institution?.id ?? 'CASH',

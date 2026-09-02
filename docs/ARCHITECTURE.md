@@ -50,14 +50,14 @@ Gmail Push → verified provider adapter → durable event/job
 
 `IngestionRunner` procesa Gmail con leases en PostgreSQL. En Render y Docker Compose corre dentro del único proceso web (`PROCESS_ROLE=all`). Un cron externo puede despertar y avanzar la cola llamando con Bearer token a `POST /api/v1/internal/maintenance/tick`.
 
-Solo `APPROVED` contribuye a gasto, ingreso, ticket promedio, subtotales y gráficas. `REVERSED`, `DECLINED` y `PENDING` permanecen visibles y auditables.
+Solo los movimientos de gasto con estado `APPROVED` contribuyen a totales, ticket promedio, subtotales y gráficas. Las transferencias recibidas se persisten como evidencia parcial, pero se excluyen de todas las consultas y superficies de usuario. `REVERSED`, `DECLINED` y `PENDING` de gastos permanecen visibles y auditables.
 
 ## Añadir un banco
 
 1. Implementar `BankEmailParser` sin dependencias de Express, Gmail o Prisma.
 2. Añadir fixtures anonimizados de cada formato soportado.
 3. Registrar el parser y metadata institucional.
-4. Agregar pruebas de compras, ingresos, transferencias, rechazos y reversas.
+4. Agregar pruebas de compras, retiros, transferencias enviadas y recibidas, rechazos y reversas; verificar que los ingresos persistidos permanezcan ocultos.
 5. Ejecutar `npm run verify` y el smoke de staging.
 
 Cada banco se incorpora mediante un parser y remitentes explícitos; las suscripciones por conexión limitan qué instituciones puede consultar Gmail.

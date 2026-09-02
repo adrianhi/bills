@@ -1,4 +1,4 @@
-export type TourSection = 'home' | 'transactions' | 'analytics' | 'more';
+export type TourSection = 'home' | 'transactions' | 'analytics' | 'budget';
 export type TourDirection = 'forward' | 'backward';
 export type TourPhase = 'exiting' | 'navigating' | 'locating' | 'scrolling' | 'settled';
 
@@ -41,9 +41,9 @@ export const PRODUCT_TOUR_STEPS: readonly TourStep[] = [
     description: 'Compara categorías y días para entender cómo cambia tu gasto durante el período elegido.',
   },
   {
-    section: 'more',
-    target: 'more-tools',
-    title: 'Tú mantienes el control',
-    description: 'Desde Más administras bancos, privacidad, reglas y exportaciones, y puedes repetir este recorrido.',
+    section: 'budget',
+    target: 'budget-overview',
+    title: 'Decide antes de gastar',
+    description: 'Define límites mensuales y revisa si tus categorías siguen dentro del ritmo que elegiste.',
   },
 ] as const;

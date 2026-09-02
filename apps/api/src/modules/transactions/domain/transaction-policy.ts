@@ -8,7 +8,7 @@ export interface MovementClassification {
 
 export function isIncomeMovement(transaction: MovementClassification): boolean {
   return /recibida/i.test(transaction.transactionType || '') ||
-    /ingreso/i.test(transaction.category || '') || transaction.source === 'BHD_TRANSFER_INCOME';
+    /ingreso/i.test(transaction.category || '') || /transfer_income/i.test(transaction.source || '');
 }
 
 export function contributesToFinancialMetrics(status: TransactionStatusCodeName): boolean {

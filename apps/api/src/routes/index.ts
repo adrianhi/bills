@@ -7,6 +7,7 @@ import inboxConnectionRoutes from './inbox-connection.routes';
 import legalRoutes from './legal.routes';
 import accountRoutes from './account.routes';
 import reportRoutes from './report.routes';
+import budgetRoutes from './budget.routes';
 import { appContainer } from '../app-container';
 import { asyncHandler } from '../shared/http/async-handler';
 
@@ -24,5 +25,6 @@ router.use('/v1', inboxConnectionRoutes);
 router.use('/v1', legalRoutes);
 router.use('/v1', accountRoutes);
 router.use('/v1', reportRoutes);
+router.use('/v1', budgetRoutes);
 
 export default router;

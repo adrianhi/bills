@@ -6,6 +6,13 @@ import type {
 } from '../../../schemas/transaction.schema';
 import { AppError } from '../../../errors/app-error';
 import type { TransactionReader, TransactionWriter } from './transaction-store.port';
+import { isIncomeMovement } from '../domain/transaction-policy';
+
+function assertVisibleExpense(input: CreateTransactionInput) {
+  if (isIncomeMovement(input)) {
+    throw new AppError(400, 'INCOME_MANUAL_ENTRY_DISABLED', 'Manual income entry is not available.');
+  }
+}
 
 export class TransactionApplicationService {
   public constructor(
@@ -14,10 +21,12 @@ export class TransactionApplicationService {
   ) {}
 
   public create(workspaceId: string, input: CreateTransactionInput) {
+    assertVisibleExpense(input);
     return this.writer.create(workspaceId, input);
   }
 
   public async batchCreate(workspaceId: string, input: CreateTransactionInput[]) {
+    input.forEach(assertVisibleExpense);
     const items = await Promise.all(input.map((item) => this.writer.create(workspaceId, item)));
     const duplicateCount = items.filter((item) => item.isDuplicate).length;
     return { total: items.length, createdCount: items.length - duplicateCount, duplicateCount, items };

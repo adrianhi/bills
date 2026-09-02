@@ -113,7 +113,7 @@ export const MoreSection: React.FC<MoreSectionProps> = ({
           <span>
             <span className="block font-bold">Exportar datos</span>
             <span className="mt-1 block text-xs font-normal text-muted-foreground">
-              Excel con 5 pestañas, CSV, PDF o JSON
+              Reportes personalizables y copia completa JSON
             </span>
           </span>
         </Button>

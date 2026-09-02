@@ -5,6 +5,7 @@ import type { TransactionWriter } from '../application/transaction-store.port';
 import { resolveInstitutionCode } from '../domain/transaction-policy';
 import { isFuzzyTransferMatch, mostCompleteMerchant } from '../domain/transaction-deduplication';
 import { PrismaReversalService } from './prisma-reversal.service';
+import { visibleTransactionWhere } from './income-visibility.where';
 
 interface Categorizer {
   categorize(
@@ -128,7 +129,7 @@ export class PrismaTransactionWriter implements TransactionWriter {
   public async update(workspaceId: string, id: string, data: UpdateTransactionInput) {
     const requestedStatus = data.statusCode || (data.status ? normalizeTransactionStatus(data.status) : undefined);
     const result = await prisma.transaction.updateMany({
-      where: { id, workspaceId },
+      where: { id, workspaceId, ...visibleTransactionWhere() },
       data: {
         ...(data.merchant && { merchant: data.merchant }),
         ...(data.category && { category: data.category }),
@@ -144,6 +145,6 @@ export class PrismaTransactionWriter implements TransactionWriter {
   }
 
   public async remove(workspaceId: string, id: string): Promise<number> {
-    return (await prisma.transaction.deleteMany({ where: { id, workspaceId } })).count;
+    return (await prisma.transaction.deleteMany({ where: { id, workspaceId, ...visibleTransactionWhere() } })).count;
   }
 }

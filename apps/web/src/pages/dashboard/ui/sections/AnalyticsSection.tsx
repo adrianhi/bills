@@ -2,21 +2,24 @@ import React, { type ReactNode } from 'react';
 import type { StatsSummary } from '@/entities/stat';
 import { ComparisonDetails } from '@/widgets/spending-perspective';
 import { Button, Card, CardContent } from '@/shared/ui';
+import type { PeriodSelection } from '@/entities/period';
+import { AnalyticsBudgetCard } from './AnalyticsBudgetCard';
 
 const CategoryBreakdownChart = React.lazy(async () => {
   const module = await import(
-    '@/widgets/spending-charts/ui/CategoryBreakdownChart'
+    '@/widgets/spending-charts'
   );
   return { default: module.CategoryBreakdownChart };
 });
 
 const DailySpendingChart = React.lazy(async () => {
-  const module = await import('@/widgets/spending-charts/ui/DailySpendingChart');
+  const module = await import('@/widgets/spending-charts');
   return { default: module.DailySpendingChart };
 });
 
 interface AnalyticsSectionProps {
   periodToolbar: ReactNode;
+  currentPeriod: PeriodSelection;
   stats: StatsSummary | null;
   statsError: unknown;
   loadingStats: boolean;
@@ -27,6 +30,7 @@ interface AnalyticsSectionProps {
 
 export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
   periodToolbar,
+  currentPeriod,
   stats,
   statsError,
   loadingStats,
@@ -82,6 +86,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
               hideBalances={hideBalances}
             />
           )}
+          <AnalyticsBudgetCard period={currentPeriod} currency={currency} hideBalances={hideBalances} />
         </>
       )}
     </>

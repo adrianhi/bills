@@ -11,7 +11,6 @@ export interface QuickAddFormValues {
 export type QuickAddFieldErrors = Partial<Record<keyof QuickAddFormValues, string>>;
 
 export const transactionTypes: Record<string, string> = {
-  recibida: 'Transferencia Recibida',
   compra: 'Compra',
   enviada: 'Transferencia',
   servicio: 'Pago de Servicio',
@@ -19,7 +18,6 @@ export const transactionTypes: Record<string, string> = {
 };
 
 const defaultCategories: Record<string, string> = {
-  recibida: 'Ingresos / Transferencias',
   compra: 'Supermercado',
   enviada: 'Transferencias',
   servicio: 'Servicios',
@@ -39,9 +37,7 @@ export function validateQuickAddForm(values: QuickAddFormValues): QuickAddFieldE
     errors.amount = 'El monto excede el límite permitido';
   }
   if (!values.merchant.trim()) {
-    errors.merchant = values.movementType === 'recibida'
-      ? 'Ingresa el nombre de quien te transfirió'
-      : 'Ingresa el nombre del comercio o beneficiario';
+    errors.merchant = 'Ingresa el nombre del comercio o beneficiario';
   } else if (values.merchant.trim().length > 200) {
     errors.merchant = 'El nombre no puede superar 200 caracteres';
   }

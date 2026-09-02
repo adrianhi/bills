@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { prisma } from '../src/config/database';
+import { GmailQueryService } from '../src/modules/connections/infrastructure/gmail-query.service';
 
 const integrationDescribe =
   process.env.TEST_DATABASE_URL && process.env.DATABASE_URL === process.env.TEST_DATABASE_URL
@@ -39,6 +40,7 @@ async function cleanDatabase() {
   await prisma.inboxConnection.deleteMany();
   await prisma.transaction.deleteMany();
   await prisma.categoryRule.deleteMany();
+  await prisma.spendingBudgetLimit.deleteMany();
   await prisma.workspaceMember.deleteMany();
   await prisma.workspace.deleteMany();
   await prisma.profile.deleteMany();
@@ -84,7 +86,7 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
           senderPatterns: ['notificaciones@banreservas.com', 'notificacionestubancoapp@banreservas.com'],
         },
         {
-          code: 'POPULAR', displayName: 'Banco Popular', status: 'COMING_SOON',
+          code: 'POPULAR', displayName: 'Banco Popular', status: 'PILOT',
           senderPatterns: ['notificaciones@popularenlinea.com'],
         },
         { code: 'CASH', displayName: 'Manual / Efectivo', status: 'ACTIVE' },
@@ -165,18 +167,22 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     const updated = await request(app)
       .put(`/api/v1/inbox-connections/${connection.id}/institutions`)
       .set(auth(userA))
-      .send({ institutionCodes: ['bhd', 'BANRESERVAS', 'BHD'] });
+      .send({ institutionCodes: ['bhd', 'BANRESERVAS', 'POPULAR', 'BHD'] });
     expect(updated.status).toBe(200);
-    expect(updated.body.data.selectedInstitutionCodes).toEqual(['BHD', 'BANRESERVAS']);
-    expect(updated.body.data.queuedJobIds).toHaveLength(2);
+    expect(updated.body.data.selectedInstitutionCodes).toEqual(['BHD', 'BANRESERVAS', 'POPULAR']);
+    expect(updated.body.data.queuedJobIds).toHaveLength(3);
 
     const listed = await request(app).get('/api/v1/inbox-connections').set(auth(userA));
     expect(listed.status).toBe(200);
-    expect(listed.body.data[0].selectedInstitutionCodes).toEqual(['BANRESERVAS', 'BHD']);
+    expect(listed.body.data[0].selectedInstitutionCodes).toEqual(['BANRESERVAS', 'BHD', 'POPULAR']);
     expect(listed.body.data[0].requiresBankSelection).toBe(false);
+    const popularQuery = await new GmailQueryService().senderQuery(
+      connection.id, new Date('2026-08-31T12:00:00.000Z'), ['POPULAR']
+    );
+    expect(popularQuery).toContain('from:notificaciones@popularenlinea.com');
   });
 
-  it('rejects empty, unsupported and coming-soon bank selections', async () => {
+  it('rejects empty and unsupported bank selections', async () => {
     const connection = await prisma.inboxConnection.findFirstOrThrow({
       where: { providerAccountId: 'gmail-selection-test' },
     });
@@ -187,14 +193,12 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     expect(empty.status).toBe(400);
     expect(empty.body.error.code).toBe('VALIDATION_ERROR');
 
-    for (const institutionCode of ['POPULAR', 'UNKNOWN']) {
-      const unavailable = await request(app)
-        .put(`/api/v1/inbox-connections/${connection.id}/institutions`)
-        .set(auth(userA))
-        .send({ institutionCodes: [institutionCode] });
-      expect(unavailable.status).toBe(400);
-      expect(unavailable.body.error.code).toBe('BANK_SELECTION_UNAVAILABLE');
-    }
+    const unavailable = await request(app)
+      .put(`/api/v1/inbox-connections/${connection.id}/institutions`)
+      .set(auth(userA))
+      .send({ institutionCodes: ['UNKNOWN'] });
+    expect(unavailable.status).toBe(400);
+    expect(unavailable.body.error.code).toBe('BANK_SELECTION_UNAVAILABLE');
   });
 
   it('does not expose retired forwarding connection endpoints', async () => {
@@ -217,6 +221,46 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     expect(responseA.body.data[0].externalId).toBe('shared-bank-id-001');
     expect(responseB.body.data[0].externalId).toBe('shared-bank-id-001');
     expect(responseA.body.data[0].id).not.toBe(responseB.body.data[0].id);
+  });
+
+  it('stores bank income privately while excluding it from every user surface', async () => {
+    const membership = await prisma.workspaceMember.findFirstOrThrow({
+      where: { profileId: userA.id }, select: { workspaceId: true },
+    });
+    const hidden = await prisma.transaction.create({
+      data: {
+        workspaceId: membership.workspaceId, externalId: 'popular-hidden-income-001',
+        institutionCode: 'POPULAR', ingestionChannel: 'GMAIL_OAUTH', rawMerchant: 'Transferencia recibida',
+        merchant: 'Transferencia recibida', category: 'Ingresos / Transferencias', amount: 1500,
+        currency: 'DOP', status: 'Aprobada', statusCode: 'APPROVED', transactionType: 'Transferencia Recibida',
+        transactionDate: new Date('2026-08-16T04:00:00.000Z'), source: 'POPULAR_TRANSFER_INCOME',
+      },
+    });
+
+    const manual = await request(app).post('/api/v1/transactions').set(auth(userA)).send({
+      externalId: 'manual-income-rejected', rawMerchant: 'Persona', amount: 100, currency: 'DOP',
+      transactionType: 'Transferencia Recibida', category: 'Ingresos / Transferencias',
+      transactionDate: '2026-08-16T04:00:00.000Z', institutionCode: 'POPULAR', ingestionChannel: 'MANUAL',
+    });
+    expect(manual.status).toBe(400);
+    expect(manual.body.error.code).toBe('INCOME_MANUAL_ENTRY_DISABLED');
+
+    const [listed, detail, update, removal, stats, categories, exported] = await Promise.all([
+      request(app).get('/api/v1/transactions').set(auth(userA)),
+      request(app).get(`/api/v1/transactions/${hidden.id}`).set(auth(userA)),
+      request(app).patch(`/api/v1/transactions/${hidden.id}`).set(auth(userA)).send({ category: 'Otros' }),
+      request(app).delete(`/api/v1/transactions/${hidden.id}`).set(auth(userA)),
+      request(app).get('/api/v1/stats/summary?currency=DOP').set(auth(userA)),
+      request(app).get('/api/v1/categories').set(auth(userA)),
+      request(app).get('/api/v1/transactions/export?format=json').set(auth(userA)),
+    ]);
+    expect(listed.body.data.some((item: { id: string }) => item.id === hidden.id)).toBe(false);
+    expect([detail.status, update.status, removal.status]).toEqual([404, 404, 404]);
+    expect(stats.body.data.totalIncome).toBe(0);
+    expect(stats.body.data.byCategory.some((item: { category: string }) => /ingreso/i.test(item.category))).toBe(false);
+    expect(categories.body.data.some((item: { category: string }) => /ingreso/i.test(item.category))).toBe(false);
+    expect(exported.body.data.some((item: { id: string }) => item.id === hidden.id)).toBe(false);
+    expect(await prisma.transaction.findUnique({ where: { id: hidden.id } })).not.toBeNull();
   });
 
   it('keeps one transaction and materializes a later reversal', async () => {
@@ -250,6 +294,53 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     expect(reversed.body.data.id).toBe(approved.body.data.id);
     expect(reversed.body.data.statusCode).toBe('REVERSED');
     expect(reversed.body.data.merchant).toBe('Uber');
+  });
+
+  it('replaces and resolves a monthly budget without counting hidden income', async () => {
+    const membership = await prisma.workspaceMember.findFirstOrThrow({
+      where: { profileId: userA.id }, select: { workspaceId: true },
+    });
+    await prisma.transaction.create({
+      data: {
+        workspaceId: membership.workspaceId, externalId: 'budget-pending-001', institutionCode: 'POPULAR',
+        ingestionChannel: 'GMAIL_OAUTH', rawMerchant: 'Supermercado pendiente', merchant: 'Supermercado pendiente',
+        category: 'Supermercado', amount: 75, currency: 'DOP', status: 'Pendiente', statusCode: 'PENDING',
+        transactionType: 'Compra', transactionDate: new Date('2026-08-20T16:00:00.000Z'), source: 'POPULAR_CARD_PURCHASE',
+      },
+    });
+    const replaced = await request(app).put('/api/v1/budgets/monthly').set(auth(userA)).send({
+      month: '2026-08', currency: 'DOP', propagation: 'CURRENT_MONTH', globalLimit: 10_000,
+      categories: [{ categoryKey: 'supermercado', amount: 5_000 }],
+    });
+    expect(replaced.status).toBe(200);
+    expect(replaced.body.data).toMatchObject({ month: '2026-08', currency: 'DOP', hasBudget: true });
+
+    const monthly = await request(app).get('/api/v1/budgets/monthly?month=2026-08&currency=DOP').set(auth(userA));
+    expect(monthly.status).toBe(200);
+    expect(monthly.body.data.global.pending).toBe(75);
+    expect(monthly.body.data.categories[0]).toMatchObject({ categoryKey: 'supermercado', pending: 75 });
+
+    const allApproved = await prisma.transaction.aggregate({
+      where: {
+        workspaceId: membership.workspaceId, currency: 'DOP', statusCode: 'APPROVED',
+        transactionDate: { gte: new Date('2026-08-01T04:00:00.000Z'), lt: new Date('2026-09-01T04:00:00.000Z') },
+      },
+      _sum: { amount: true },
+    });
+    expect(monthly.body.data.global.spent).toBe(Number(allApproved._sum.amount) - 1500);
+
+    const isolated = await request(app).get('/api/v1/budgets/monthly?month=2026-08&currency=DOP').set(auth(userB));
+    expect(isolated.status).toBe(200);
+    expect(isolated.body.data.hasBudget).toBe(false);
+
+    const report = await request(app)
+      .get('/api/v1/reports/financial-export?format=xlsx&month=2026-08&currency=DOP&sections=budget')
+      .set(auth(userA));
+    expect(report.status).toBe(200);
+    const invalidReport = await request(app)
+      .get('/api/v1/reports/financial-export?format=pdf&month=2026-08&currency=DOP&sections=budget&institutionCodes=BHD')
+      .set(auth(userA));
+    expect(invalidReport.status).toBe(400);
   });
 
   it('resolves a reversal that was ingested before its approval', async () => {
@@ -378,6 +469,9 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
     const response = await request(app).post('/api/v1/me/data-export').set(auth(userA));
     expect(response.status).toBe(200);
     expect(response.body.data.profile.email).toBe(userA.email);
+    expect(response.body.data.spendingBudgets).toEqual(expect.arrayContaining([
+      expect.objectContaining({ workspaceId: expect.any(String), currency: 'DOP', kind: 'MONTH_OVERRIDE' }),
+    ]));
     expect(JSON.stringify(response.body)).not.toContain('encryptedAccessToken');
     expect(JSON.stringify(response.body)).not.toContain('rawContent');
   });

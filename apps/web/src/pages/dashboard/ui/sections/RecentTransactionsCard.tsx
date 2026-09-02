@@ -3,7 +3,6 @@ import type { Transaction } from '@/entities/transaction';
 import { ReceiptText } from 'lucide-react';
 import { Button, Card, CardContent } from '@/shared/ui';
 import { formatCurrency, formatDate } from '@/shared/lib';
-import { isReceivedTransfer } from '@/entities/transaction';
 
 interface RecentTransactionsCardProps {
   transactions: Transaction[];
@@ -78,9 +77,7 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
           </div>
         ) : (
           <div className="divide-y">
-            {recentList.map((transaction) => {
-              const income = isReceivedTransfer(transaction);
-              return (
+            {recentList.map((transaction) => (
                 <button
                   key={transaction.id}
                   type="button"
@@ -96,21 +93,13 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
                       {formatDate(transaction.transactionDate)}
                     </p>
                   </div>
-                  <p
-                    className={`shrink-0 text-sm font-bold ${
-                      income ? 'text-emerald-600 dark:text-emerald-400' : ''
-                    }`}
-                  >
+                  <p className="shrink-0 text-sm font-bold">
                     {hideBalances
                       ? '••••••'
-                      : `${income ? '+ ' : ''}${formatCurrency(
-                          transaction.amount,
-                          transaction.currency
-                        )}`}
+                      : formatCurrency(transaction.amount, transaction.currency)}
                   </p>
                 </button>
-              );
-            })}
+            ))}
           </div>
         )}
       </CardContent>

@@ -9,23 +9,36 @@ describe('transaction query adapter', () => {
     })).toMatchObject({ workspaceId: 'workspace', currency: 'DOP', institutionCode: 'BHD' });
   });
 
-  it('combines received-transfer and search predicates without overwriting either', () => {
+  it('always excludes hidden income while preserving type and search predicates', () => {
     const where = buildTransactionWhere('workspace', {
       page: 1, limit: 20, sortBy: 'transactionDate', sortOrder: 'desc',
-      currency: 'DOP', transactionType: 'recibida', search: 'Ana',
+      currency: 'DOP', transactionType: 'servicio', search: 'Claro',
     });
     expect(where.OR).toBeUndefined();
+    expect(where.NOT).toEqual({ OR: [
+      { transactionType: { contains: 'Recibida', mode: 'insensitive' } },
+      { category: { contains: 'Ingresos', mode: 'insensitive' } },
+      { source: { contains: 'TRANSFER_INCOME', mode: 'insensitive' } },
+    ] });
     expect(where.AND).toEqual([
       { OR: [
-        { transactionType: { contains: 'Recibida' } },
-        { category: { contains: 'Ingresos' } },
-        { source: 'BHD_TRANSFER_INCOME' },
+        { transactionType: { contains: 'Servicio' } },
+        { category: 'Servicios' },
+        { source: 'BHD_SERVICE_PAYMENT' },
       ] },
       { OR: [
-        { merchant: { contains: 'Ana' } },
-        { rawMerchant: { contains: 'Ana' } },
-        { notes: { contains: 'Ana' } },
+        { merchant: { contains: 'Claro' } },
+        { rawMerchant: { contains: 'Claro' } },
+        { notes: { contains: 'Claro' } },
       ] },
     ]);
+  });
+
+  it('uses canonical multi-bank codes in preference to the legacy organization filter', () => {
+    expect(buildTransactionWhere('workspace', {
+      format: 'json', organization: 'BHD', institutionCodes: ['POPULAR', 'QIK', 'CASH'],
+    })).toMatchObject({
+      workspaceId: 'workspace', institutionCode: { in: ['POPULAR', 'QIK', 'CASH'] },
+    });
   });
 });

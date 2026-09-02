@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import AxiosMockAdapter from 'axios-mock-adapter';
 import { httpClient } from '@/shared/api';
 import { filenameFromDisposition, reportService } from './report.service';
+import { currentReportDate } from '../model/export-options';
 
 const mock = new AxiosMockAdapter(httpClient);
 
@@ -16,8 +17,12 @@ describe('reportService.financialExport', () => {
     });
     const result = await reportService.financialExport({
       format: 'xlsx', currency: 'USD', month: '2026-08', category: 'Supermercado', includeNotes: true,
+      institutionCodes: ['BHD', 'POPULAR'], title: 'Gastos agosto', sections: ['summary', 'movements'],
     });
-    expect(captured).toMatchObject({ format: 'xlsx', currency: 'USD', month: '2026-08', category: 'Supermercado', includeNotes: 'true' });
+    expect(captured).toMatchObject({
+      format: 'xlsx', currency: 'USD', month: '2026-08', category: 'Supermercado', includeNotes: 'true',
+      institutionCodes: 'BHD,POPULAR', title: 'Gastos agosto', sections: 'summary,movements',
+    });
     expect(result.filename).toBe('bills-informe-2026-08.xlsx');
     expect(result.blob).toBeInstanceOf(Blob);
   });
@@ -28,9 +33,14 @@ describe('reportService.financialExport', () => {
       captured = config.params as Record<string, unknown>;
       return [200, new Blob(['data'])];
     });
-    await reportService.financialExport({ format: 'csv', currency: 'DOP', startDate: '2026-08-01', endDate: '2026-08-15' });
+    await reportService.financialExport({
+      format: 'csv', currency: 'DOP', startDate: '2026-08-01', endDate: '2026-08-15',
+      institutionCodes: [], sections: [],
+    });
     expect(captured.includeNotes).toBeUndefined();
     expect(captured.category).toBeUndefined();
+    expect(captured.institutionCodes).toBeUndefined();
+    expect(captured.sections).toBeUndefined();
     expect(captured).toMatchObject({ format: 'csv', currency: 'DOP', startDate: '2026-08-01', endDate: '2026-08-15' });
   });
 
@@ -48,5 +58,11 @@ describe('filenameFromDisposition', () => {
   it('returns the fallback when the header is missing or malformed', () => {
     expect(filenameFromDisposition(undefined, 'fallback.pdf')).toBe('fallback.pdf');
     expect(filenameFromDisposition('attachment', 'fallback.pdf')).toBe('fallback.pdf');
+  });
+});
+
+describe('currentReportDate', () => {
+  it('uses the Santo Domingo calendar near a UTC month boundary', () => {
+    expect(currentReportDate(new Date('2026-10-01T02:00:00.000Z'))).toBe('2026-09-30');
   });
 });

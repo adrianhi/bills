@@ -44,8 +44,22 @@ import { NormalizedEmailProcessor } from './modules/ingestion/infrastructure/nor
 import { FinancialInstitutionService } from './modules/connections/infrastructure/financial-institution.service';
 import { BankConnectionController } from './controllers/bank-connection.controller';
 import { LegalController } from './controllers/legal.controller';
+import {
+  BudgetController, GetMonthlyBudget, ListBudgetCategories, PrismaBudgetExpenseReadModel,
+  PrismaBudgetRepository, ReplaceMonthlyBudget, SuggestBudget,
+} from './modules/budgets';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
+const budgetRepository = new PrismaBudgetRepository();
+const budgetExpenses = new PrismaBudgetExpenseReadModel();
+const budgetCategories = new ListBudgetCategories(budgetExpenses);
+const getMonthlyBudget = new GetMonthlyBudget(budgetRepository, budgetExpenses);
+const budgetController = new BudgetController({
+  getMonthly: getMonthlyBudget,
+  replaceMonthly: new ReplaceMonthlyBudget(budgetRepository, budgetCategories, getMonthlyBudget),
+  suggest: new SuggestBudget(budgetExpenses, budgetCategories),
+  listCategories: budgetCategories,
+});
 const categoryRuleService = new CategoryRuleApplicationService(new PrismaCategoryRuleRepository());
 const transactionWriter = new PrismaTransactionWriter(
   { categorize: CategorizationService.categorize.bind(CategorizationService) },
@@ -97,10 +111,11 @@ const inboxConnectionController = new InboxConnectionController(
 );
 
 export const appContainer = {
+  budgetController,
   analyticsController: new AnalyticsController(analyticsService),
   categoryRuleController: new CategoryRuleController(categoryRuleService),
   transactionController: new TransactionHttpController(transactionService),
-  financialReportController: new FinancialReportController(new FinancialReportService(analyticsService, transactionService)),
+  financialReportController: new FinancialReportController(new FinancialReportService(analyticsService, transactionService, getMonthlyBudget)),
   readinessController: new ReadinessController(new PrismaReadinessRepository()),
   identityController: new IdentityController(new IdentityApplicationService(
     new PrismaProfileRepository(),
@@ -114,7 +129,7 @@ export const appContainer = {
   gmailSyncService,
   ingestionJobService,
   ingestionRunner,
-  accountController: new AccountController(new AccountService(gmailLifecycleService)),
+  accountController: new AccountController(new AccountService(gmailLifecycleService, budgetRepository)),
   workspaceService: WorkspaceService,
   legalService: LegalService,
   legalController: new LegalController({

@@ -7,6 +7,7 @@ import { MonthPerspectiveCard } from '@/widgets/spending-perspective';
 import { Button, Card, CardContent } from '@/shared/ui';
 import { ConnectionHealthCard } from '../ConnectionHealthCard';
 import { RecentTransactionsCard } from './RecentTransactionsCard';
+import { CurrentBudgetCard } from './CurrentBudgetCard';
 
 interface HomeSectionProps {
   periodToolbar: ReactNode;
@@ -106,6 +107,8 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
           hideBalances={hideBalances}
         />
       )}
+
+      <CurrentBudgetCard currency={currency} hideBalances={hideBalances} />
 
       <RecentTransactionsCard
         transactions={transactions}

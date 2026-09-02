@@ -4,7 +4,7 @@ import { useTransactions } from '@/entities/transaction';
 import { usePeriodFilter } from '@/features/period-filter';
 import { useThemeAndPrivacy } from '@/shared/hooks/useThemeAndPrivacy';
 
-type DashboardSection = 'home' | 'transactions' | 'analytics' | 'more';
+type DashboardSection = 'home' | 'transactions' | 'budget' | 'analytics';
 
 export function useDashboardController(authToken: string, onLock: () => void, section: DashboardSection) {
   const theme = useThemeAndPrivacy();

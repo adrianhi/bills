@@ -2,12 +2,19 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useAccountSettings } from '../model/useAccountSettings';
 import { AccountConnectionsSection } from './AccountConnectionsSection';
 import { AccountPrivacySections } from './AccountPrivacySections';
+import { AccountToolsSection } from './AccountToolsSection';
 
 interface AccountSettingsModalProps {
   authToken: string;
   isOpen: boolean;
   onClose: () => void;
   onAccountDeleted: () => void;
+  darkMode: boolean;
+  setDarkMode: (value: boolean) => void;
+  onRepeatTour: () => void;
+  onOpenRules: () => void;
+  onOpenExport: () => void;
+  onLock: () => void;
 }
 
 export function AccountSettingsModal({
@@ -15,6 +22,12 @@ export function AccountSettingsModal({
   isOpen,
   onClose,
   onAccountDeleted,
+  darkMode,
+  setDarkMode,
+  onRepeatTour,
+  onOpenRules,
+  onOpenExport,
+  onLock,
 }: AccountSettingsModalProps) {
   const model = useAccountSettings(isOpen, Boolean(authToken), onAccountDeleted);
   const mustSelectBanks = model.connections.some(
@@ -33,6 +46,7 @@ export function AccountSettingsModal({
           </DialogDescription>
         </DialogHeader>
         <AccountConnectionsSection model={model} />
+        {!mustSelectBanks && <AccountToolsSection darkMode={darkMode} setDarkMode={setDarkMode} onRepeatTour={onRepeatTour} onOpenRules={onOpenRules} onOpenExport={onOpenExport} onLock={onLock} />}
         <AccountPrivacySections model={model} />
       </DialogContent>
     </Dialog>

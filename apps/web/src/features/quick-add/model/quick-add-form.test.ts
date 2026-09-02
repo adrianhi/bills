@@ -20,8 +20,7 @@ describe('quick add form rules', () => {
     expect(validateQuickAddForm({ ...validValues, amount: '100000001' }).amount).toContain('límite');
   });
 
-  it('uses contextual merchant validation', () => {
-    expect(validateQuickAddForm({ ...validValues, merchant: '', movementType: 'recibida' }).merchant).toContain('transfirió');
+  it('validates the merchant field for expense movements', () => {
     expect(validateQuickAddForm({ ...validValues, merchant: '', movementType: 'compra' }).merchant).toContain('comercio');
     expect(validateQuickAddForm({ ...validValues, merchant: 'x'.repeat(201) }).merchant).toContain('200');
   });

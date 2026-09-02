@@ -10,7 +10,7 @@ import { DashboardModals } from './DashboardModals';
 import { HomeSection } from './sections/HomeSection';
 import { TransactionsSection } from './sections/TransactionsSection';
 import { AnalyticsSection } from './sections/AnalyticsSection';
-import { MoreSection } from './sections/MoreSection';
+import { BudgetSection } from './sections/BudgetSection';
 
 interface DashboardPageProps {
   authToken: string;
@@ -180,6 +180,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         {activeSection === 'analytics' && (
           <AnalyticsSection
             periodToolbar={periodToolbarNode}
+            currentPeriod={currentPeriod}
             stats={stats}
             statsError={statsError}
             loadingStats={loadingStats}
@@ -188,21 +189,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onRefresh={onRefresh}
           />
         )}
-        {activeSection === 'more' && (
-          <MoreSection
+        {activeSection === 'budget' && (
+          <BudgetSection
+            periodToolbar={periodToolbarNode}
             currentPeriod={currentPeriod}
             currency={currency}
-            filters={currentFilters}
-            darkMode={darkMode}
-            setDarkMode={setDarkMode}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            onRepeatTour={() => {
-              setIsTourInviteOpen(false);
-              setIsTourOpen(true);
-            }}
-            onOpenRules={() => setIsRulesModalOpen(true)}
-            onOpenExportModal={() => setIsExportModalOpen(true)}
-            onLock={onLock}
+            hideBalances={hideBalances}
           />
         )}
       </main>
@@ -230,6 +222,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         setIsSettingsOpen={setIsSettingsOpen}
         requiresBankSelection={requiresBankSelection}
         onAccountDeleted={onAccountDeleted}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        onLock={onLock}
         isTourInviteOpen={isTourInviteOpen}
         setIsTourInviteOpen={setIsTourInviteOpen}
         isTourOpen={isTourOpen}

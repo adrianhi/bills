@@ -2,7 +2,7 @@
 
 Documentación técnica: [arquitectura](docs/ARCHITECTURE.md) · [pruebas y staging](docs/TESTING.md) · [plan SaaS](docs/SAAS-PLAN.md)
 
-Plataforma SaaS de finanzas personales que unifica notificaciones bancarias, normaliza movimientos y ofrece analítica por usuario. BHD, Qik y Banreservas se integran como adaptadores independientes sobre un contrato común.
+Plataforma SaaS de control de gastos que unifica notificaciones bancarias, normaliza movimientos y ofrece analítica por usuario. BHD, Qik, Banreservas y Popular se integran como adaptadores independientes sobre un contrato común.
 
 ## Estado actual
 
@@ -10,10 +10,11 @@ Plataforma SaaS de finanzas personales que unifica notificaciones bancarias, nor
 - Beta privada por invitación.
 - Un workspace personal aislado por usuario; todas las consultas y mutaciones se filtran por workspace.
 - Onboarding con selección explícita de uno o varios bancos y Gmail OAuth de solo lectura.
-- Ingesta común: Gmail OAuth → `NormalizedEmail` → registro de adaptadores → BHD/Qik/Banreservas.
+- Ingesta común: Gmail OAuth → `NormalizedEmail` → registro de adaptadores → BHD/Qik/Banreservas/Popular.
 - Términos y privacidad versionados, consentimiento auditable, exportación y eliminación autoservicio.
 - Registro manual, reglas por usuario, dashboard, filtros y exportación autenticada.
-- Catálogo multi-banco: BHD, Qik y Banreservas disponibles como pilotos; las instituciones futuras permanecen visibles pero deshabilitadas.
+- Catálogo multi-banco: BHD, Qik, Banreservas y Popular disponibles como pilotos; las instituciones futuras permanecen visibles pero deshabilitadas.
+- Las transferencias recibidas se conservan como evidencia bancaria parcial, pero no se muestran ni alimentan la analítica porque sus notificaciones no son consistentes.
 
 Consulta el plan, las decisiones y los criterios de salida en [docs/SAAS-PLAN.md](docs/SAAS-PLAN.md).
 
@@ -28,7 +29,7 @@ Gmail ── OAuth readonly ─────────────────�
                                                    │
                               IngestionRunner (mismo proceso de API en Render)
                                                    │
-                              ParserRegistry -> BHD | Qik | Banreservas | siguiente banco
+                              ParserRegistry -> BHD | Qik | Banreservas | Popular | siguiente banco
                                                    │
                                       transactions (workspace_id)
 ```

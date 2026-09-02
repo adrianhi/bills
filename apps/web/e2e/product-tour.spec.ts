@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const GUIDE_VERSION = '2026-08-30.2';
+const GUIDE_VERSION = '2026-09-01.1';
 
 async function mockAuthenticatedDashboard(page: Page) {
   const productGuideUpdates: boolean[] = [];
@@ -89,6 +89,15 @@ async function mockAuthenticatedDashboard(page: Page) {
         },
       });
     }
+    if (path.endsWith('/budgets/monthly')) {
+      return json({
+        success: true,
+        data: {
+          month: '2026-09', currency: 'DOP', hasBudget: false, totalSpent: 0,
+          totalPending: 0, unbudgetedSpent: 0, global: null, categories: [], alerts: [],
+        },
+      });
+    }
     return json({ success: true, data: [] });
   });
 
@@ -99,7 +108,7 @@ async function expectSettledStep(page: Page, title: string) {
   await expect(page.locator('[data-product-tour-phase="settled"]')).toBeVisible();
   await expect(page.locator('[data-product-tour-card]')).toBeVisible();
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
-  const primaryAction = title === 'Tú mantienes el control' ? 'Terminar' : 'Siguiente';
+  const primaryAction = title === 'Decide antes de gastar' ? 'Terminar' : 'Siguiente';
   await expect(page.getByRole('button', { name: primaryAction })).toBeFocused();
 }
 
@@ -129,12 +138,12 @@ test('the tour settles every target before revealing its card', async ({ page })
     'Encuentra cualquier movimiento',
     'Añade lo que falte',
     'Detecta patrones',
-    'Tú mantienes el control',
+    'Decide antes de gastar',
   ]) {
     await moveTour(page, 'Siguiente', title);
   }
 
-  const target = page.locator('[data-product-tour="more-tools"]');
+  const target = page.locator('[data-product-tour="budget-overview"]');
   const bottomNavigation = page.locator('[data-product-tour-occluder="bottom-navigation"]');
   const targetBox = await target.boundingBox();
   expect(targetBox).not.toBeNull();

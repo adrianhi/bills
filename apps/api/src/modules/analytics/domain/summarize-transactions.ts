@@ -19,13 +19,12 @@ export function summarizeTransactions(transactions: AnalyticsTransaction[], requ
   for (const transaction of transactions) {
     const amount = Number(transaction.amount);
     const income = isIncomeMovement(transaction);
+    if (income) continue;
     const matchesCurrency = transaction.currency.toUpperCase() === requestedCurrency;
     if (matchesCurrency) totalTransactions += 1;
     if (!matchesCurrency) {
       if (contributesToFinancialMetrics(transaction.statusCode)) {
-        if (income) {
-          if (transaction.currency === 'USD') totalIncomeUSD += amount; else totalIncomeDOP += amount;
-        } else if (transaction.currency === 'USD') totalSpentUSD += amount; else totalSpentDOP += amount;
+        if (transaction.currency === 'USD') totalSpentUSD += amount; else totalSpentDOP += amount;
       }
       continue;
     }
@@ -34,10 +33,6 @@ export function summarizeTransactions(transactions: AnalyticsTransaction[], requ
     else if (transaction.statusCode === 'PENDING') pendingCount += 1;
     else approvedCount += 1;
     if (!contributesToFinancialMetrics(transaction.statusCode)) continue;
-    if (income) {
-      if (transaction.currency === 'USD') totalIncomeUSD += amount; else totalIncomeDOP += amount;
-      continue;
-    }
     approvedExpenseCount += 1;
     if (transaction.currency === 'USD') totalSpentUSD += amount; else totalSpentDOP += amount;
     const institution = institutionDisplayName(transaction.institutionCode);

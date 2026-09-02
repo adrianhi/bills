@@ -8,14 +8,15 @@ import { APP_SECTIONS, type AppSection } from '@/widgets/bottom-nav';
 export const DASHBOARD_SECTION_TITLES: Record<AppSection, string> = {
   home: 'Inicio',
   transactions: 'Movimientos',
+  budget: 'Presupuesto',
   analytics: 'Analítica',
-  more: 'Más',
 };
 
 function sectionFromPath(pathname: string): AppSection | null {
   if (pathname.includes('/movimientos')) return 'transactions';
   if (pathname.includes('/analitica')) return 'analytics';
-  if (pathname.includes('/mas')) return 'more';
+  if (pathname.includes('/presupuesto')) return 'budget';
+  if (pathname.includes('/mas')) return 'home';
   if (pathname.includes('/inicio')) return 'home';
   return null;
 }
@@ -25,7 +26,7 @@ export function useDashboardShell(productGuide: ProductGuideState) {
   const navigate = useNavigate();
   const activeSection = sectionFromPath(location.pathname) ?? 'home';
   const [isSettingsOpen, setIsSettingsOpen] = useState(
-    () => new URLSearchParams(window.location.search).get('settings') === 'connections'
+    () => new URLSearchParams(window.location.search).has('settings') || window.location.pathname.includes('/mas')
   );
   const [isTourInviteOpen, setIsTourInviteOpen] = useState(
     () => productGuide.versionSeen !== productGuide.currentVersion
@@ -47,6 +48,10 @@ export function useDashboardShell(productGuide: ProductGuideState) {
   });
 
   useEffect(() => {
+    if (location.pathname.includes('/mas')) {
+      navigate('/app/inicio?settings=tools', { replace: true });
+      return;
+    }
     if (!sectionFromPath(location.pathname)) {
       navigate('/app/inicio', { replace: true });
     }

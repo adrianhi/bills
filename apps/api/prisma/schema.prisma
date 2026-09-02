@@ -91,6 +91,16 @@ enum TransactionStatusResolution {
   AMBIGUOUS
 }
 
+enum BudgetScope {
+  GLOBAL
+  CATEGORY
+}
+
+enum BudgetLimitKind {
+  RECURRING
+  MONTH_OVERRIDE
+}
+
 enum IngestionJobType {
   GMAIL_INITIAL_BACKFILL
   GMAIL_BANK_BACKFILL
@@ -141,10 +151,32 @@ model Workspace {
   ingestionEvents  IngestionEvent[]
   ingestionJobs    IngestionJob[]
   statusEvents     TransactionStatusEvent[]
+  spendingBudgetLimits SpendingBudgetLimit[]
   createdAt        DateTime                 @default(now()) @map("created_at")
   updatedAt        DateTime                 @updatedAt @map("updated_at")
 
   @@map("workspaces")
+}
+
+model SpendingBudgetLimit {
+  id            String          @id @default(uuid()) @db.Uuid
+  workspaceId   String          @map("workspace_id") @db.Uuid
+  currency      String
+  scope         BudgetScope
+  targetKey     String          @map("target_key")
+  categoryKey   String?         @map("category_key")
+  categoryLabel String?         @map("category_label")
+  kind          BudgetLimitKind
+  effectiveMonth DateTime       @map("effective_month") @db.Date
+  amount        Decimal?        @db.Decimal(12, 2)
+  disabled      Boolean         @default(false)
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  @@unique([workspaceId, currency, targetKey, kind, effectiveMonth])
+  @@index([workspaceId, currency, effectiveMonth])
+  @@map("spending_budget_limits")
 }
 
 model WorkspaceMember {

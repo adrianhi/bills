@@ -1,11 +1,10 @@
-import { ArrowDownLeft, ArrowUpRight, Check, CreditCard, Landmark, Receipt } from 'lucide-react';
+import { ArrowUpRight, Check, CreditCard, Landmark, Receipt } from 'lucide-react';
 import { COMMON_CATEGORIES, FINANCIAL_INSTITUTIONS } from '@/shared/config/financial-options';
 import { formatCurrency, toDateValue } from '@/shared/lib';
 import { Button, DateTimePickerField, DialogFooter, Input } from '@/shared/ui';
 import type { QuickAddTransactionModel } from '../model/useQuickAddTransaction';
 
 const MOVEMENT_TYPES = [
-  { id: 'recibida', label: 'Ingreso / Recibida', icon: ArrowDownLeft },
   { id: 'compra', label: 'Compra', icon: CreditCard },
   { id: 'enviada', label: 'Transf. Enviada', icon: ArrowUpRight },
   { id: 'servicio', label: 'Servicio', icon: Receipt },
@@ -64,10 +63,10 @@ export function QuickAddTransactionFields({ model, onCancel }: QuickAddTransacti
       </div>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-semibold text-foreground">{movementType === 'recibida' ? '¿Quién te transfirió? (Emisor)' : 'Comercio o Beneficiario'}</label>
+          <label className="text-xs font-semibold text-foreground">Comercio o Beneficiario</label>
           <span className="text-[10px] text-muted-foreground">{merchant.length}/200</span>
         </div>
-        <Input placeholder={movementType === 'recibida' ? 'Ej: Juan Pérez / Carlos Méndez' : 'Ej: Supermercado Bravo / Netflix'} value={merchant} maxLength={200} onChange={(event) => setMerchant(event.target.value)} className={`h-10 text-xs ${fieldErrors.merchant ? 'border-destructive focus-visible:ring-destructive' : ''}`} />
+        <Input placeholder="Ej: Supermercado Bravo / Netflix" value={merchant} maxLength={200} onChange={(event) => setMerchant(event.target.value)} className={`h-10 text-xs ${fieldErrors.merchant ? 'border-destructive focus-visible:ring-destructive' : ''}`} />
         {fieldErrors.merchant && <p className="text-[11px] font-medium text-destructive">{fieldErrors.merchant}</p>}
       </div>
       <div className="space-y-1.5">
