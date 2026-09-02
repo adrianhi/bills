@@ -36,6 +36,7 @@ export const budgetSummarySchema = z.object({
   month: budgetMonthSchema,
   currency: budgetCurrencySchema,
   hasBudget: z.boolean(),
+  propagation: budgetPropagationSchema.default('CURRENT_AND_FUTURE'),
   totalSpent: z.number().nonnegative(),
   totalPending: z.number().nonnegative(),
   unbudgetedSpent: z.number().nonnegative(),

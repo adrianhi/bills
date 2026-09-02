@@ -31,6 +31,7 @@ function progress(limit: ResolvedBudgetLimit, spent: number, pending: number, co
 
 export function buildBudgetSummary(input: {
   month: string; currency: 'DOP' | 'USD'; limits: ResolvedBudgetLimit[];
+  propagation?: 'CURRENT_MONTH' | 'CURRENT_AND_FUTURE';
   expenses: ExpenseAggregate[]; now?: Date;
 }): BudgetSummaryDto {
   const now = input.now ?? new Date();
@@ -53,6 +54,7 @@ export function buildBudgetSummary(input: {
     .slice(0, 3);
   return {
     month: input.month, currency: input.currency, hasBudget: input.limits.length > 0,
+    propagation: input.propagation || 'CURRENT_AND_FUTURE',
     totalSpent: round(totalSpent), totalPending: round(totalPending), unbudgetedSpent: round(unbudgetedSpent),
     global, categories, alerts,
   };

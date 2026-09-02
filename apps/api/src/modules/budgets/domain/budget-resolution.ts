@@ -34,3 +34,8 @@ export function resolveBudgetLimits(records: BudgetLimitRecord[], month: Date): 
     return [{ ...resolved, amount: record.amount }];
   }).sort((a, b) => a.scope === b.scope ? (a.categoryLabel || '').localeCompare(b.categoryLabel || '', 'es') : a.scope === 'GLOBAL' ? -1 : 1);
 }
+
+export function hasMonthOverride(records: BudgetLimitRecord[], month: Date): boolean {
+  const requested = month.getTime();
+  return records.some((record) => record.kind === 'MONTH_OVERRIDE' && record.effectiveMonth.getTime() === requested);
+}

@@ -27,7 +27,7 @@ export function useBudgetManager(input: {
     // oxlint-disable-next-line react/set-state-in-effect -- opening hydrates the editor from the resolved monthly snapshot
     setGlobalLimit(input.summary?.global?.limit ? formatAmountInput(input.summary.global.limit) : '');
     setLimits(Object.fromEntries((input.summary?.categories || []).map((item) => [item.categoryKey!, formatAmountInput(item.limit)])));
-    setPropagation(input.month < currentMonth() ? 'CURRENT_MONTH' : 'CURRENT_AND_FUTURE');
+    setPropagation(input.summary?.propagation || (input.month < currentMonth() ? 'CURRENT_MONTH' : 'CURRENT_AND_FUTURE'));
     setSuggestionNote(''); setValidationError('');
   }, [input.open, input.month, input.summary]);
 
