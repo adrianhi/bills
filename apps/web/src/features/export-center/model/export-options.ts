@@ -56,7 +56,7 @@ export const REPORT_SECTION_OPTIONS: Array<{ id: FinancialReportSection; label: 
   { id: 'budget', label: 'Presupuesto' },
 ];
 
-export type ExportPeriodPreset = 'current' | '3m' | '6m' | 'all' | 'custom';
+export type ExportPeriodPreset = 'current' | '3m' | '6m' | 'all' | 'custom' | 'last3' | 'last6';
 export type ExportPeriodType = ExportPeriodPreset | 'last_3_months' | 'last_6_months';
 
 export interface ExportPeriodPresetOption {

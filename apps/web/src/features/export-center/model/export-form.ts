@@ -10,7 +10,7 @@ export interface ExportFormInitial {
   initialCurrency?: string;
   initialFilters?: ExportFilters;
 }
-export type ExportPeriodType = 'current' | 'last3' | 'last6' | 'all' | 'custom';
+export type { ExportPeriodType } from './export-options';
 
 export interface ExportFormState {
   format: ExportFormat; currency: string; periodType: ExportPeriodType;
