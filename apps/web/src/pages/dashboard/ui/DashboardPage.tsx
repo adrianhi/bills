@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { FileDown } from 'lucide-react';
 import type { ProductGuideState } from '@bills/contracts';
 import { Navbar } from '@/widgets/navbar';
 import { BottomNav } from '@/widgets/bottom-nav';
@@ -179,7 +180,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         )}
         {activeSection === 'analytics' && (
           <AnalyticsSection
-            periodToolbar={periodToolbarNode}
+            periodToolbar={(
+              <PeriodToolbar
+                currentPeriod={currentPeriod}
+                onApplyPeriod={onApplyPeriod}
+                currency={currency}
+                setCurrency={setCurrency}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setIsExportModalOpen(true)}
+                    className="flex min-h-12 flex-1 sm:flex-initial cursor-pointer items-center justify-center gap-2 rounded-2xl border border-border bg-card px-3 sm:px-4 text-xs font-bold text-foreground shadow-sm transition-all hover:bg-muted/60 active:scale-[0.98] whitespace-nowrap"
+                    title="Exportar informe"
+                  >
+                    <FileDown className="h-4 w-4 text-primary shrink-0" />
+                    <span>Exportar <span className="hidden sm:inline">reporte</span></span>
+                  </button>
+                }
+              />
+            )}
             currentPeriod={currentPeriod}
             stats={stats}
             statsError={statsError}
@@ -187,7 +206,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             currency={currency}
             hideBalances={hideBalances}
             onRefresh={onRefresh}
-            onExport={() => setIsExportModalOpen(true)}
           />
         )}
         {activeSection === 'budget' && (
