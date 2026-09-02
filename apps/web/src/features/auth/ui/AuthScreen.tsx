@@ -1,7 +1,7 @@
-import { AlertCircle, Loader2, Lock, ShieldCheck } from 'lucide-react';
-import { Button, Card, CardContent } from '@/shared/ui';
-import { isSupabaseConfigured } from '@/shared/lib';
-import { useSignInActions } from '../model/useSignInActions';
+import { AlertCircle, Loader2, Lock, ShieldCheck } from "lucide-react";
+import { Button, Card, CardContent } from "@/shared/ui";
+import { isSupabaseConfigured } from "@/shared/lib";
+import { useSignInActions } from "../model/useSignInActions";
 
 interface AuthScreenProps {
   checkingSession?: boolean;
@@ -31,7 +31,10 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export function AuthScreen({ checkingSession = false, setupError }: AuthScreenProps) {
+export function AuthScreen({
+  checkingSession = false,
+  setupError,
+}: AuthScreenProps) {
   const { loading, error, signInWithGoogle } = useSignInActions();
 
   if (checkingSession) {
@@ -52,7 +55,9 @@ export function AuthScreen({ checkingSession = false, setupError }: AuthScreenPr
           <h1 className="text-2xl font-bold tracking-tight">
             bills<span className="text-emerald-500">.</span>
           </h1>
-          <p className="text-sm text-muted-foreground">Tus movimientos financieros, en un solo lugar.</p>
+          <p className="text-sm text-muted-foreground">
+            Tus movimientos financieros, en un solo lugar.
+          </p>
         </div>
 
         <Card className="border-border/60 bg-card/90 shadow-xl backdrop-blur-md">
@@ -60,7 +65,10 @@ export function AuthScreen({ checkingSession = false, setupError }: AuthScreenPr
             {!isSupabaseConfigured ? (
               <div className="flex gap-2 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>Configura VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY para habilitar el acceso.</span>
+                <span>
+                  Configura VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY
+                  para habilitar el acceso.
+                </span>
               </div>
             ) : (
               <>
@@ -71,7 +79,7 @@ export function AuthScreen({ checkingSession = false, setupError }: AuthScreenPr
                   disabled={Boolean(loading)}
                   onClick={() => void signInWithGoogle()}
                 >
-                  {loading === 'google' ? (
+                  {loading === "google" ? (
                     <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
                   ) : (
                     <GoogleIcon className="h-5 w-5 shrink-0" />
@@ -81,7 +89,9 @@ export function AuthScreen({ checkingSession = false, setupError }: AuthScreenPr
 
                 <div className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
                   <Lock className="h-3.5 w-3.5 text-emerald-500" />
-                  <span>Autenticación rápida y segura con tu cuenta de Gmail</span>
+                  <span>
+                    Autenticación rápida y segura con tu cuenta de Gmail
+                  </span>
                 </div>
               </>
             )}
@@ -101,12 +111,20 @@ export function AuthScreen({ checkingSession = false, setupError }: AuthScreenPr
             Bancos compatibles en piloto: BHD, Qik, Banreservas y Popular.
           </p>
           <p>
-            Al continuar aceptas nuestros{' '}
-            <a href="/legal/terms" target="_blank" className="underline hover:text-foreground">
+            Al continuar aceptas nuestros{" "}
+            <a
+              href="/legal/terms"
+              target="_blank"
+              className="underline hover:text-foreground"
+            >
               Términos
-            </a>{' '}
-            y la{' '}
-            <a href="/legal/privacy" target="_blank" className="underline hover:text-foreground">
+            </a>{" "}
+            y la{" "}
+            <a
+              href="/legal/privacy"
+              target="_blank"
+              className="underline hover:text-foreground"
+            >
               Política de Privacidad
             </a>
             .

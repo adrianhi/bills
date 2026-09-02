@@ -1,4 +1,5 @@
 import { prisma } from '../../../config/database';
+import { AppError } from '../../../errors/app-error';
 import { CreateTransactionSchema } from '../../../schemas/transaction.schema';
 import { ParserRegistry } from '../../../ingestion/parser-registry';
 import type { IngestionChannelName, NormalizedEmail } from '../../../ingestion/types';
@@ -110,15 +111,33 @@ export class NormalizedEmailProcessor {
 
     let created = 0;
     let duplicates = 0;
+    let ignored = 0;
     for (const transaction of parseResult.transactions) {
-      const validated = CreateTransactionSchema.parse({
-        ...transaction,
-        institutionCode: parser.institutionCode,
-        ingestionChannel: input.ingestionChannel,
-      });
-      const result = await this.transactions.create(input.workspaceId, validated);
-      if (result.isDuplicate) duplicates += 1;
-      else created += 1;
+      try {
+        const validated = CreateTransactionSchema.parse({
+          ...transaction,
+          institutionCode: parser.institutionCode,
+          ingestionChannel: input.ingestionChannel,
+        });
+        const result = await this.transactions.create(input.workspaceId, validated);
+        if (result.isDuplicate) duplicates += 1;
+        else created += 1;
+      } catch (error) {
+        if (error instanceof AppError && error.code === 'INCOME_MANUAL_ENTRY_DISABLED') {
+          ignored += 1;
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (created === 0 && duplicates === 0 && ignored > 0) {
+      return {
+        status: 'ignored' as const,
+        reason: 'INCOME_MOVEMENT_IGNORED',
+        parserCode: parser.institutionCode,
+        parserVersion: parser.version,
+      };
     }
 
     await prisma.bankConnection.update({

@@ -41,9 +41,6 @@ export class GmailQueryService {
 
   public async finishSync(connectionId: string, cursor: string | null | undefined, summary: SyncSummary): Promise<void> {
     const now = new Date();
-    const unresolvedFailures = await prisma.ingestionEvent.count({
-      where: { inboxConnectionId: connectionId, provider: 'GOOGLE_GMAIL', status: 'FAILED' },
-    });
     await prisma.inboxConnection.update({
       where: { id: connectionId },
       data: {
@@ -52,7 +49,7 @@ export class GmailQueryService {
         lastSyncedAt: now,
         lastSuccessfulSyncAt: now,
         lastSyncSummary: summary as unknown as Prisma.InputJsonValue,
-        lastErrorCode: summary.failed > 0 || unresolvedFailures > 0 ? 'PARTIAL_SYNC_FAILURE' : null,
+        lastErrorCode: summary.failed > 0 ? 'PARTIAL_SYNC_FAILURE' : null,
         syncLeaseUntil: null,
         nextReconcileAt: new Date(now.getTime() + config.gmailReconcileIntervalMinutes * 60_000),
       },
