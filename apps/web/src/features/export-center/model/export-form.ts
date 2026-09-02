@@ -1,6 +1,6 @@
 import type { PeriodSelection } from '@/entities/period';
 import type { FinancialReportSection } from '../api/report.service';
-import { currentReportDate, type ExportFormat } from './export-options';
+import { currentReportDate, type ExportFormat, type ExportPeriodType } from './export-options';
 
 export interface ExportFilters {
   category?: string; status?: string; organization?: string; transactionType?: string; search?: string;
@@ -11,7 +11,7 @@ export interface ExportFormInitial {
   initialFilters?: ExportFilters;
 }
 export interface ExportFormState {
-  format: ExportFormat; currency: string; periodType: 'current' | 'all' | 'custom';
+  format: ExportFormat; currency: string; periodType: ExportPeriodType;
   customStartDate: string; customEndDate: string; institutionCodes: string[];
   category: string; status: string; transactionType: string; search: string;
   title: string; sections: FinancialReportSection[]; includeNotes: boolean;
@@ -20,6 +20,15 @@ export type ReportPeriod =
   | { kind: 'all' }
   | { kind: 'month'; month: string }
   | { kind: 'range'; startDate: string; endDate: string };
+
+export function calculatePresetRange(monthsBack: number, today = currentReportDate()): { startDate: string; endDate: string } {
+  const [year, month] = today.split('-').map(Number);
+  const startDateObj = new Date(Date.UTC(year, (month - 1) - (monthsBack - 1), 1));
+  const startYear = startDateObj.getUTCFullYear();
+  const startMonth = String(startDateObj.getUTCMonth() + 1).padStart(2, '0');
+  const startDate = `${startYear}-${startMonth}-01`;
+  return { startDate, endDate: today };
+}
 
 export function createExportForm(initial: ExportFormInitial, today = currentReportDate()): ExportFormState {
   const filters = initial.initialFilters || {};
@@ -37,6 +46,12 @@ export function createExportForm(initial: ExportFormInitial, today = currentRepo
 export function selectedReportPeriod(state: ExportFormState, initial?: PeriodSelection, today = currentReportDate()): ReportPeriod {
   if (state.periodType === 'all') return { kind: 'all' };
   if (state.periodType === 'custom') return { kind: 'range', startDate: state.customStartDate, endDate: state.customEndDate };
+  if (state.periodType === '3m' || state.periodType === 'last_3_months') {
+    return { kind: 'range', ...calculatePresetRange(3, today) };
+  }
+  if (state.periodType === '6m' || state.periodType === 'last_6_months') {
+    return { kind: 'range', ...calculatePresetRange(6, today) };
+  }
   if (!initial) return { kind: 'month', month: today.slice(0, 7) };
   if (initial.startDate !== undefined || initial.endDate !== undefined) {
     return { kind: 'range', startDate: initial.startDate || '', endDate: initial.endDate || '' };

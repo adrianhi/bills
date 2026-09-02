@@ -147,15 +147,39 @@ describe('FinancialReportService', () => {
     expect(report.buffer.subarray(0, 2).toString('latin1')).toBe('PK');
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(report.buffer as unknown as ArrayBuffer);
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Resumen', 'Comparación', 'Categorías', 'Comercios', 'Movimientos']);
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Resumen', 'Comparativa Mensual', 'Categorías', 'Comercios', 'Movimientos']);
     expect(workbook.getWorksheet('Resumen')!.getColumn(1).values).not.toContain('Ingresos');
-    expect(workbook.getWorksheet('Comparación')!.getColumn(1).values).not.toContain('Ingreso');
+    expect(workbook.getWorksheet('Comparativa Mensual')!.getColumn(1).values).not.toContain('Ingreso');
     const movements = workbook.getWorksheet('Movimientos')!;
-    expect(movements.rowCount).toBe(9);
-    expect(movements.getRow(9).values).toContain('Bravo');
-    expect(workbook.getWorksheet('Comparación')!.getColumn(2).values).toContain('2026-07-01 al 2026-07-31');
+    expect(movements.rowCount).toBe(8);
+    expect(movements.getRow(7).values).toContain('Bravo');
+    expect(movements.getRow(8).values).toContain('Total');
+    expect(movements.getCell('G8').value).toMatchObject({ formula: 'SUBTOTAL(109,MovimientosTable[Monto])' });
+    expect(workbook.getWorksheet('Comparativa Mensual')!.getColumn(2).values).toContain('2026-07-01 al 2026-07-31');
     expect(movements.views[0]).toMatchObject({ state: 'frozen', showGridLines: false });
     expect(movements.autoFilter).toBeTruthy();
+
+    // Check Resumen Executive Dashboard (KPI cards + Top 5)
+    const resumen = workbook.getWorksheet('Resumen')!;
+    expect(resumen.getCell('A6').value).toBe('GASTO TOTAL');
+    expect(resumen.getCell('A7').value).toMatchObject({ formula: 'SUM(Movimientos!G7:G7)', result: 1500 });
+    expect(resumen.getColumn(1).values).toContain('Top 5 Categorías de Mayor Gasto');
+    expect(resumen.getColumn(1).values).toContain('Supermercado');
+
+    // Check Comparativa Mensual MoM Matrix
+    const compSheet = workbook.getWorksheet('Comparativa Mensual')!;
+    expect(compSheet.getColumn(1).values).toContain('Desglose Mensual por Categoría (MoM)');
+    expect(compSheet.getRow(12).values).toContain('Total Acumulado');
+    expect(compSheet.getRow(12).values).toContain('Promedio Mensual');
+    expect(compSheet.getRow(12).values).toContain('Variación MoM');
+    expect(compSheet.getCell('D13').value).toMatchObject({ formula: 'SUM(B13:C13)', result: 1500 });
+
+    // Check Categorías has formulas for % and totals
+    const catSheet = workbook.getWorksheet('Categorías')!;
+    expect(catSheet.getRow(6).values).toContain('Total Gastado');
+    expect(catSheet.getRow(6).values).toContain('Distribución Visual');
+    expect(catSheet.getCell('D7').value).toMatchObject({ formula: 'B7/$B$8', result: 1 });
+    expect(catSheet.getCell('B8').value).toMatchObject({ formula: 'SUM(B7:B7)', result: 1500 });
   });
 
   it('uses the requested title, sections and notes in XLSX', async () => {
@@ -169,15 +193,49 @@ describe('FinancialReportService', () => {
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Resumen', 'Movimientos']);
     expect(workbook.getWorksheet('Resumen')!.getCell('A1').value).toBe('Gastos del equipo');
     expect(workbook.getWorksheet('Resumen')!.getColumn(2).values).toContain('Banco BHD, Banco Popular');
-    expect(workbook.getWorksheet('Movimientos')!.getRow(8).values).toContain('Notas');
-    expect(workbook.getWorksheet('Movimientos')!.getCell('A9').value).toBeInstanceOf(Date);
-    expect(workbook.getWorksheet('Movimientos')!.getCell('A9').numFmt).toBe('dd/mm/yyyy');
-    expect(workbook.getWorksheet('Movimientos')!.getCell('B9').value).toBe("'=HYPERLINK(\"http://evil\")");
-    expect(workbook.getWorksheet('Movimientos')!.getCell('J9').value).toBe('compra semanal');
+    expect(workbook.getWorksheet('Movimientos')!.getRow(6).values).toContain('Notas');
+    expect(workbook.getWorksheet('Movimientos')!.getCell('A7').value).toBeInstanceOf(Date);
+    expect(workbook.getWorksheet('Movimientos')!.getCell('A7').numFmt).toBe('dd/mm/yyyy');
+    expect(workbook.getWorksheet('Movimientos')!.getCell('B7').value).toBe("'=HYPERLINK(\"http://evil\")");
+    expect(workbook.getWorksheet('Movimientos')!.getCell('J7').value).toBe('compra semanal');
   });
 
-  it('includes resolved budget performance as an optional XLSX sheet', async () => {
-    const service = buildService([fakeTransaction()]);
+  it('includes resolved budget performance as an optional XLSX sheet with traffic light styling and formulas', async () => {
+    const exceededBudget = {
+      month: '2026-08', currency: 'DOP', hasBudget: true,
+      totalSpent: 6500, totalPending: 0, unbudgetedSpent: 0,
+      global: {
+        scope: 'GLOBAL', categoryKey: null, categoryLabel: null, limit: 5000,
+        spent: 6500, pending: 0, remaining: 0, exceededBy: 1500,
+        percentUsed: 130, projected: null, status: 'EXCEEDED' as const,
+      },
+      categories: [
+        {
+          scope: 'CATEGORY' as const, categoryKey: 'supermercado', categoryLabel: 'Supermercado', limit: 2000,
+          spent: 3500, pending: 0, remaining: 0, exceededBy: 1500,
+          percentUsed: 175, projected: null, status: 'EXCEEDED' as const,
+        },
+        {
+          scope: 'CATEGORY' as const, categoryKey: 'servicios', categoryLabel: 'Servicios', limit: 3000,
+          spent: 2700, pending: 0, remaining: 300, exceededBy: 0,
+          percentUsed: 90, projected: null, status: 'NEAR_LIMIT' as const,
+        },
+        {
+          scope: 'CATEGORY' as const, categoryKey: 'transporte', categoryLabel: 'Transporte', limit: 1000,
+          spent: 300, pending: 0, remaining: 700, exceededBy: 0,
+          percentUsed: 30, projected: null, status: 'ON_TRACK' as const,
+        },
+      ],
+      alerts: [],
+    };
+    const customBudgetReader = {
+      execute: async () => exceededBudget,
+    } as unknown as Pick<GetMonthlyBudget, 'execute'>;
+
+    const analytics = { getSummary: async () => fakeSummary } as unknown as AnalyticsService;
+    const transactionApp = { export: async () => [fakeTransaction()] } as unknown as TransactionApplicationService;
+    const service = new FinancialReportService(analytics, transactionApp, customBudgetReader);
+
     const report = await service.generate('ws-1', {
       ...baseQuery, format: 'xlsx', sections: ['budget'],
     });
@@ -187,9 +245,86 @@ describe('FinancialReportService', () => {
     const sheet = workbook.getWorksheet('Presupuesto')!;
     expect(sheet.getColumn(1).values).toContain('Presupuesto global');
     expect(sheet.getColumn(1).values).toContain('Supermercado');
+    expect(sheet.getColumn(1).values).toContain('Servicios');
+    expect(sheet.getColumn(1).values).toContain('Transporte');
     expect(sheet.getColumn(2).values).toContain(5000);
-    expect(sheet.getColumn(8).values).toContain('En ritmo');
+
+    // Check KPI card shows exceeded
+    expect(sheet.getCell('E7').value).toContain('Excedido por RD$ 1,500.00');
+
+    // Check status badges and formatting:
+    // Row 12 is Presupuesto global (exceeded)
+    expect(sheet.getCell('H12').value).toContain('▲ Excedido por RD$ 1,500.00');
+    expect(sheet.getCell('E12').value).toMatchObject({ formula: 'MAX(0, B12-C12)' });
+    expect(sheet.getCell('F12').value).toMatchObject({ formula: 'MAX(0, C12-B12)' });
+    expect(sheet.getCell('G12').value).toMatchObject({ formula: 'IF(B12>0, C12/B12, 0)' });
+
+    // Row 13 is Supermercado (exceeded)
+    expect(sheet.getCell('H13').value).toContain('▲ Excedido');
+
+    // Row 14 is Servicios (near limit: 90%)
+    expect(sheet.getCell('H14').value).toBe('Cerca del límite');
+
+    // Row 15 is Transporte (on track: 30%)
+    expect(sheet.getCell('H15').value).toBe('En ritmo');
+
+    // Total row at row 16
+    expect(sheet.getCell('A16').value).toBe('Total');
+    expect(sheet.getCell('B16').value).toMatchObject({ formula: 'SUM(B12:B15)' });
+    expect(sheet.getCell('C16').value).toMatchObject({ formula: 'SUM(C12:C15)' });
   });
+
+  it('generates a multi-month category matrix across 3 distinct months with MoM formulas', async () => {
+    const multiMonthTransactions = [
+      fakeTransaction({ id: 't1', transactionDate: new Date('2026-06-10T12:00:00Z'), category: 'Supermercado', amount: 1000 }),
+      fakeTransaction({ id: 't2', transactionDate: new Date('2026-07-15T12:00:00Z'), category: 'Supermercado', amount: 2000 }),
+      fakeTransaction({ id: 't3', transactionDate: new Date('2026-08-20T12:00:00Z'), category: 'Supermercado', amount: 3000 }),
+      fakeTransaction({ id: 't4', transactionDate: new Date('2026-08-22T12:00:00Z'), category: 'Farmacia', amount: 500 }),
+    ];
+    const service = buildService(multiMonthTransactions);
+    const report = await service.generate('ws-1', {
+      startDate: '2026-06-01', endDate: '2026-08-31', currency: 'DOP',
+      format: 'xlsx', sections: ['comparison', 'movements'],
+    });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(report.buffer as unknown as ArrayBuffer);
+    const compSheet = workbook.getWorksheet('Comparativa Mensual')!;
+
+    // Check MoM matrix headers
+    const headers = compSheet.getRow(12).values as unknown[];
+    expect(headers).toContain('Jun 2026');
+    expect(headers).toContain('Jul 2026');
+    expect(headers).toContain('Ago 2026');
+    expect(headers).toContain('Total Acumulado');
+    expect(headers).toContain('Promedio Mensual');
+    expect(headers).toContain('Variación MoM');
+
+    // Supermercado row (row 13)
+    expect(compSheet.getCell('A13').value).toBe('Supermercado');
+    expect(compSheet.getCell('B13').value).toBe(1000);
+    expect(compSheet.getCell('C13').value).toBe(2000);
+    expect(compSheet.getCell('D13').value).toBe(3000);
+    expect(compSheet.getCell('E13').value).toMatchObject({ formula: 'SUM(B13:D13)' });
+    expect(compSheet.getCell('F13').value).toMatchObject({ formula: 'AVERAGE(B13:D13)' });
+    expect(compSheet.getCell('G13').value).toMatchObject({ formula: 'IF(C13>0, (D13-C13)/C13, IF(D13>0, 1, 0))' });
+
+    // Farmacia row (row 14)
+    expect(compSheet.getCell('A14').value).toBe('Farmacia');
+
+    // Total General row (row 15)
+    expect(compSheet.getCell('A15').value).toBe('Total General');
+    expect(compSheet.getCell('B15').value).toMatchObject({ formula: 'SUM(B13:B14)' });
+    expect(compSheet.getCell('C15').value).toMatchObject({ formula: 'SUM(C13:C14)' });
+    expect(compSheet.getCell('D15').value).toMatchObject({ formula: 'SUM(D13:D14)' });
+    expect(compSheet.getCell('E15').value).toMatchObject({ formula: 'SUM(E13:E14)' });
+
+    // Movimientos has Excel Table with 4 rows + totals row
+    const movements = workbook.getWorksheet('Movimientos')!;
+    expect(movements.rowCount).toBe(11); // 4 metadata + 1 empty + 1 header + 4 data + 1 total = 11
+    expect(movements.getCell('G11').value).toMatchObject({ formula: 'SUBTOTAL(109,MovimientosTable[Monto])' });
+  });
+
+
 
   it('restricts budget sections to an unfiltered calendar month in PDF or XLSX', () => {
     expect(FinancialReportQuerySchema.safeParse({

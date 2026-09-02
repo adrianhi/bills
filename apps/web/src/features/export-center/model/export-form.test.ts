@@ -34,4 +34,30 @@ describe('export form scope', () => {
   ])('validates range %s to %s', (startDate, endDate) => {
     expect(exportFormError(createExportForm({}, today), { kind: 'range', startDate, endDate }, today)).not.toBeNull();
   });
+  it('resolves multi-month presets for 3 and 6 months', () => {
+    const state3m = { ...createExportForm({}, today), periodType: '3m' as const };
+    const period3m = selectedReportPeriod(state3m, undefined, today);
+    expect(period3m).toEqual({ kind: 'range', startDate: '2026-07-01', endDate: '2026-09-02' });
+    expect(exportFormError(state3m, period3m, today)).toBeNull();
+
+    const state6m = { ...createExportForm({}, today), periodType: '6m' as const };
+    const period6m = selectedReportPeriod(state6m, undefined, today);
+    expect(period6m).toEqual({ kind: 'range', startDate: '2026-04-01', endDate: '2026-09-02' });
+    expect(exportFormError(state6m, period6m, today)).toBeNull();
+  });
+  it('handles multi-month presets across year boundaries', () => {
+    const JanToday = '2027-01-15';
+    const state3m = { ...createExportForm({}, JanToday), periodType: '3m' as const };
+    expect(selectedReportPeriod(state3m, undefined, JanToday)).toEqual({
+      kind: 'range',
+      startDate: '2026-11-01',
+      endDate: '2027-01-15',
+    });
+    const state6m = { ...createExportForm({}, JanToday), periodType: '6m' as const };
+    expect(selectedReportPeriod(state6m, undefined, JanToday)).toEqual({
+      kind: 'range',
+      startDate: '2026-08-01',
+      endDate: '2027-01-15',
+    });
+  });
 });

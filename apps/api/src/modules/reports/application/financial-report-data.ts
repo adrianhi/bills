@@ -75,3 +75,160 @@ export function reportPresentation(query: FinancialReportQueryInput, scope: Repo
     ],
   };
 }
+
+const MONTH_ABBRS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+export function formatMonthLabel(monthKey: string): string {
+  const [year, month] = monthKey.split('-').map(Number);
+  if (!year || !month || month < 1 || month > 12) return monthKey;
+  return `${MONTH_ABBRS[month - 1]} ${year}`;
+}
+
+export interface MonthlyCategoryRow {
+  category: string;
+  monthlyAmounts: Record<string, number>;
+  total: number;
+  average: number;
+  momChangePercent: number | null;
+}
+
+export interface MonthlyCategoryMatrix {
+  months: string[];
+  monthLabels: string[];
+  categories: MonthlyCategoryRow[];
+  monthTotals: Record<string, number>;
+  grandTotal: number;
+  overallAverage: number;
+  overallMomChangePercent: number | null;
+}
+
+function extractMonthKeyFromDate(dateStr: unknown): string | null {
+  if (typeof dateStr !== 'string') return null;
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) return null;
+  const [, month, year] = parts;
+  if (!year || !month) return null;
+  return `${year}-${month.padStart(2, '0')}`;
+}
+
+export function buildMonthlyCategoryMatrix(
+  rows: FinancialRow[],
+  summary: ReportSummary,
+): MonthlyCategoryMatrix {
+  const approvedRows = rows.filter((r) => r.Estado === 'Aprobada');
+  const effectiveRows = approvedRows.length ? approvedRows : rows.filter((r) => r.Estado !== 'Rechazada');
+  const finalRows = effectiveRows.length ? effectiveRows : rows;
+
+  const rowMonths = [
+    ...new Set(finalRows.map((r) => extractMonthKeyFromDate(r.Fecha)).filter((m): m is string => Boolean(m))),
+  ].sort();
+
+  let months: string[] = [];
+  const amountsByCategory: Record<string, Record<string, number>> = {};
+
+  const comparison = 'comparison' in summary ? summary.comparison : undefined;
+  const prevMonthKey = comparison?.previousPeriod?.startDate?.slice(0, 7);
+  const currMonthKey = comparison?.currentPeriod?.startDate?.slice(0, 7);
+
+  if (rowMonths.length >= 2) {
+    months = rowMonths;
+    finalRows.forEach((row) => {
+      const monthKey = extractMonthKeyFromDate(row.Fecha);
+      if (!monthKey) return;
+      const cat = row.Categoría || 'Sin categoría';
+      if (!amountsByCategory[cat]) amountsByCategory[cat] = {};
+      amountsByCategory[cat][monthKey] = (amountsByCategory[cat][monthKey] || 0) + Number(row.Monto || 0);
+    });
+  } else if (prevMonthKey && currMonthKey && prevMonthKey !== currMonthKey && comparison?.categoryDeltas?.length) {
+    months = [prevMonthKey, currMonthKey].sort();
+    comparison.categoryDeltas.forEach((delta) => {
+      const cat = delta.name || 'Sin categoría';
+      if (!amountsByCategory[cat]) amountsByCategory[cat] = {};
+      amountsByCategory[cat][prevMonthKey] = Number(delta.previousTotal || 0);
+      amountsByCategory[cat][currMonthKey] = Number(delta.currentTotal || 0);
+    });
+    summary.byCategory.forEach((catItem) => {
+      const cat = catItem.category || 'Sin categoría';
+      if (!amountsByCategory[cat]) amountsByCategory[cat] = {};
+      if (amountsByCategory[cat][currMonthKey] === undefined) {
+        amountsByCategory[cat][currMonthKey] = Number(catItem.total || 0);
+      }
+      if (amountsByCategory[cat][prevMonthKey] === undefined) {
+        amountsByCategory[cat][prevMonthKey] = 0;
+      }
+    });
+  } else {
+    const singleMonth = rowMonths[0] || currMonthKey || summary.period || new Date().toISOString().slice(0, 7);
+    months = [singleMonth];
+    summary.byCategory.forEach((catItem) => {
+      const cat = catItem.category || 'Sin categoría';
+      if (!amountsByCategory[cat]) amountsByCategory[cat] = {};
+      amountsByCategory[cat][singleMonth] = Number(catItem.total || 0);
+    });
+    if (!summary.byCategory.length) {
+      finalRows.forEach((row) => {
+        const cat = row.Categoría || 'Sin categoría';
+        if (!amountsByCategory[cat]) amountsByCategory[cat] = {};
+        amountsByCategory[cat][singleMonth] = (amountsByCategory[cat][singleMonth] || 0) + Number(row.Monto || 0);
+      });
+    }
+  }
+
+  const monthLabels = months.map(formatMonthLabel);
+  const categories: MonthlyCategoryRow[] = Object.entries(amountsByCategory).map(([cat, monthlyMap]) => {
+    let total = 0;
+    months.forEach((m) => { total += (monthlyMap[m] || 0); });
+    const average = months.length ? total / months.length : 0;
+    let momChangePercent: number | null = null;
+    if (months.length >= 2) {
+      const prev = monthlyMap[months[months.length - 2]] || 0;
+      const curr = monthlyMap[months[months.length - 1]] || 0;
+      if (prev > 0) {
+        momChangePercent = (curr - prev) / prev;
+      } else if (curr > 0) {
+        momChangePercent = 1.0;
+      } else {
+        momChangePercent = 0;
+      }
+    }
+    return {
+      category: cat,
+      monthlyAmounts: monthlyMap,
+      total,
+      average,
+      momChangePercent,
+    };
+  });
+
+  categories.sort((a, b) => b.total - a.total);
+
+  const monthTotals: Record<string, number> = {};
+  months.forEach((m) => {
+    monthTotals[m] = categories.reduce((sum, c) => sum + (c.monthlyAmounts[m] || 0), 0);
+  });
+  const grandTotal = Object.values(monthTotals).reduce((sum, v) => sum + v, 0);
+  const overallAverage = months.length ? grandTotal / months.length : 0;
+
+  let overallMomChangePercent: number | null = null;
+  if (months.length >= 2) {
+    const prevTotal = monthTotals[months[months.length - 2]] || 0;
+    const currTotal = monthTotals[months[months.length - 1]] || 0;
+    if (prevTotal > 0) {
+      overallMomChangePercent = (currTotal - prevTotal) / prevTotal;
+    } else if (currTotal > 0) {
+      overallMomChangePercent = 1.0;
+    } else {
+      overallMomChangePercent = 0;
+    }
+  }
+
+  return {
+    months,
+    monthLabels,
+    categories,
+    monthTotals,
+    grandTotal,
+    overallAverage,
+    overallMomChangePercent,
+  };
+}

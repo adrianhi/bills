@@ -187,6 +187,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             currency={currency}
             hideBalances={hideBalances}
             onRefresh={onRefresh}
+            onExport={() => setIsExportModalOpen(true)}
           />
         )}
         {activeSection === 'budget' && (
