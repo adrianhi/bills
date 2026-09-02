@@ -154,7 +154,7 @@ describe('FinancialReportService', () => {
     expect(movements.rowCount).toBe(8);
     expect(movements.getRow(7).values).toContain('Bravo');
     expect(movements.getRow(8).values).toContain('Total');
-    expect(movements.getCell('G8').value).toMatchObject({ formula: 'SUBTOTAL(109,MovimientosTable[Monto])' });
+    expect(movements.getCell('G8').value).toMatchObject({ formula: 'SUBTOTAL(109, G7:G7)' });
     expect(workbook.getWorksheet('Comparativa Mensual')!.getColumn(2).values).toContain('2026-07-01 al 2026-07-31');
     expect(movements.views[0]).toMatchObject({ state: 'frozen', showGridLines: false });
     expect(movements.autoFilter).toBeTruthy();
@@ -321,7 +321,7 @@ describe('FinancialReportService', () => {
     // Movimientos has Excel Table with 4 rows + totals row
     const movements = workbook.getWorksheet('Movimientos')!;
     expect(movements.rowCount).toBe(11); // 4 metadata + 1 empty + 1 header + 4 data + 1 total = 11
-    expect(movements.getCell('G11').value).toMatchObject({ formula: 'SUBTOTAL(109,MovimientosTable[Monto])' });
+    expect(movements.getCell('G11').value).toMatchObject({ formula: 'SUBTOTAL(109, G7:G10)' });
   });
 
 

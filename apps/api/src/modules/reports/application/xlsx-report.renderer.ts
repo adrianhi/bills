@@ -1,4 +1,4 @@
-﻿import ExcelJS from 'exceljs';
+import ExcelJS from 'exceljs';
 import type { FinancialRow, ReportBudget, ReportPresentation, ReportSummary } from './financial-report-data';
 import { safeSpreadsheetText } from './financial-report-data';
 import { addDashboardSheet } from './xlsx-dashboard-sheet';
@@ -9,6 +9,7 @@ import {
   DARK,
   GREEN,
   MINT,
+  getColumnLetter,
   styleDataRow,
   styleTableHeader,
   titleRows,
@@ -98,8 +99,15 @@ function addMovements(workbook: ExcelJS.Workbook, rows: FinancialRow[], presenta
 
   sheet.addRow([]);
 
-  const tableRows = rows.map((row) => {
-    return columns.map((column) => {
+  const headerRow = sheet.addRow(columns);
+  styleTableHeader(headerRow);
+  headerRow.height = 26;
+
+  const amountColIndex = columns.indexOf('Monto') + 1;
+  const dateColIndex = columns.indexOf('Fecha') + 1;
+
+  rows.forEach((row, idx) => {
+    const values = columns.map((column) => {
       const value = row[column as keyof FinancialRow] ?? '';
       if (value === '') return null;
       if (column === 'Fecha' && typeof value === 'string') {
@@ -108,59 +116,49 @@ function addMovements(workbook: ExcelJS.Workbook, rows: FinancialRow[], presenta
       }
       return value;
     });
+
+    const dataRow = sheet.addRow(values);
+    styleDataRow(dataRow, idx % 2 === 1);
+
+    if (String(row.Comercio).length > 28 || ('Notas' in row && row.Notas)) {
+      dataRow.height = 36;
+    } else {
+      dataRow.height = 22;
+    }
   });
 
-  sheet.addTable({
-    name: 'MovimientosTable',
-    ref: 'A6',
-    headerRow: true,
-    totalsRow: true,
-    style: {
-      theme: 'TableStyleMedium9',
-      showRowStripes: true,
-    },
-    columns: columns.map((column) => {
-      if (column === 'Monto') {
-        return { name: column, filterButton: true, totalsRowFunction: 'sum' };
-      }
-      if (column === 'Fecha') {
-        return { name: column, filterButton: true, totalsRowLabel: 'Total' };
-      }
-      return { name: column, filterButton: true };
-    }),
-    rows: tableRows,
+  const lastDataRow = 6 + rows.length;
+  const totalRowIndex = lastDataRow + 1;
+  const amountSum = rows.reduce((s, r) => s + (Number(r.Monto) || 0), 0);
+
+  const totalValues: unknown[] = new Array(columns.length).fill('');
+  if (dateColIndex > 0) totalValues[dateColIndex - 1] = 'Total';
+  const totalRow = sheet.addRow(totalValues);
+  totalRow.height = 24;
+
+  if (amountColIndex > 0) {
+    const colLetter = getColumnLetter(amountColIndex);
+    totalRow.getCell(amountColIndex).value = rows.length
+      ? { formula: `SUBTOTAL(109, ${colLetter}7:${colLetter}${lastDataRow})`, result: amountSum }
+      : 0;
+    totalRow.getCell(amountColIndex).numFmt = '#,##0.00';
+  }
+
+  totalRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: DARK } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MINT } };
+    cell.border = {
+      top: { style: 'thin', color: { argb: BORDER } },
+      bottom: { style: 'double', color: { argb: DARK } },
+    };
+    cell.alignment = { vertical: 'middle' };
   });
 
-  const headerRow = sheet.getRow(6);
-  headerRow.height = 26;
-
-  sheet.autoFilter = { from: { row: 6, column: 1 }, to: { row: 6 + rows.length, column: columns.length } };
-
-  const dateColIndex = columns.indexOf('Fecha') + 1;
   if (dateColIndex > 0) {
     sheet.getColumn(dateColIndex).numFmt = 'dd/mm/yyyy';
   }
-
-  const amountColIndex = columns.indexOf('Monto') + 1;
   if (amountColIndex > 0) {
     sheet.getColumn(amountColIndex).numFmt = '#,##0.00';
-  }
-
-  for (let r = 7; r <= 6 + rows.length; r += 1) {
-    const row = sheet.getRow(r);
-    const original = rows[r - 7];
-    if (original && (String(original.Comercio).length > 28 || ('Notas' in original && original.Notas))) {
-      row.height = 36;
-    } else {
-      row.height = 22;
-    }
-  }
-
-  const totalsRow = sheet.getRow(6 + rows.length + 1);
-  totalsRow.height = 24;
-  totalsRow.font = { bold: true };
-  if (amountColIndex > 0) {
-    totalsRow.getCell(amountColIndex).numFmt = '#,##0.00';
   }
 
   columns.forEach((column, index) => {
@@ -171,6 +169,10 @@ function addMovements(workbook: ExcelJS.Workbook, rows: FinancialRow[], presenta
           ? 24
           : 16;
   });
+
+  if (rows.length > 0) {
+    sheet.autoFilter = { from: { row: 6, column: 1 }, to: { row: lastDataRow, column: columns.length } };
+  }
 }
 
 export async function renderXlsx(
