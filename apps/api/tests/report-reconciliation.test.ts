@@ -59,7 +59,7 @@ describe('report reconciliation', () => {
     }]);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(report.buffer as unknown as ArrayBuffer);
-    const comparison = workbook.getWorksheet('Comparación')!;
+    const comparison = (workbook.getWorksheet('Comparativa Mensual') || workbook.getWorksheet('Comparación'))!;
     const comparisonRows: unknown[][] = [];
     comparison.eachRow((row) => { comparisonRows.push(row.values as unknown[]); });
     expect(comparisonRows).toContainEqual([undefined, 'Gasto', 100, 50, 50]);
@@ -86,6 +86,8 @@ describe('report reconciliation', () => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(report.buffer as unknown as ArrayBuffer);
     expect(workbook.getWorksheet('Resumen')!.getColumn(2).values).toContain('Todo el histórico');
-    expect(workbook.getWorksheet('Comparación')!.getColumn(2).values).toContain('Sin período comparable');
+    const compSheet = (workbook.getWorksheet('Comparativa Mensual') || workbook.getWorksheet('Comparación'))!;
+    expect(compSheet.getColumn(2).values).toContain('Sin período comparable');
   });
 });
+

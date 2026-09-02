@@ -160,8 +160,8 @@ export class BhdEmailParser implements BankEmailParser {
 
     const received = /Has recibido una transferencia|Ordenante\s*:/i.test(content);
     const service = /Pago de Servicio|pago de impuesto/i.test(content);
-    const transfer = /transferencia|ACH|LBTR/i.test(content);
-    const officialTransfer = /confirmaci[oó]n|comprobante|beneficiario\s*:/i.test(content);
+    const transfer = /transferencia|ACH|LBTR|Producto destino/i.test(content);
+    const officialTransfer = /confirmaci[oó]n|comprobante|beneficiario\s*:|Producto destino/i.test(content);
 
     if (transfer && !received && !officialTransfer && /alerta de d[eé]bito|Notificaci[oó]n de Transacciones/i.test(content)) {
       return { status: 'ignored', reason: 'REDUNDANT_TRANSFER_ALERT' };
@@ -174,6 +174,11 @@ export class BhdEmailParser implements BankEmailParser {
     let rawMerchant = table
       ? table.comercio?.trim() || 'Comercio BHD'
       : extractField(content, ['Comercio', 'Establecimiento', 'Descripci[oó]n']) || 'Comercio BHD';
+
+    if (/^(?:Monto|Valor|Producto|Cuenta|RD\$|DOP|US\$)\b/i.test(rawMerchant)) {
+      rawMerchant = 'Comercio BHD';
+    }
+
     let notes: string | null = null;
     let prefix = 'bhd_purchase';
 
@@ -194,7 +199,10 @@ export class BhdEmailParser implements BankEmailParser {
       transactionType = 'Transferencia Enviada';
       category = 'Transferencias';
       source = 'BHD_TRANSFER_EMAIL';
-      rawMerchant = extractField(content, ['Beneficiario', 'Destinatario']) || 'Transferencia Bancaria';
+      const destMatch = content.match(/Producto destino\s*:\s*([A-Za-z0-9X]+)/i);
+      const destAccount = destMatch ? destMatch[1].replace(/.*?([0-9]{4})$/, '•••• $1') : '';
+      rawMerchant = extractField(content, ['Beneficiario', 'Destinatario'])
+        || (destAccount ? `Transferencia (${destAccount})` : 'Transferencia Bancaria');
       notes = rawMerchant;
       prefix = 'bhd_transfer';
     }

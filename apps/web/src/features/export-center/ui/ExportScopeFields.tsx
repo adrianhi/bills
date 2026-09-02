@@ -3,12 +3,12 @@ import type { PeriodSelection } from '@/entities/period';
 import { Building2, Calendar, Coins, Filter, Search } from 'lucide-react';
 import { COMMON_CATEGORIES } from '@/shared/config/financial-options';
 import { DatePickerField } from '@/shared/ui';
-import { currentReportDate } from '../model/export-options';
+import { currentReportDate, EXPORT_PERIOD_PRESETS, type ExportPeriodType } from '../model/export-options';
 
 interface ExportScopeFieldsProps {
   initialPeriod?: PeriodSelection;
-  periodType: 'current' | 'all' | 'custom';
-  setPeriodType: (value: 'current' | 'all' | 'custom') => void;
+  periodType: ExportPeriodType;
+  setPeriodType: (value: ExportPeriodType) => void;
   customStartDate: string; setCustomStartDate: (value: string) => void;
   customEndDate: string; setCustomEndDate: (value: string) => void;
   currency: string; setCurrency: (value: string) => void;
@@ -36,17 +36,27 @@ export function ExportScopeFields(props: ExportScopeFieldsProps) {
 
       <div>
         <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><Calendar className="h-3.5 w-3.5 text-muted-foreground" />Período a exportar</label>
-        <div className="grid grid-cols-3 gap-1.5 text-xs font-semibold">
-          {([
-            ['current', props.initialPeriod?.label || 'Mes actual'],
-            ['all', 'Todo el histórico'],
-            ['custom', 'Personalizado'],
-          ] as const).map(([value, label]) => (
-            <button key={value} type="button" onClick={() => props.setPeriodType(value)}
-              className={`rounded-xl border px-2 py-2 transition-all ${props.periodType === value ? 'border-primary bg-primary/10 text-primary shadow-sm' : 'border-border bg-background text-muted-foreground hover:text-foreground'}`}>
-              {label}
-            </button>
-          ))}
+        <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold sm:grid-cols-3 md:grid-cols-5">
+          {EXPORT_PERIOD_PRESETS.map(({ id, label }) => {
+            const displayLabel = id === 'current' ? (props.initialPeriod?.label || label) : label;
+            const isSelected = props.periodType === id
+              || (id === '3m' && props.periodType === 'last_3_months')
+              || (id === '6m' && props.periodType === 'last_6_months');
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => props.setPeriodType(id)}
+                className={`rounded-xl border px-2 py-2 text-center transition-all ${
+                  isSelected
+                    ? 'border-primary bg-primary/10 text-primary shadow-sm font-bold'
+                    : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {displayLabel}
+              </button>
+            );
+          })}
         </div>
         {props.periodType === 'custom' && (
           <div className="mt-2.5">

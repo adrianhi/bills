@@ -56,6 +56,22 @@ export const REPORT_SECTION_OPTIONS: Array<{ id: FinancialReportSection; label: 
   { id: 'budget', label: 'Presupuesto' },
 ];
 
+export type ExportPeriodPreset = 'current' | '3m' | '6m' | 'all' | 'custom';
+export type ExportPeriodType = ExportPeriodPreset | 'last_3_months' | 'last_6_months';
+
+export interface ExportPeriodPresetOption {
+  id: ExportPeriodPreset;
+  label: string;
+}
+
+export const EXPORT_PERIOD_PRESETS: ExportPeriodPresetOption[] = [
+  { id: 'current', label: 'Mes actual' },
+  { id: '3m', label: 'Últimos 3 meses' },
+  { id: '6m', label: 'Últimos 6 meses' },
+  { id: 'all', label: 'Todo el histórico' },
+  { id: 'custom', label: 'Personalizado' },
+];
+
 export function currentReportDate(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Santo_Domingo', year: 'numeric', month: '2-digit', day: '2-digit',

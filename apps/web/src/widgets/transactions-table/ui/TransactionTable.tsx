@@ -82,7 +82,14 @@ export const TransactionTable = ({
           <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
         </div>
       )}
-      <TransactionTableHeader total={total} filters={filters} onFilterChange={updateFilter} onReset={onResetFilters} onOpenFilters={() => setIsFilterDrawerOpen(true)} />
+      <TransactionTableHeader
+        total={total}
+        filters={filters}
+        onFilterChange={updateFilter}
+        onReset={onResetFilters}
+        onOpenFilters={() => setIsFilterDrawerOpen(true)}
+        onExport={onExport}
+      />
       <FilterDrawer
         isOpen={isFilterDrawerOpen}
         onClose={() => setIsFilterDrawerOpen(false)}

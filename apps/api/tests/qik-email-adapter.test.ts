@@ -58,6 +58,27 @@ describe('Qik email adapter contract', () => {
     });
   });
 
+  it('normalizes a purchase with Localidad and masked card format', async () => {
+    const result = await parser.parse(
+      email({
+        subject: 'Usaste tu tarjeta de débito Qik',
+        text: '¡Hola ADRIAN JOEL HIDALGO BELTRE! Tarjeta Débito 49************3097 Se hizo una transacción de RD$ 1,840.00 en SM BRAVO LAS AMERICAS con tu Tarjeta de Débito Qik que termina en 49************3097 Localidad: SM BRAVO LAS AMERICAS Fecha y hora: 08-11-2026 08:01 PM (AST) Monto: RD$ 1,840.00 Balance Disponible: RD$ 3,310.13',
+      }),
+      { ingestionChannel: 'GMAIL_OAUTH' }
+    );
+    expect(result.status).toBe('parsed');
+    if (result.status !== 'parsed') return;
+    expect(result.transactions[0]).toMatchObject({
+      institutionCode: 'QIK',
+      rawMerchant: 'SM BRAVO LAS AMERICAS',
+      amount: 1840,
+      currency: 'DOP',
+      cardLast4: '3097',
+      status: 'Aprobada',
+      transactionType: 'Compra',
+    });
+  });
+
   it('does not claim messages from unrelated institutions', () => {
     expect(parser.canParse(email({ from: 'alertas@bhd.com.do', text: 'Monto: RD$ 100' }))).toBe(false);
   });
