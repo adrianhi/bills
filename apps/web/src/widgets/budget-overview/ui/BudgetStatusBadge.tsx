@@ -12,5 +12,12 @@ const styles: Record<BudgetProgressDto['status'], string> = {
 };
 
 export function BudgetStatusBadge({ status }: { status: BudgetProgressDto['status'] }) {
-  return <Badge variant="outline" className={styles[status]}>{labels[status]}</Badge>;
+  return (
+    <Badge
+      variant="outline"
+      className={`inline-flex shrink-0 items-center whitespace-nowrap px-2.5 py-0.5 text-xs font-semibold ${styles[status]}`}
+    >
+      {labels[status]}
+    </Badge>
+  );
 }

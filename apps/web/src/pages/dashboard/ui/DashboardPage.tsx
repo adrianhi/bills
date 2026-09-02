@@ -11,7 +11,6 @@ import { HomeSection } from './sections/HomeSection';
 import { TransactionsSection } from './sections/TransactionsSection';
 import { AnalyticsSection } from './sections/AnalyticsSection';
 import { BudgetSection } from './sections/BudgetSection';
-import { currentBudgetMonth } from '@/entities/budget';
 
 interface DashboardPageProps {
   authToken: string;
@@ -192,9 +191,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         )}
         {activeSection === 'budget' && (
           <BudgetSection
-            initialMonth={currentBudgetMonth()}
+            periodToolbar={periodToolbarNode}
+            currentPeriod={currentPeriod}
             currency={currency}
-            setCurrency={setCurrency}
             hideBalances={hideBalances}
           />
         )}
