@@ -151,8 +151,9 @@ describe('FinancialReportService', () => {
     expect(workbook.getWorksheet('Resumen')!.getColumn(1).values).not.toContain('Ingresos');
     expect(workbook.getWorksheet('Comparación')!.getColumn(1).values).not.toContain('Ingreso');
     const movements = workbook.getWorksheet('Movimientos')!;
-    expect(movements.rowCount).toBe(8);
-    expect(movements.getRow(8).values).toContain('Bravo');
+    expect(movements.rowCount).toBe(9);
+    expect(movements.getRow(9).values).toContain('Bravo');
+    expect(workbook.getWorksheet('Comparación')!.getColumn(2).values).toContain('2026-07-01 al 2026-07-31');
     expect(movements.views[0]).toMatchObject({ state: 'frozen', showGridLines: false });
     expect(movements.autoFilter).toBeTruthy();
   });
@@ -168,11 +169,11 @@ describe('FinancialReportService', () => {
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Resumen', 'Movimientos']);
     expect(workbook.getWorksheet('Resumen')!.getCell('A1').value).toBe('Gastos del equipo');
     expect(workbook.getWorksheet('Resumen')!.getColumn(2).values).toContain('Banco BHD, Banco Popular');
-    expect(workbook.getWorksheet('Movimientos')!.getRow(7).values).toContain('Notas');
-    expect(workbook.getWorksheet('Movimientos')!.getCell('A8').value).toBeInstanceOf(Date);
-    expect(workbook.getWorksheet('Movimientos')!.getCell('A8').numFmt).toBe('dd/mm/yyyy');
-    expect(workbook.getWorksheet('Movimientos')!.getCell('B8').value).toBe("'=HYPERLINK(\"http://evil\")");
-    expect(workbook.getWorksheet('Movimientos')!.getCell('J8').value).toBe('compra semanal');
+    expect(workbook.getWorksheet('Movimientos')!.getRow(8).values).toContain('Notas');
+    expect(workbook.getWorksheet('Movimientos')!.getCell('A9').value).toBeInstanceOf(Date);
+    expect(workbook.getWorksheet('Movimientos')!.getCell('A9').numFmt).toBe('dd/mm/yyyy');
+    expect(workbook.getWorksheet('Movimientos')!.getCell('B9').value).toBe("'=HYPERLINK(\"http://evil\")");
+    expect(workbook.getWorksheet('Movimientos')!.getCell('J9').value).toBe('compra semanal');
   });
 
   it('includes resolved budget performance as an optional XLSX sheet', async () => {

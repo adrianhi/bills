@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { ProductGuideState } from '@bills/contracts';
 import type { Transaction } from '@/entities/transaction';
 import type { PeriodSelection } from '@/entities/period';
 import type { AppSection } from '@/widgets/bottom-nav';
 import { QuickAddTransactionModal } from '@/features/quick-add';
 import { EditTransactionModal } from '@/features/edit-transaction';
-import { RulesManagerModal } from '@/features/manage-rules';
+import { RulesManagerModal, type RuleSuggestion } from '@/features/manage-rules';
 import { AccountSettingsModal } from '@/features/account-settings';
 import { ProductTour, ProductTourInvite } from '@/features/product-guide';
 import { ExportModal } from '@/features/export-center';
@@ -83,6 +83,7 @@ export const DashboardModals: React.FC<DashboardModalsProps> = ({
   currency,
   filters,
 }) => {
+  const [ruleSuggestion, setRuleSuggestion] = useState<RuleSuggestion>();
   return (
     <>
       <QuickAddTransactionModal
@@ -97,10 +98,13 @@ export const DashboardModals: React.FC<DashboardModalsProps> = ({
         isOpen={Boolean(editingTransaction)}
         onClose={() => setEditingTransaction(null)}
         onSave={onSaveTransaction}
+        onSuggestRule={(transactionId, category) => { setRuleSuggestion({ transactionId, category }); setIsRulesModalOpen(true); }}
       />
       <RulesManagerModal
+        key={`${isRulesModalOpen}:${ruleSuggestion?.transactionId || ''}`}
+        suggestion={ruleSuggestion}
         isOpen={isRulesModalOpen}
-        onClose={() => setIsRulesModalOpen(false)}
+        onClose={() => { setIsRulesModalOpen(false); setRuleSuggestion(undefined); }}
         authToken={authToken}
       />
       <AccountSettingsModal

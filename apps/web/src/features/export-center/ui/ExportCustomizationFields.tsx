@@ -37,7 +37,7 @@ export function ExportCustomizationFields({
               {REPORT_SECTION_OPTIONS.map((option) => (
                 <label key={option.id} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-2 text-xs has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
                   <input type="checkbox" checked={sections.includes(option.id)} onChange={() => toggle(option.id)}
-                    disabled={option.id === 'budget' && !budgetEligible} className="accent-emerald-600" />{option.label}
+                    disabled={option.id === 'budget' && !budgetEligible && !sections.includes('budget')} className="accent-emerald-600" />{option.label}
                 </label>
               ))}
             </div>

@@ -1,4 +1,4 @@
-import { contributesToFinancialMetrics, institutionDisplayName, isIncomeMovement } from '../../transactions/domain/transaction-policy';
+import { contributesToFinancialMetrics, institutionDisplayName, isIncomeMovement } from '../../transactions/domain';
 import type { TransactionStatusCodeName } from '../../../domain/transaction-status';
 
 export interface AnalyticsTransaction {
@@ -54,7 +54,8 @@ export function summarizeTransactions(transactions: AnalyticsTransaction[], requ
   const totalAmount = requestedCurrency === 'USD' ? totalSpentUSD : totalSpentDOP;
   const totalIncome = requestedCurrency === 'USD' ? totalIncomeUSD : totalIncomeDOP;
   const byCategory = Object.entries(byCategoryMap).map(([category, value]) => ({ category, total: round(value.total), count: value.count, percentage: totalAmount > 0 ? Math.round(value.total / totalAmount * 100) : 0 })).sort((a, b) => b.total - a.total);
-  const topMerchants = Object.entries(byMerchantMap).map(([name, value]) => ({ name, merchant: name, total: round(value.total), totalDOP: round(value.totalDOP), totalUSD: round(value.totalUSD), count: value.count })).sort((a, b) => b.total - a.total).slice(0, 10);
+  const allMerchants = Object.entries(byMerchantMap).map(([name, value]) => ({ name, merchant: name, total: round(value.total), totalDOP: round(value.totalDOP), totalUSD: round(value.totalUSD), count: value.count })).sort((a, b) => b.total - a.total);
+  const topMerchants = allMerchants.slice(0, 10);
   const byOrganization = Object.entries(byInstitutionMap).map(([organization, value]) => ({ organization, total: round(value.total), count: value.count, percentage: totalAmount > 0 ? Math.round(value.total / totalAmount * 100) : 0 })).sort((a, b) => b.total - a.total);
   const dailyTrend = Object.entries(dailyTrendMap).map(([date, value]) => ({ date, total: round(value.total), count: value.count })).sort((a, b) => a.date.localeCompare(b.date));
   return {
@@ -63,6 +64,6 @@ export function summarizeTransactions(transactions: AnalyticsTransaction[], requ
     totalTransactions,
     dailyAverage: round(totalAmount / Math.max(periodDays ?? dailyTrend.length, 1)), averageTicket: approvedExpenseCount > 0 ? round(totalAmount / approvedExpenseCount) : 0,
     approvedExpenseCount,
-    byCategory, byOrganization, topMerchants, dailyTrend,
+    byCategory, byOrganization, topMerchants, allMerchants, dailyTrend,
   };
 }

@@ -19,11 +19,12 @@ function sourceFiles(directory) {
 
 function changedSourceFiles() {
   try {
-    const output = execFileSync('git', ['diff', '--name-only', 'develop', '--'], {
+    const output = execFileSync('git', ['-c', 'core.autocrlf=false', 'diff', '--name-only', 'develop', '--'], {
       cwd: root,
       encoding: 'utf8',
     });
-    return new Set(output.trim().split(/\r?\n/).filter(Boolean).map(normalize));
+    const untracked = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '--', 'apps/api/src', 'apps/web/src'], { cwd: root, encoding: 'utf8' });
+    return new Set(`${output}\n${untracked}`.trim().split(/\r?\n/).filter(Boolean).map(normalize));
   } catch {
     return new Set();
   }
@@ -111,7 +112,8 @@ for (const file of sourceFiles('apps/api/src')) {
     if (changed.has(relative) && layer === 'application' && imports.some((item) => /\/infrastructure\/|\/http\/|config\/database|\/services\//.test(item))) violations.push(`${relative}: application must depend on ports, not infrastructure`);
     if (changed.has(relative)) {
       for (const specifier of imports) {
-        const target = specifier.match(/modules\/([^/]+)\/(domain|application|infrastructure|http)\//);
+        const resolved = resolveSourceImport(file, specifier);
+        const target = resolved && relativeByFile.get(resolved).match(/modules\/([^/]+)\/(domain|application|infrastructure|http)\//);
         if (target && target[1] !== sourceModule) violations.push(`${relative}: import module ${target[1]} through its public API`);
       }
     }

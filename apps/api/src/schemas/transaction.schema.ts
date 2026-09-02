@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { reportScopeIssues } from '../modules/reports/domain/report-scope';
 import {
   budgetMonthSchema,
   createTransactionInputSchema,
@@ -74,6 +75,9 @@ export const FinancialReportQuerySchema = ExportQuerySchema.omit({ format: true 
   title: z.string().trim().min(1).max(100).optional(),
   sections: commaSeparatedReportSections,
 }).superRefine((value, context) => {
+  for (const issue of reportScopeIssues(value)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: [issue.path], message: issue.message });
+  }
   if (!value.sections.includes('budget')) return;
   const extraFilters = value.category || value.status || value.transactionType || value.search || value.source
     || value.organization || value.institutionCode || value.institutionCodes?.length;

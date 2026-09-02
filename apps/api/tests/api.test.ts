@@ -3,6 +3,7 @@ import request from 'supertest';
 import { createApp } from '../src/app';
 import { prisma } from '../src/config/database';
 import { GmailQueryService } from '../src/modules/connections/infrastructure/gmail-query.service';
+import { registerRuleIntegrationTests } from './helpers/category-rule-integration';
 
 const integrationDescribe =
   process.env.TEST_DATABASE_URL && process.env.DATABASE_URL === process.env.TEST_DATABASE_URL
@@ -464,6 +465,8 @@ integrationDescribe('SaaS API integration and tenant isolation', () => {
       completed: true,
     });
   });
+
+  registerRuleIntegrationTests(app, auth(userA), auth(userB));
 
   it('exports only the authenticated profile data and excludes encrypted secrets', async () => {
     const response = await request(app).post('/api/v1/me/data-export').set(auth(userA));

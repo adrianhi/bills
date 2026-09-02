@@ -43,6 +43,7 @@ export class TransactionApplicationService {
   }
 
   public async update(workspaceId: string, id: string, input: UpdateTransactionInput) {
+    if (isIncomeMovement(input)) throw new AppError(400, 'INCOME_MANUAL_ENTRY_DISABLED', 'Income categories are not available.');
     const transaction = await this.writer.update(workspaceId, id, input);
     if (!transaction) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Transaction not found.');
     return transaction;

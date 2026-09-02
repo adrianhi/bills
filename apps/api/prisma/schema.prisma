@@ -145,6 +145,7 @@ model Workspace {
   members          WorkspaceMember[]
   transactions     Transaction[]
   categoryRules    CategoryRule[]
+  ruleApplications RuleApplication[]
   bankConnections  BankConnection[]
   inboxConnections InboxConnection[]
   oauthStates      OAuthState[]
@@ -449,6 +450,13 @@ model Transaction {
   cardLast4        String?                  @map("card_last_4")
   cardType         String?                  @map("card_type")
   rawMerchant      String                   @map("raw_merchant")
+  merchantKey      String?                  @map("merchant_key")
+  merchantIdentityLabel String?             @map("merchant_identity_label")
+  categoryOrigin   String                   @default("LEGACY_UNKNOWN") @map("category_origin")
+  merchantOrigin   String                   @default("LEGACY_UNKNOWN") @map("merchant_origin")
+  categoryRuleId   String?                  @map("category_rule_id")
+  merchantRuleId   String?                  @map("merchant_rule_id")
+  classificationVersion Int                @default(0) @map("classification_version")
   merchant         String
   category         String
   amount           Decimal                  @db.Decimal(18, 2)
@@ -509,7 +517,10 @@ model CategoryRule {
   id                 String     @id @default(uuid())
   workspaceId        String?    @map("workspace_id") @db.Uuid
   pattern            String
-  normalizedMerchant String     @map("normalized_merchant")
+  normalizedMerchant String?    @map("normalized_merchant")
+  matchType          String     @default("CONTAINS") @map("match_type")
+  targetKey          String     @map("target_key")
+  version            Int        @default(1)
   category           String
   priority           Int        @default(0)
   isActive           Boolean    @default(true) @map("is_active")
@@ -517,7 +528,60 @@ model CategoryRule {
   updatedAt          DateTime   @updatedAt @map("updated_at")
   workspace          Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@unique([workspaceId, pattern])
+  @@unique([workspaceId, matchType, targetKey])
   @@index([workspaceId, priority])
   @@map("category_rules")
+}
+
+model RuleApplication {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @map("workspace_id") @db.Uuid
+  ruleId String @map("rule_id")
+  phase String @default("PREVIEW")
+  status String @default("QUEUED")
+  includeUnknown Boolean @default(false) @map("include_unknown")
+  startDate DateTime? @map("start_date")
+  endDate DateTime? @map("end_date")
+  cutoff DateTime @default(now())
+  rulesSnapshot Json @map("rules_snapshot")
+  fingerprint String
+  cursor String?
+  scanned Int @default(0)
+  matched Int @default(0)
+  changes Int @default(0)
+  categoryChanges Int @default(0) @map("category_changes")
+  merchantChanges Int @default(0) @map("merchant_changes")
+  protectedManual Int @default(0) @map("protected_manual")
+  protectedUnknown Int @default(0) @map("protected_unknown")
+  otherRule Int @default(0) @map("other_rule")
+  applied Int @default(0)
+  skipped Int @default(0)
+  attempts Int @default(0)
+  leaseToken String? @map("lease_token")
+  leaseUntil DateTime? @map("lease_until")
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at")
+  errorCode String? @map("error_code")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  items RuleApplicationItem[]
+  @@index([status, nextAttemptAt])
+  @@index([workspaceId, createdAt])
+  @@map("rule_applications")
+}
+
+model RuleApplicationItem {
+  id String @id @default(uuid()) @db.Uuid
+  applicationId String @map("application_id") @db.Uuid
+  transactionId String @map("transaction_id")
+  version Int
+  before Json
+  after Json
+  reason String
+  status String @default("PENDING")
+  appliedAt DateTime? @map("applied_at")
+  application RuleApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  @@unique([applicationId, transactionId])
+  @@index([applicationId, status, id])
+  @@map("rule_application_items")
 }

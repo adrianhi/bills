@@ -3,6 +3,7 @@ import type { PeriodSelection } from '@/entities/period';
 import { Building2, Calendar, Coins, Filter, Search } from 'lucide-react';
 import { COMMON_CATEGORIES } from '@/shared/config/financial-options';
 import { DatePickerField } from '@/shared/ui';
+import { currentReportDate } from '../model/export-options';
 
 interface ExportScopeFieldsProps {
   initialPeriod?: PeriodSelection;
@@ -50,6 +51,7 @@ export function ExportScopeFields(props: ExportScopeFieldsProps) {
         {props.periodType === 'custom' && (
           <div className="mt-2.5">
             <DatePickerField mode="range" value={{ from: props.customStartDate, to: props.customEndDate }}
+              maxDate={currentReportDate()}
               onChange={(range) => { props.setCustomStartDate(range.from); props.setCustomEndDate(range.to); }}
               triggerLabel="Seleccionar fechas personalizadas" className="w-full" />
           </div>

@@ -7,12 +7,14 @@ async function run() {
   validateRuntimeConfig();
   await connectDB();
   appContainer.ingestionRunner.start();
+  appContainer.ruleApplicationRunner.start();
 
   let shuttingDown = false;
   const shutdown = async () => {
     if (shuttingDown) return;
     shuttingDown = true;
     await appContainer.ingestionRunner.stop();
+    await appContainer.ruleApplicationRunner.stop();
     await disconnectDB();
     process.exit(0);
   };

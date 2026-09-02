@@ -16,6 +16,7 @@ interface EditTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (id: string, merchant: string, category: string, notes: string) => Promise<void>;
+  onSuggestRule?: (transactionId: string, category: string) => void;
 }
 
 const COMMON_CATEGORIES = [
@@ -41,6 +42,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onSuggestRule,
 }) => {
   const [merchant, setMerchant] = useState(() => transaction?.merchant || transaction?.rawMerchant || '');
   const [category, setCategory] = useState(() => transaction?.category || 'Otros');
@@ -48,6 +50,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [suggestRule, setSuggestRule] = useState(false);
 
   if (!transaction) return null;
 
@@ -75,6 +78,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     try {
       await onSave(transaction.id, merchant.trim(), category, notes.trim());
       onClose();
+      if (suggestRule && category !== transaction.category) onSuggestRule?.(transaction.id, category);
     } catch (err) {
       setGeneralError(err instanceof Error ? err.message : 'Error al actualizar la transacción');
     } finally {
@@ -84,7 +88,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Editar Transacción</DialogTitle>
         </DialogHeader>
@@ -160,6 +164,10 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           </div>
 
           {/* Notes */}
+          {onSuggestRule && category !== transaction.category && <label className="flex items-start gap-2 text-xs">
+            <input type="checkbox" checked={suggestRule} onChange={(event) => setSuggestRule(event.target.checked)} />
+            Crear una regla para futuros movimientos de este comercio en {category}. La revisarás después de guardar.
+          </label>}
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <label className="text-xs font-semibold">Notas / Comentarios (Opcional)</label>

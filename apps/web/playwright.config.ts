@@ -1,10 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const port = process.env.PLAYWRIGHT_PORT || '4173';
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
+  // Four browser/device projects share the local machine with development services.
+  workers: 1,
   retries: process.env.CI ? 2 : 0,
-  use: { baseURL: 'http://127.0.0.1:4173', trace: 'retain-on-failure' },
+  use: { baseURL, trace: 'retain-on-failure' },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
@@ -12,8 +17,8 @@ export default defineConfig({
     { name: 'iphone-15-pro-landscape', use: { ...devices['iPhone 15 Pro landscape'] } },
   ],
   webServer: {
-    command: 'npm run build:contracts --prefix ../.. && npm run dev -- --port 4173',
-    url: 'http://127.0.0.1:4173',
+    command: `npm run build:contracts --prefix ../.. && npm run dev -- --port ${port}`,
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
     env: {
       ...process.env,

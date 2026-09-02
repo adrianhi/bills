@@ -58,6 +58,8 @@ export function useTransactions({ authToken, periodSelection, enabled = true }: 
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: transactionKeys.all });
       await queryClient.invalidateQueries({ queryKey: ['stats'] });
+      await queryClient.invalidateQueries({ queryKey: ['budgets'] });
+      await queryClient.invalidateQueries({ queryKey: ['category-rules'] });
     },
   });
 

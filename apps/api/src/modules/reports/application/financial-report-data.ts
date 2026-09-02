@@ -1,7 +1,8 @@
 import { REPORT_SECTIONS, type FinancialReportQueryInput } from '../../../schemas/transaction.schema';
-import type { AnalyticsService } from '../../analytics/application/analytics.service';
-import type { TransactionApplicationService } from '../../transactions/application/transaction-application.service';
-import { institutionDisplayName, resolveInstitutionCode } from '../../transactions/domain/transaction-policy';
+import type { AnalyticsService } from '../../analytics';
+import type { TransactionApplicationService } from '../../transactions';
+import { institutionDisplayName, resolveInstitutionCode } from '../../transactions/domain';
+import { reportPeriodLabel, type ReportScope } from '../domain/report-scope';
 import type { BudgetSummaryDto } from '@bills/contracts';
 
 const formulaPrefix = /^[\s]*[=+\-@]/;
@@ -49,7 +50,7 @@ export interface ReportPresentation {
   metadata: Array<{ label: string; value: string }>;
 }
 
-export function reportPresentation(query: FinancialReportQueryInput, summary: ReportSummary): ReportPresentation {
+export function reportPresentation(query: FinancialReportQueryInput, scope: ReportScope): ReportPresentation {
   const codes = query.institutionCodes?.length
     ? query.institutionCodes
     : query.institutionCode || query.organization
@@ -65,11 +66,12 @@ export function reportPresentation(query: FinancialReportQueryInput, summary: Re
     title: query.title || 'Informe financiero',
     sections: query.sections || REPORT_SECTIONS.filter((section) => section !== 'budget'),
     metadata: [
-      { label: 'Período', value: summary.period },
-      { label: 'Moneda', value: (query.currency || 'DOP').toUpperCase() },
+      { label: 'Período', value: reportPeriodLabel(scope) },
+      { label: 'Moneda', value: scope.currency },
       { label: 'Bancos', value: codes.length ? codes.map(institutionDisplayName).join(', ') : 'Todos los bancos' },
       { label: 'Filtros', value: filters.join(' | ') || 'Sin filtros adicionales' },
-      { label: 'Generado', value: formatReportDate(new Date()) },
+      { label: 'Comparado con', value: reportPeriodLabel(scope, true) },
+      { label: 'Generado', value: formatReportDate(scope.generatedAt) },
     ],
   };
 }

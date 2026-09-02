@@ -32,6 +32,7 @@ function cover(doc: PDFKit.PDFDocument, presentation: ReportPresentation) {
     doc.fillColor(COLORS.muted).font('Helvetica-Bold').fontSize(7.5).text(item.label.toUpperCase(), x, y, { width: 235 });
     doc.fillColor(COLORS.ink).font('Helvetica').fontSize(9).text(item.value, x, y + 11, { width: 235, ellipsis: true });
   });
+  doc.x = 48;
   doc.y = 244;
 }
 
