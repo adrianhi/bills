@@ -35,7 +35,6 @@ export function ExportModal({ open, onOpenChange, ...initial }: ExportModalProps
             category={state.category} setCategory={(value) => setField('category', value)}
             status={state.status} setStatus={(value) => setField('status', value)}
             transactionType={state.transactionType} setTransactionType={(value) => setField('transactionType', value)}
-            search={state.search} setSearch={(value) => setField('search', value)}
           />}
           <ExportFormatSelector format={state.format} setFormat={(value) => setField('format', value)} />
           <ExportCustomizationFields format={state.format} title={state.title} setTitle={(value) => setField('title', value)}

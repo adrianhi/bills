@@ -5,6 +5,9 @@ const CASH_INSTITUTION: Institution = {
   code: 'CASH', displayName: 'Manual / Efectivo', status: 'ACTIVE', selectable: true,
 };
 
+// Only institutions supported for transactions and ingestion
+const SUPPORTED_CODES = new Set(['BHD', 'BANRESERVAS', 'POPULAR', 'QIK', 'CASH']);
+
 export function useReportInstitutions(open: boolean) {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [failed, setFailed] = useState(false);
@@ -15,11 +18,27 @@ export function useReportInstitutions(open: boolean) {
     const controller = new AbortController();
     connectionService.listInstitutions(controller.signal)
       .then((items) => {
-        setInstitutions([...items.filter((item) => item.status !== 'DISABLED'), CASH_INSTITUTION]);
-        setFailed(false); setResolved(true);
+        const supported = items.filter((item) =>
+          SUPPORTED_CODES.has(item.code.toUpperCase()) && item.status !== 'DISABLED' && item.status !== 'COMING_SOON'
+        );
+        const order = ['BHD', 'BANRESERVAS', 'POPULAR', 'QIK'];
+        supported.sort((a, b) => order.indexOf(a.code.toUpperCase()) - order.indexOf(b.code.toUpperCase()));
+        setInstitutions([...supported, CASH_INSTITUTION]);
+        setFailed(false);
+        setResolved(true);
       })
       .catch(() => {
-        if (!controller.signal.aborted) { setInstitutions([CASH_INSTITUTION]); setFailed(true); setResolved(true); }
+        if (!controller.signal.aborted) {
+          setInstitutions([
+            { code: 'BHD', displayName: 'Banco BHD', status: 'PILOT', selectable: true },
+            { code: 'BANRESERVAS', displayName: 'Banreservas', status: 'PILOT', selectable: true },
+            { code: 'POPULAR', displayName: 'Banco Popular', status: 'PILOT', selectable: true },
+            { code: 'QIK', displayName: 'Qik Banco Digital', status: 'PILOT', selectable: true },
+            CASH_INSTITUTION,
+          ]);
+          setFailed(true);
+          setResolved(true);
+        }
       });
     return () => controller.abort();
   }, [open]);
