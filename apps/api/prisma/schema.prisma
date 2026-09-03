@@ -153,6 +153,7 @@ model Workspace {
   ingestionJobs    IngestionJob[]
   statusEvents     TransactionStatusEvent[]
   spendingBudgetLimits SpendingBudgetLimit[]
+  incomeStreams    IncomeStream[]
   createdAt        DateTime                 @default(now()) @map("created_at")
   updatedAt        DateTime                 @updatedAt @map("updated_at")
 
@@ -178,6 +179,30 @@ model SpendingBudgetLimit {
   @@unique([workspaceId, currency, targetKey, kind, effectiveMonth])
   @@index([workspaceId, currency, effectiveMonth])
   @@map("spending_budget_limits")
+}
+
+enum IncomeFrequency {
+  WEEKLY
+  BIWEEKLY_15_30
+  MONTHLY
+  CUSTOM
+}
+
+model IncomeStream {
+  id          String          @id @default(uuid()) @db.Uuid
+  workspaceId String          @map("workspace_id") @db.Uuid
+  name        String
+  amount      Decimal         @db.Decimal(18, 2)
+  currency    String          @default("DOP")
+  frequency   IncomeFrequency @default(BIWEEKLY_15_30)
+  dayOfMonth  Int?            @map("day_of_month")
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("income_streams")
 }
 
 model WorkspaceMember {

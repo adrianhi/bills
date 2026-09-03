@@ -1,5 +1,5 @@
-import { ArrowUpRight, Check, CreditCard, Landmark, Receipt } from 'lucide-react';
-import { COMMON_CATEGORIES, FINANCIAL_INSTITUTIONS } from '@/shared/config/financial-options';
+import { ArrowDownLeft, ArrowUpRight, Check, CreditCard, Landmark, Receipt } from 'lucide-react';
+import { COMMON_CATEGORIES, COMMON_INCOME_CATEGORIES, FINANCIAL_INSTITUTIONS } from '@/shared/config/financial-options';
 import { formatCurrency, toDateValue } from '@/shared/lib';
 import { Button, DateTimePickerField, DialogFooter, Input } from '@/shared/ui';
 import type { QuickAddTransactionModel } from '../model/useQuickAddTransaction';
@@ -7,6 +7,7 @@ import type { QuickAddTransactionModel } from '../model/useQuickAddTransaction';
 const MOVEMENT_TYPES = [
   { id: 'compra', label: 'Compra', icon: CreditCard },
   { id: 'enviada', label: 'Transf. Enviada', icon: ArrowUpRight },
+  { id: 'ingreso', label: 'Ingreso / Depósito', icon: ArrowDownLeft },
   { id: 'servicio', label: 'Servicio', icon: Receipt },
   { id: 'retiro', label: 'Retiro', icon: Landmark },
 ];
@@ -46,7 +47,7 @@ export function QuickAddTransactionFields({ model, onCancel }: QuickAddTransacti
         </div>
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <span className="absolute left-3 top-2.5 text-sm font-bold text-muted-foreground">{currency === 'DOP' ? 'RD$' : '$'}</span>
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-bold text-muted-foreground">{currency === 'DOP' ? 'RD$' : '$'}</span>
             <Input type="number" step="0.01" min="0.01" placeholder="0.00" value={amount} onChange={(event) => setAmount(event.target.value)} className={`h-11 pl-11 text-base font-bold ${fieldErrors.amount ? 'border-destructive focus-visible:ring-destructive' : ''}`} autoFocus />
           </div>
           <div className="flex rounded-xl border bg-muted p-1 text-xs font-semibold">
@@ -63,16 +64,24 @@ export function QuickAddTransactionFields({ model, onCancel }: QuickAddTransacti
       </div>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-semibold text-foreground">Comercio o Beneficiario</label>
+          <label className="text-xs font-semibold text-foreground">
+            {movementType === 'ingreso' ? 'Emisor u Origen del Ingreso' : 'Comercio o Beneficiario'}
+          </label>
           <span className="text-[10px] text-muted-foreground">{merchant.length}/200</span>
         </div>
-        <Input placeholder="Ej: Supermercado Bravo / Netflix" value={merchant} maxLength={200} onChange={(event) => setMerchant(event.target.value)} className={`h-10 text-xs ${fieldErrors.merchant ? 'border-destructive focus-visible:ring-destructive' : ''}`} />
+        <Input
+          placeholder={movementType === 'ingreso' ? 'Ej: Nómina de empresa / Cliente freelance' : 'Ej: Supermercado Bravo / Netflix'}
+          value={merchant}
+          maxLength={200}
+          onChange={(event) => setMerchant(event.target.value)}
+          className={`h-10 text-xs ${fieldErrors.merchant ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+        />
         {fieldErrors.merchant && <p className="text-[11px] font-medium text-destructive">{fieldErrors.merchant}</p>}
       </div>
       <div className="space-y-1.5">
         <label className="text-xs font-semibold text-foreground">Categoría</label>
         <select value={category} onChange={(event) => setCategory(event.target.value)} className="h-10 w-full cursor-pointer rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-          {COMMON_CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}
+          {(movementType === 'ingreso' ? COMMON_INCOME_CATEGORIES : COMMON_CATEGORIES).map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
       </div>
       <DateTimePickerField value={dateTime} onChange={setDateTime} label="Fecha y hora" maxDate={toDateValue(new Date())} error={fieldErrors.dateTime} description="Usaremos tu hora local y la guardaremos de forma segura." />
@@ -83,7 +92,10 @@ export function QuickAddTransactionFields({ model, onCancel }: QuickAddTransacti
       </div>
       <DialogFooter className="gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading} className="h-10">Cancelar</Button>
-        <Button type="submit" disabled={loading} className="h-10 gap-1.5 font-semibold shadow-md shadow-emerald-500/20"><Check className="h-4 w-4" /><span>{loading ? 'Guardando...' : 'Guardar Movimiento'}</span></Button>
+        <Button type="submit" disabled={loading} className="h-10 gap-1.5 font-semibold shadow-md shadow-emerald-500/20">
+          <Check className="h-4 w-4" />
+          <span>{loading ? 'Guardando...' : movementType === 'ingreso' ? 'Guardar Ingreso' : 'Guardar Movimiento'}</span>
+        </Button>
       </DialogFooter>
     </>
   );

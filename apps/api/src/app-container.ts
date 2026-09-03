@@ -49,8 +49,12 @@ import {
   BudgetController, GetMonthlyBudget, ListBudgetCategories, PrismaBudgetExpenseReadModel,
   PrismaBudgetRepository, ReplaceMonthlyBudget, SuggestBudget,
 } from './modules/budgets';
+import { IncomeController, IncomeService, PrismaIncomeRepository } from './modules/incomes';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
+const incomeRepository = new PrismaIncomeRepository();
+const incomeService = new IncomeService(incomeRepository, analyticsService);
+const incomeController = new IncomeController(incomeService);
 const ruleRepository = new PrismaCategoryRuleRepository();
 const ruleCatalog = new PrismaRuleCatalog();
 const expenseCategories = new ListExpenseCategories(ruleCatalog);
@@ -156,4 +160,6 @@ export const appContainer = {
     accept: LegalService.accept.bind(LegalService),
   }),
   bankConnectionController: new BankConnectionController(new FinancialInstitutionService()),
+  incomeController,
+  incomeService,
 };
