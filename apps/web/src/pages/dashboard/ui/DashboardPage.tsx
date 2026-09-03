@@ -46,53 +46,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   } = shell;
   const model = useDashboardController(authToken, lockSession, activeSection);
   const {
-    darkMode,
-    setDarkMode,
-    hideBalances,
-    setHideBalances,
-    currentPeriod,
-    onApplyPeriod,
-    currency,
-    setCurrency,
-    stats,
-    statsError,
-    loadingStats,
-    refreshingStats,
-    transactions,
-    totalTransactions,
-    loading,
-    refreshing,
-    error,
-    page,
-    setPage,
-    limit,
-    search,
-    setSearch,
-    categoryFilter,
-    setCategoryFilter,
-    statusFilter,
-    setStatusFilter,
-    organizationFilter,
-    setOrganizationFilter,
-    typeFilter,
-    setTypeFilter,
-    onResetFilters,
-    onRefresh,
-    onLock,
-    editingTransaction,
-    setEditingTransaction,
-    onSaveTransaction,
-    isRulesModalOpen,
-    setIsRulesModalOpen,
-    isQuickAddOpen,
-    setIsQuickAddOpen,
+    darkMode, setDarkMode, hideBalances, setHideBalances,
+    currentPeriod, onApplyPeriod, currency, setCurrency,
+    stats, statsError, loadingStats, refreshingStats,
+    transactions, totalTransactions, loading, refreshing, error,
+    page, setPage, limit, search, setSearch,
+    categoryFilter, setCategoryFilter, statusFilter, setStatusFilter,
+    organizationFilter, setOrganizationFilter, typeFilter, setTypeFilter,
+    onResetFilters, onRefresh, onLock,
+    editingTransaction, setEditingTransaction, onSaveTransaction,
+    isRulesModalOpen, setIsRulesModalOpen, isQuickAddOpen, setIsQuickAddOpen,
   } = model;
-  const activeFiltersCount = [
-    categoryFilter,
-    statusFilter,
-    organizationFilter,
-    typeFilter,
-  ].filter(Boolean).length;
+  const activeFiltersCount = [categoryFilter, statusFilter, organizationFilter, typeFilter].filter(Boolean).length;
   const periodToolbarNode = (
     <PeriodToolbar
       currentPeriod={currentPeriod}
@@ -146,6 +111,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onViewAllTransactions={() => selectSection('transactions')}
             onSelectTransaction={setEditingTransaction}
             onAddManual={() => setIsQuickAddOpen(true)}
+            activeMonth={currentPeriod.month}
           />
         )}
         {activeSection === 'transactions' && (

@@ -33,7 +33,9 @@ describe('quick add form rules', () => {
 
   it('maps movement types and fallback categories', () => {
     expect(transactionTypes.retiro).toBe('Retiro');
+    expect(transactionTypes.ingreso).toBe('Transferencia Recibida');
     expect(defaultCategoryFor('servicio')).toBe('Servicios');
+    expect(defaultCategoryFor('ingreso')).toBe('Nómina / Salario');
     expect(defaultCategoryFor('unknown')).toBe('Otros');
   });
 });

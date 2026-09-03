@@ -5,3 +5,4 @@ export * from './category-rules';
 export * from './rule-applications';
 export * from './common';
 export * from './budgets';
+export * from './incomes';

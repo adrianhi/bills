@@ -1,13 +1,14 @@
-import React, { type ReactNode } from 'react';
-import type { InboxConnection } from '@/entities/connection';
-import type { StatsSummary } from '@/entities/stat';
-import type { Transaction } from '@/entities/transaction';
-import { MetricCards } from '@/widgets/metric-summary';
-import { MonthPerspectiveCard } from '@/widgets/spending-perspective';
-import { Button, Card, CardContent, LoadingScreen } from '@/shared/ui';
-import { ConnectionHealthCard } from '../ConnectionHealthCard';
-import { RecentTransactionsCard } from './RecentTransactionsCard';
-import { CurrentBudgetCard } from './CurrentBudgetCard';
+import React, { type ReactNode } from "react";
+import type { InboxConnection } from "@/entities/connection";
+import type { StatsSummary } from "@/entities/stat";
+import type { Transaction } from "@/entities/transaction";
+import { MetricCards } from "@/widgets/metric-summary";
+import { MonthPerspectiveCard } from "@/widgets/spending-perspective";
+import { Button, Card, CardContent, LoadingScreen } from "@/shared/ui";
+import { ConnectionHealthCard } from "../ConnectionHealthCard";
+import { RecentTransactionsCard } from "./RecentTransactionsCard";
+import { CurrentBudgetCard } from "./CurrentBudgetCard";
+import { CashFlowCard } from "@/widgets/cash-flow";
 
 interface HomeSectionProps {
   periodToolbar: ReactNode;
@@ -26,6 +27,7 @@ interface HomeSectionProps {
   onViewAllTransactions: () => void;
   onSelectTransaction: (transaction: Transaction) => void;
   onAddManual: () => void;
+  activeMonth?: string;
 }
 
 function LoadingSummaryCards() {
@@ -58,8 +60,12 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
   onViewAllTransactions,
   onSelectTransaction,
   onAddManual,
+  activeMonth,
 }) => {
-  if ((loadingTransactions && transactions.length === 0) || (loadingStats && !stats)) {
+  if (
+    (loadingTransactions && transactions.length === 0) ||
+    (loadingStats && !stats)
+  ) {
     return (
       <LoadingScreen
         message="Cargando tu panorama…"
@@ -117,6 +123,12 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
           hideBalances={hideBalances}
         />
       )}
+
+      <CashFlowCard
+        currency={currency}
+        hideBalances={hideBalances}
+        activeMonth={activeMonth}
+      />
 
       <CurrentBudgetCard currency={currency} hideBalances={hideBalances} />
 

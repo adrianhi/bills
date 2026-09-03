@@ -5,6 +5,16 @@ export const COMMON_CATEGORIES = [
   'Hogar', 'Ropa & Moda', 'Entretenimiento', 'Tecnología', 'Otros',
 ] as const;
 
+export const COMMON_INCOME_CATEGORIES = [
+  'Nómina / Salario',
+  'Honorarios / Freelance',
+  'Transferencia recibida',
+  'Rendimientos & Inversiones',
+  'Remesa',
+  'Ventas / Extra',
+  'Otros ingresos',
+] as const;
+
 export const FINANCIAL_INSTITUTIONS = [
   { id: 'BHD', label: '🟢 Banco BHD', source: 'BHD_MANUAL' },
   { id: 'POPULAR', label: '🔵 Banco Popular', source: 'POPULAR_MANUAL' },
