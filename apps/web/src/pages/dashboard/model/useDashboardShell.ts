@@ -13,11 +13,11 @@ export const DASHBOARD_SECTION_TITLES: Record<AppSection, string> = {
 };
 
 function sectionFromPath(pathname: string): AppSection | null {
-  if (pathname.includes('/movimientos')) return 'transactions';
-  if (pathname.includes('/analitica')) return 'analytics';
-  if (pathname.includes('/presupuesto')) return 'budget';
-  if (pathname.includes('/mas')) return 'home';
-  if (pathname.includes('/inicio')) return 'home';
+  if (pathname.includes('/transactions') || pathname.includes('/movimientos')) return 'transactions';
+  if (pathname.includes('/analytics') || pathname.includes('/analitica')) return 'analytics';
+  if (pathname.includes('/budget') || pathname.includes('/presupuesto')) return 'budget';
+  if (pathname.includes('/more') || pathname.includes('/mas')) return 'home';
+  if (pathname.includes('/home') || pathname.includes('/inicio')) return 'home';
   return null;
 }
 
@@ -26,7 +26,9 @@ export function useDashboardShell(productGuide: ProductGuideState) {
   const navigate = useNavigate();
   const activeSection = sectionFromPath(location.pathname) ?? 'home';
   const [isSettingsOpen, setIsSettingsOpen] = useState(
-    () => new URLSearchParams(window.location.search).has('settings') || window.location.pathname.includes('/mas')
+    () => new URLSearchParams(window.location.search).has('settings')
+      || window.location.pathname.includes('/mas')
+      || window.location.pathname.includes('/more')
   );
   const [isTourInviteOpen, setIsTourInviteOpen] = useState(
     () => productGuide.versionSeen !== productGuide.currentVersion
@@ -48,12 +50,28 @@ export function useDashboardShell(productGuide: ProductGuideState) {
   });
 
   useEffect(() => {
-    if (location.pathname.includes('/mas')) {
-      navigate('/app/inicio?settings=tools', { replace: true });
+    if (location.pathname.includes('/mas') || location.pathname.includes('/more')) {
+      navigate('/app/home?settings=tools', { replace: true });
+      return;
+    }
+    if (location.pathname.includes('/inicio')) {
+      navigate('/app/home', { replace: true });
+      return;
+    }
+    if (location.pathname.includes('/movimientos')) {
+      navigate('/app/transactions', { replace: true });
+      return;
+    }
+    if (location.pathname.includes('/presupuesto')) {
+      navigate('/app/budget', { replace: true });
+      return;
+    }
+    if (location.pathname.includes('/analitica')) {
+      navigate('/app/analytics', { replace: true });
       return;
     }
     if (!sectionFromPath(location.pathname)) {
-      navigate('/app/inicio', { replace: true });
+      navigate('/app/home', { replace: true });
     }
   }, [location.pathname, navigate]);
 

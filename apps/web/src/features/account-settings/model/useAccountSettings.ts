@@ -34,7 +34,7 @@ export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAc
   }, [isOpen, searchParams, setSearchParams]);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['inbox-connections'] });
   const google = useMutation({
-    mutationFn: (institutionCodes: string[]) => connectionService.startGoogle('/app/mas?settings=connections', institutionCodes),
+    mutationFn: (institutionCodes: string[]) => connectionService.startGoogle('/app/home?settings=connections', institutionCodes),
     onSuccess: ({ authorizationUrl }) => window.location.assign(authorizationUrl),
   });
   const selectionMutation = useMutation({

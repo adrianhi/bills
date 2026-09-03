@@ -18,7 +18,7 @@ async function setupReports(page: Page) {
       body: '\uFEFFFecha,Comercio,Monto,Moneda\n02/09/2026,Bravo,100,DOP',
     });
   });
-  await page.goto('/app/inicio');
+  await page.goto('/app/home');
   await page.getByRole('button', { name: 'Saltar', exact: true }).click();
   return requests;
 }

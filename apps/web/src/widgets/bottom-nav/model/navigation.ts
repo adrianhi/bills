@@ -9,8 +9,8 @@ export const APP_SECTIONS: Array<{
   path: string;
   icon: LucideIcon;
 }> = [
-  { id: 'home', label: 'Inicio', path: '/app/inicio', icon: Home },
-  { id: 'transactions', label: 'Movimientos', path: '/app/movimientos', icon: ReceiptText },
-  { id: 'budget', label: 'Presupuesto', path: '/app/presupuesto', icon: WalletCards },
-  { id: 'analytics', label: 'Analítica', path: '/app/analitica', icon: BarChart3 },
+  { id: 'home', label: 'Inicio', path: '/app/home', icon: Home },
+  { id: 'transactions', label: 'Movimientos', path: '/app/transactions', icon: ReceiptText },
+  { id: 'budget', label: 'Presupuesto', path: '/app/budget', icon: WalletCards },
+  { id: 'analytics', label: 'Analítica', path: '/app/analytics', icon: BarChart3 },
 ];

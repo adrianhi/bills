@@ -126,7 +126,7 @@ async function moveTour(page: Page, action: 'Atrás' | 'Siguiente', title: strin
 test('the tour settles every target before revealing its card', async ({ page }) => {
   test.setTimeout(60_000);
   const productGuideUpdates = await mockAuthenticatedDashboard(page);
-  await page.goto('/app/inicio');
+  await page.goto('/app/home');
   await page.getByRole('button', { name: 'Ver recorrido' }).click();
 
   await expectSettledStep(page, 'Tu conexión, siempre clara');
@@ -160,12 +160,12 @@ test('the tour settles every target before revealing its card', async ({ page })
 
 test('Escape cancels the tour and leaves normal navigation usable', async ({ page }) => {
   const productGuideUpdates = await mockAuthenticatedDashboard(page);
-  await page.goto('/app/inicio');
+  await page.goto('/app/home');
   await page.getByRole('button', { name: 'Ver recorrido' }).click();
   await expectSettledStep(page, 'Tu conexión, siempre clara');
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-product-tour-phase]')).toHaveCount(0);
   expect(productGuideUpdates).toEqual([false, false]);
   await page.getByRole('button', { name: 'Movimientos' }).click();
-  await expect(page).toHaveURL(/\/app\/movimientos/);
+  await expect(page).toHaveURL(/\/app\/transactions/);
 });

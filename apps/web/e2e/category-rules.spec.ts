@@ -3,7 +3,7 @@ import { mockRules } from './helpers/mock-rules';
 
 test('editing suggests an exact rule, previews protected records and recovers background progress', async ({ page }, testInfo) => {
   const mock = await mockRules(page);
-  await page.goto('/app/movimientos');
+  await page.goto('/app/transactions');
   await page.locator('button[title="Editar clasificación"]:visible').or(page.getByRole('button', { name: /Uber.*Transporte/ })).first().click();
   const edit = page.getByRole('dialog');
   await edit.locator('select').selectOption('Servicios');
