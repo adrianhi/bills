@@ -1,6 +1,7 @@
 import React, { type ReactNode } from 'react';
 import type { Transaction } from '@/entities/transaction';
 import { TransactionTable } from '@/widgets/transactions-table';
+import { LoadingScreen } from '@/shared/ui';
 
 interface TransactionsSectionProps {
   periodToolbar: ReactNode;
@@ -59,6 +60,16 @@ export const TransactionsSection: React.FC<TransactionsSectionProps> = ({
   onOpenConnections,
   onAddManual,
 }) => {
+  if (loading && transactions.length === 0 && totalTransactions === 0) {
+    return (
+      <LoadingScreen
+        message="Cargando movimientos…"
+        description="Consultando tu historial de transacciones."
+        fullPage
+      />
+    );
+  }
+
   return (
     <>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">

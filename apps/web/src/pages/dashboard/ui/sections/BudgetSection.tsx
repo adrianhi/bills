@@ -4,7 +4,7 @@ import { currentBudgetMonth, useBudgetSummary } from '@/entities/budget';
 import { BudgetManagerDialog } from '@/features/budget-manager';
 import { BudgetOverviewCard, BudgetProgressList } from '@/widgets/budget-overview';
 import { formatCurrency } from '@/shared/lib';
-import { Button, Card, CardContent } from '@/shared/ui';
+import { Button, Card, CardContent, LoadingScreen } from '@/shared/ui';
 import type { PeriodSelection } from '@/entities/period';
 
 function getMonthFromSelection(selection?: PeriodSelection): string {
@@ -24,6 +24,16 @@ export function BudgetSection(props: {
   const currency = props.currency === 'USD' ? 'USD' : 'DOP';
   const query = useBudgetSummary(month, currency);
   const summary = query.data ?? null;
+
+  if (query.isLoading && !summary) {
+    return (
+      <LoadingScreen
+        message="Cargando presupuesto…"
+        description="Calculando tus límites y consumos del mes."
+        fullPage
+      />
+    );
+  }
 
   return (
     <>
