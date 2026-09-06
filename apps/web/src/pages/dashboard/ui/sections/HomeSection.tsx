@@ -28,6 +28,8 @@ interface HomeSectionProps {
   onSelectTransaction: (transaction: Transaction) => void;
   onAddManual: () => void;
   activeMonth?: string;
+  onSyncConnection?: () => void;
+  syncingConnection?: boolean;
 }
 
 function LoadingSummaryCards() {
@@ -61,6 +63,8 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
   onSelectTransaction,
   onAddManual,
   activeMonth,
+  onSyncConnection,
+  syncingConnection,
 }) => {
   if (
     (loadingTransactions && transactions.length === 0) ||
@@ -68,8 +72,8 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
   ) {
     return (
       <LoadingScreen
-        message="Cargando tu panorama…"
-        description="Sincronizando tus cuentas y métricas principales."
+        message="Cargando tus finanzas..."
+        description="Analizando tus movimientos más recientes"
         fullPage
       />
     );
@@ -82,7 +86,7 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
             Tu panorama
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Lo importante de este período, sin sobrecargarte.
           </p>
         </div>
@@ -94,6 +98,8 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
         loading={connectionsLoading}
         failed={connectionsFailed}
         onOpenConnections={onOpenConnections}
+        onSync={onSyncConnection}
+        syncing={syncingConnection}
       />
 
       {statsError && !stats ? (

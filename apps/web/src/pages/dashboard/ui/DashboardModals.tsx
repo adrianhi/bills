@@ -22,6 +22,7 @@ interface DashboardModalsProps {
   editingTransaction: Transaction | null;
   setEditingTransaction: (transaction: Transaction | null) => void;
   onSaveTransaction: (id: string, merchant: string, category: string, notes: string) => Promise<void>;
+  onDeleteTransaction?: (id: string) => Promise<void>;
   // Rules Manager
   isRulesModalOpen: boolean;
   setIsRulesModalOpen: (open: boolean) => void;
@@ -63,6 +64,7 @@ export const DashboardModals: React.FC<DashboardModalsProps> = ({
   editingTransaction,
   setEditingTransaction,
   onSaveTransaction,
+  onDeleteTransaction,
   isRulesModalOpen,
   setIsRulesModalOpen,
   isSettingsOpen,
@@ -98,6 +100,7 @@ export const DashboardModals: React.FC<DashboardModalsProps> = ({
         isOpen={Boolean(editingTransaction)}
         onClose={() => setEditingTransaction(null)}
         onSave={onSaveTransaction}
+        onDelete={onDeleteTransaction}
         onSuggestRule={(transactionId, category) => { setRuleSuggestion({ transactionId, category }); setIsRulesModalOpen(true); }}
       />
       <RulesManagerModal

@@ -162,6 +162,6 @@ export class PrismaTransactionWriter implements TransactionWriter {
   }
 
   public async remove(workspaceId: string, id: string): Promise<number> {
-    return (await prisma.transaction.deleteMany({ where: { id, workspaceId, ...visibleTransactionWhere() } })).count;
+    return (await prisma.transaction.deleteMany({ where: { id, workspaceId } })).count;
   }
 }

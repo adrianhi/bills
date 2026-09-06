@@ -25,6 +25,9 @@ export function useDashboardController(authToken: string, onLock: () => void, se
   const saveTransaction = async (id: string, merchant: string, category: string, notes: string) => {
     await transactions.handleSaveTransaction(id, merchant, category, notes);
   };
+  const deleteTransaction = async (id: string) => {
+    await transactions.handleDeleteTransaction(id);
+  };
 
   return {
     ...theme,
@@ -40,6 +43,7 @@ export function useDashboardController(authToken: string, onLock: () => void, se
     onResetFilters: transactions.handleResetFilters,
     onLock,
     onSaveTransaction: saveTransaction,
+    onDeleteTransaction: deleteTransaction,
     isRulesModalOpen, setIsRulesModalOpen, isQuickAddOpen, setIsQuickAddOpen,
   };
 }

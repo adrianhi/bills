@@ -22,6 +22,9 @@ export const transactionService = {
     const response = await httpClient.post('/transactions', input);
     return parseResponse(transactionSchema, response.data?.data);
   },
+  async remove(id: string) {
+    await httpClient.delete(`/transactions/${id}`);
+  },
   async exportCsv(filters: Partial<TransactionFilters>) {
     const response = await httpClient.get<Blob>('/transactions/export', {
       params: { ...compactParams(filters), format: 'csv' },

@@ -63,6 +63,17 @@ export function useTransactions({ authToken, periodSelection, enabled = true }: 
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: transactionService.remove,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      await queryClient.invalidateQueries({ queryKey: ['stats'] });
+      await queryClient.invalidateQueries({ queryKey: ['budgets'] });
+      await queryClient.invalidateQueries({ queryKey: ['category-rules'] });
+      await queryClient.invalidateQueries({ queryKey: ['incomes'] });
+    },
+  });
+
   const handleResetFilters = useCallback(() => {
     setSearch('');
     setCategoryFilter('');
@@ -83,6 +94,11 @@ export function useTransactions({ authToken, periodSelection, enabled = true }: 
     onSaved?.();
   }, [updateMutation]);
 
+  const handleDeleteTransaction = useCallback(async (id: string, onDeleted?: () => void) => {
+    await deleteMutation.mutateAsync(id);
+    onDeleted?.();
+  }, [deleteMutation]);
+
   const handleExportCsv = useCallback(async () => {
     const blob = await transactionService.exportCsv(filters);
     downloadBlob(blob, `bills-export-${new Date().toISOString().slice(0, 10)}.csv`);
@@ -99,6 +115,6 @@ export function useTransactions({ authToken, periodSelection, enabled = true }: 
     error: query.error,
     editingTransaction, setEditingTransaction,
     fetchTransactions: query.refetch,
-    handleResetFilters, handleSaveTransaction, handleExportCsv,
+    handleResetFilters, handleSaveTransaction, handleDeleteTransaction, handleExportCsv,
   };
 }

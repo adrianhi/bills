@@ -7,6 +7,8 @@ interface ConnectionHealthCardProps {
   loading: boolean;
   failed: boolean;
   onOpenConnections: () => void;
+  onSync?: () => void;
+  syncing?: boolean;
 }
 
 function relativeTime(value?: string | null) {
@@ -22,7 +24,14 @@ function relativeTime(value?: string | null) {
   return `hace ${days} día${days === 1 ? '' : 's'}`;
 }
 
-export function ConnectionHealthCard({ connection, loading, failed, onOpenConnections }: ConnectionHealthCardProps) {
+export function ConnectionHealthCard({
+  connection,
+  loading,
+  failed,
+  onOpenConnections,
+  onSync,
+  syncing,
+}: ConnectionHealthCardProps) {
   if (loading) return <div className="h-24 animate-pulse rounded-2xl bg-muted" aria-label="Consultando sincronización" data-product-tour="connection-health" />;
 
   if (failed) {
@@ -86,7 +95,20 @@ export function ConnectionHealthCard({ connection, loading, failed, onOpenConnec
       <CardContent className="flex items-center gap-3 p-4">
         <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
         <div className="min-w-0 flex-1"><p className="text-sm font-bold">Gmail está conectado</p><p className="truncate text-xs text-muted-foreground">Actualizado {relativeTime(connection.lastSuccessfulSyncAt)} · {connection.selectedInstitutionCodes.join(', ')}</p></div>
-        <Clock3 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        {onSync ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 text-xs shrink-0"
+            onClick={onSync}
+            disabled={syncing}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            <span>{syncing ? 'Sincronizando…' : 'Sincronizar'}</span>
+          </Button>
+        ) : (
+          <Clock3 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        )}
       </CardContent>
     </Card>
   );

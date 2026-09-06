@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ProductGuideState } from '@bills/contracts';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { connectionService } from '@/entities/connection';
@@ -47,6 +47,12 @@ export function useDashboardShell(productGuide: ProductGuideState) {
       )
         ? 2_500
         : false,
+  });
+  const syncMutation = useMutation({
+    mutationFn: (connectionId: string) => connectionService.sync(connectionId),
+    onSuccess: async () => {
+      await connectionsQuery.refetch();
+    },
   });
 
   useEffect(() => {
@@ -110,5 +116,7 @@ export function useDashboardShell(productGuide: ProductGuideState) {
     setIsTourOpen,
     isExportModalOpen,
     setIsExportModalOpen,
+    handleSyncConnection: (connectionId: string) => syncMutation.mutate(connectionId),
+    isSyncingConnection: syncMutation.isPending,
   };
 }

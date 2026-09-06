@@ -39,10 +39,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     setIsSettingsOpen,
     isTourInviteOpen,
     setIsTourInviteOpen,
-    isTourOpen,
-    setIsTourOpen,
-    isExportModalOpen,
-    setIsExportModalOpen,
+    isTourOpen, setIsTourOpen, isExportModalOpen, setIsExportModalOpen,
+    handleSyncConnection, isSyncingConnection,
   } = shell;
   const model = useDashboardController(authToken, lockSession, activeSection);
   const {
@@ -54,7 +52,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     categoryFilter, setCategoryFilter, statusFilter, setStatusFilter,
     organizationFilter, setOrganizationFilter, typeFilter, setTypeFilter,
     onResetFilters, onRefresh, onLock,
-    editingTransaction, setEditingTransaction, onSaveTransaction,
+    editingTransaction, setEditingTransaction, onSaveTransaction, onDeleteTransaction,
     isRulesModalOpen, setIsRulesModalOpen, isQuickAddOpen, setIsQuickAddOpen,
   } = model;
   const activeFiltersCount = [categoryFilter, statusFilter, organizationFilter, typeFilter].filter(Boolean).length;
@@ -112,6 +110,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onSelectTransaction={setEditingTransaction}
             onAddManual={() => setIsQuickAddOpen(true)}
             activeMonth={currentPeriod.month}
+            onSyncConnection={primaryConnection ? () => handleSyncConnection(primaryConnection.id) : undefined}
+            syncingConnection={isSyncingConnection}
           />
         )}
         {activeSection === 'transactions' && (
@@ -201,6 +201,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         editingTransaction={editingTransaction}
         setEditingTransaction={setEditingTransaction}
         onSaveTransaction={onSaveTransaction}
+        onDeleteTransaction={onDeleteTransaction}
         isRulesModalOpen={isRulesModalOpen}
         setIsRulesModalOpen={setIsRulesModalOpen}
         isSettingsOpen={isSettingsOpen}

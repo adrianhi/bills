@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { 
   Dialog, 
   DialogContent, 
@@ -16,6 +17,7 @@ interface EditTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (id: string, merchant: string, category: string, notes: string) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
   onSuggestRule?: (transactionId: string, category: string) => void;
 }
 
@@ -42,6 +44,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   onSuggestRule,
 }) => {
   const [merchant, setMerchant] = useState(() => transaction?.merchant || transaction?.rawMerchant || '');
@@ -50,6 +53,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [suggestRule, setSuggestRule] = useState(false);
 
   if (!transaction) return null;
@@ -83,6 +88,24 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setGeneralError(err instanceof Error ? err.message : 'Error al actualizar la transacción');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    if (!onDelete) return;
+    setGeneralError('');
+    setDeleting(true);
+    try {
+      await onDelete(transaction.id);
+      onClose();
+    } catch (err) {
+      setGeneralError(err instanceof Error ? err.message : 'Error al eliminar la transacción');
+      setDeleting(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -188,13 +211,28 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             )}
           </div>
 
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Guardando...' : 'Guardar Cambios'}
-            </Button>
+          <DialogFooter className="flex-col gap-2 pt-2 sm:flex-row sm:justify-between">
+            {onDelete ? (
+              <Button
+                type="button"
+                variant={confirmDelete ? 'destructive' : 'ghost'}
+                size="sm"
+                onClick={handleDelete}
+                disabled={saving || deleting}
+                className="gap-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive self-start sm:self-auto"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{deleting ? 'Eliminando...' : confirmDelete ? '¿Confirmar eliminación?' : 'Eliminar'}</span>
+              </Button>
+            ) : <div />}
+            <div className="flex gap-2 justify-end w-full sm:w-auto">
+              <Button type="button" variant="outline" onClick={onClose} disabled={saving || deleting}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saving || deleting}>
+                {saving ? 'Guardando...' : 'Guardar Cambios'}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
