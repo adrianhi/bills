@@ -15,7 +15,6 @@ export const transactionTypes: Record<string, string> = {
   enviada: 'Transferencia',
   servicio: 'Pago de Servicio',
   retiro: 'Retiro',
-  ingreso: 'Transferencia Recibida',
 };
 
 const defaultCategories: Record<string, string> = {
@@ -23,7 +22,6 @@ const defaultCategories: Record<string, string> = {
   enviada: 'Transferencias',
   servicio: 'Servicios',
   retiro: 'Servicios Financieros',
-  ingreso: 'Nómina / Salario',
 };
 
 export function defaultCategoryFor(movementType: string): string {
