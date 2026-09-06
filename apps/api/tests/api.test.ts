@@ -39,6 +39,13 @@ async function cleanDatabase() {
   await prisma.transactionStatusEvent.deleteMany();
   await prisma.bankConnection.deleteMany();
   await prisma.inboxConnection.deleteMany();
+  await prisma.recurringOccurrence.deleteMany();
+  await prisma.recurringAlert.deleteMany();
+  await prisma.recurringBill.deleteMany();
+  await prisma.recurringScanJob.deleteMany();
+  await prisma.paydayRitualReview.deleteMany();
+  await prisma.productEvent.deleteMany();
+  await prisma.incomeStream.deleteMany();
   await prisma.transaction.deleteMany();
   await prisma.categoryRule.deleteMany();
   await prisma.spendingBudgetLimit.deleteMany();
