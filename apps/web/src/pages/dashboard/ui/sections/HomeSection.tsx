@@ -9,6 +9,15 @@ import { ConnectionHealthCard } from "../ConnectionHealthCard";
 import { RecentTransactionsCard } from "./RecentTransactionsCard";
 import { CurrentBudgetCard } from "./CurrentBudgetCard";
 import { CashFlowCard } from "@/widgets/cash-flow";
+import { useSafeToSpend } from "@/entities/budget";
+import { SafeToSpendDial } from "@/widgets/safe-to-spend";
+import { useRecurringRadar, type RecurringBillDto } from "@/entities/recurring-bill";
+import { RecurringEditorDialog, useManageRecurring } from "@/features/manage-recurring";
+import { RecurringRadarCard } from "@/widgets/recurring-radar";
+import { usePaydayRitual } from "@/entities/payday-ritual";
+import { useCompletePaydayRitual } from "@/features/complete-payday-ritual";
+import { PaydayRitualCard } from "@/widgets/payday-ritual";
+import { useTrackProductView } from "@/features/track-engagement";
 
 interface HomeSectionProps {
   periodToolbar: ReactNode;
@@ -30,6 +39,7 @@ interface HomeSectionProps {
   activeMonth?: string;
   onSyncConnection?: () => void;
   syncingConnection?: boolean;
+  onOpenBudget: () => void;
 }
 
 function LoadingSummaryCards() {
@@ -65,7 +75,27 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
   activeMonth,
   onSyncConnection,
   syncingConnection,
+  onOpenBudget,
 }) => {
+  const safeToSpend = useSafeToSpend(currency === 'USD' ? 'USD' : 'DOP');
+  const activeCurrency = currency === 'USD' ? 'USD' : 'DOP';
+  const recurring = useRecurringRadar(activeCurrency);
+  const recurringActions = useManageRecurring(activeCurrency);
+  const paydayRitual = usePaydayRitual(activeCurrency);
+  const completePaydayRitual = useCompletePaydayRitual(activeCurrency);
+  const [editingRecurring, setEditingRecurring] = React.useState<RecurringBillDto | null>(null);
+  useTrackProductView(safeToSpend.data ? {
+    name: 'SAFE_TO_SPEND_VIEWED', contextKey: safeToSpend.data.date,
+    properties: { currency: activeCurrency, status: safeToSpend.data.status },
+  } : null);
+  useTrackProductView(recurring.data?.analysisStatus === 'READY' ? {
+    name: 'RECURRING_RADAR_VIEWED', contextKey: `${activeCurrency}:${recurring.data.generatedAt.slice(0, 10)}`,
+    properties: { currency: activeCurrency, status: recurring.data.analysisStatus },
+  } : null);
+  useTrackProductView(paydayRitual.data?.status === 'OPEN' && paydayRitual.data.cycleKey ? {
+    name: 'PAYDAY_RITUAL_VIEWED', contextKey: paydayRitual.data.cycleKey,
+    properties: { currency: activeCurrency, status: paydayRitual.data.status },
+  } : null);
   if (
     (loadingTransactions && transactions.length === 0) ||
     (loadingStats && !stats)
@@ -100,6 +130,43 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
         onOpenConnections={onOpenConnections}
         onSync={onSyncConnection}
         syncing={syncingConnection}
+      />
+
+      <SafeToSpendDial
+        value={safeToSpend.data || null}
+        loading={safeToSpend.isLoading}
+        hideBalances={hideBalances}
+        onManageBudget={onOpenBudget}
+      />
+
+      <RecurringRadarCard
+        radar={recurring.data || null}
+        loading={recurring.isLoading}
+        hideBalances={hideBalances}
+        onEdit={setEditingRecurring}
+        onStatus={(bill, status) => recurringActions.update.mutate({ id: bill.id, input: { status } })}
+        onAcknowledge={(alertId) => recurringActions.acknowledge.mutate(alertId)}
+      />
+
+      <PaydayRitualCard
+        ritual={paydayRitual.data || null}
+        loading={paydayRitual.isLoading}
+        completing={completePaydayRitual.isPending}
+        hideBalances={hideBalances}
+        onComplete={(cycleKey) => completePaydayRitual.mutate(cycleKey)}
+      />
+
+      <RecurringEditorDialog
+        key={editingRecurring?.id || 'closed-recurring-editor'}
+        bill={editingRecurring}
+        open={Boolean(editingRecurring)}
+        saving={recurringActions.update.isPending}
+        onOpenChange={(open) => { if (!open) setEditingRecurring(null); }}
+        onSave={async (input) => {
+          if (!editingRecurring) return;
+          await recurringActions.update.mutateAsync({ id: editingRecurring.id, input });
+          setEditingRecurring(null);
+        }}
       />
 
       {statsError && !stats ? (

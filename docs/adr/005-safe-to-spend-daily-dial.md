@@ -1,6 +1,6 @@
 # ADR 005: Indicador y cálculo de Dinero Libre Diario (Safe-to-Spend Dial)
 
-Estado: propuesta — 2026-09-02
+Estado: aceptada e implementada — 2026-09-06
 
 ## Contexto
 
@@ -14,11 +14,12 @@ Implementar el componente y servicio de **Dinero Libre Diario (*Safe-to-Spend Di
 
 1. **Modelo Matemático Determinista en Dominio (`apps/api/src/modules/budgets/domain/safe-to-spend.ts`)**:
    - Resuelve el día actual y los días restantes del mes según la zona horaria oficial del usuario (`America/Santo_Domingo`).
-   - `remainingBudget = max(0, monthlyLimit - approvedSpentThisMonth)`
+   - `availableAtStart = max(0, monthlyLimit - approvedSpentBeforeToday - confirmedFutureCommitments)`
    - `daysRemainingInMonth = daysInMonth - currentDayNumber + 1` (incluyendo el día de hoy).
-   - `dailyAllowance = remainingBudget / daysRemainingInMonth`
+   - `dailyAllowance = availableAtStart / daysRemainingInMonth`
    - `spentToday = sum(approvedTransactions where date = today)`
-   - `todayAvailable = dailyAllowance - spentToday`
+   - `todayAvailable = max(0, dailyAllowance - spentToday)`
+   - `nextDailyAllowance = max(0, monthlyLimit - approvedSpentThroughToday - confirmedFutureCommitments) / remainingDaysAfterToday`
    - Estados de ritmo diario:
      - `SURPLUS` (Verde): `spentToday <= dailyAllowance` y ritmo mensual óptimo.
      - `ADJUSTING` (Amarillo): `spentToday > dailyAllowance` pero con presupuesto mensual positivo; proyecta la reducción diaria sugerida para los días restantes (`recalculatedAllowance = (remainingBudget - spentToday) / (daysRemainingInMonth - 1)`).
@@ -39,3 +40,10 @@ Implementar el componente y servicio de **Dinero Libre Diario (*Safe-to-Spend Di
 - **Positivas**: Aumenta drásticamente el uso diario de la aplicación. Convierte a `bills.` en la herramienta de consulta de bolsillo indispensable antes de realizar cualquier gasto discrecional.
 - **Técnicas**: Es un cálculo puramente computacional derivado de datos que ya se consultan (gastos del mes y límite activo), con impacto nulo en latencia de base de datos.
 - **Trade-offs**: Para usuarios sin presupuesto configurado, se requiere una experiencia de incorporación guiada (*empty state*) que sugiera automáticamente un límite basado en su historial para que el indicador sea útil desde el inicio.
+
+## Ajustes de implementación
+
+- El dial exige un presupuesto global; no suma límites por categoría que podrían solaparse o dejar gastos fuera.
+- La fórmula separa gasto anterior y gasto de hoy para impedir el doble descuento del consumo diario.
+- Solo compromisos recurrentes confirmados manualmente reducen el disponible y la interfaz muestra explícitamente el importe reservado.
+- `budgets` depende de un puerto local de compromisos; la implementación se inyecta desde el composition root.

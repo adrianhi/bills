@@ -1,6 +1,6 @@
 # ADR 004: Radar de gastos recurrentes, suscripciones y proyección de cobros
 
-Estado: propuesta — 2026-09-02
+Estado: aceptada e implementada — 2026-09-06
 
 ## Contexto
 
@@ -15,7 +15,7 @@ Implementar un **Radar de Gastos Recurrentes y Suscripciones** impulsado por un 
 1. **Motor de Detección de Cadencia (`apps/api/src/modules/recurring`)**:
    - Agrupa movimientos por identidad de comercio normalizada (`merchantKey` o `categoryRule`), moneda e importe dentro de una tolerancia paramétrica (±10% para consumos de servicios con variación de tarifa).
    - Identifica intervalos cíclicos: mensuales (28-32 días), quincenales (14-16 días, común en nómina dominicana) y anuales (360-370 días).
-   - Requiere un umbral mínimo de 2 ocurrencias consecutivas para calificar como recurrente sugerido (`SUGGESTED`), promoviéndose a confirmado (`CONFIRMED`) por el usuario o al detectar una tercera ocurrencia periódica.
+   - Requiere un umbral mínimo de 2 ocurrencias consecutivas para calificar como recurrente sugerido (`SUGGESTED`). Solo una confirmación explícita del usuario lo promueve a `CONFIRMED`; la detección nunca reserva dinero automáticamente.
    - Detecta y alerta anomalías de precio: calcula el diferencial frente al promedio histórico y emite un evento `PRICE_HIKE` si el cargo reciente excede la media en más de un 5%.
 
 2. **Proyección y Calendario de Vencimientos**:
@@ -34,3 +34,10 @@ Implementar un **Radar de Gastos Recurrentes y Suscripciones** impulsado por un 
 - **Positivas**: Transforma la aplicación de un registro pasivo a un asistente proactivo con alto valor percibido desde el primer día ("Aha! Moment" inmediato al sincronizar transacciones). Da a los usuarios control sobre gastos zombi y visibilidad anticipada de liquidez.
 - **Técnicas**: La detección se ejecuta como un cálculo incremental post-ingestión o bajo demanda, sin impactar la latencia de sincronización de correos ni bloquear escrituras de transacciones.
 - **Trade-offs**: Comercios con montos altamente erráticos (ej. factura eléctrica variable) requieren mayor tolerancia en el algoritmo de clustering y confirmación explícita del usuario para evitar falsos positivos.
+
+## Ajustes de implementación
+
+- El escaneo usa un job durable, paginado e idempotente propio del módulo `recurring`; no modifica ni acopla el flujo de escritura de transacciones.
+- `SUGGESTED`, `CONFIRMED`, `PAUSED` y `DISMISSED` son estados persistentes. El usuario puede corregir nombre, importe, cadencia y próxima fecha.
+- “No observado” significa únicamente que no llegó el cobro esperado; no se interpreta como falta de uso del servicio.
+- Los compromisos confirmados se exponen mediante un puerto inyectado en `budgets` y `payday-ritual`, sin imports privados entre módulos.

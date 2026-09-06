@@ -11,5 +11,6 @@ router.get('/budgets/monthly', ...protectedRoute, asyncHandler(appContainer.budg
 router.put('/budgets/monthly', ...protectedRoute, asyncHandler(appContainer.budgetController.replace));
 router.get('/budgets/suggestions', ...protectedRoute, asyncHandler(appContainer.budgetController.suggestions));
 router.get('/budgets/categories', ...protectedRoute, asyncHandler(appContainer.budgetController.categories));
+router.get('/budgets/safe-to-spend', ...protectedRoute, asyncHandler(appContainer.budgetController.safeToSpend));
 
 export default router;

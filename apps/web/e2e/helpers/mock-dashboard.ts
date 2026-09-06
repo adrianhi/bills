@@ -98,6 +98,28 @@ export async function mockAuthenticatedDashboard(page: Page) {
         },
       });
     }
+    if (path.endsWith('/budgets/safe-to-spend')) return json({
+      success: true, data: {
+        date: '2026-09-06', month: '2026-09', currency: 'DOP', status: 'UNSET', reason: 'BUDGET_UNSET',
+        globalLimit: null, spentBeforeToday: 0, spentToday: 0, futureConfirmedCommitments: 0,
+        daysRemaining: 25, dailyAllowance: 0, todayAvailable: 0, todayOverage: 0, nextDailyAllowance: 0,
+      },
+    });
+    if (path.endsWith('/recurring')) return json({
+      success: true, data: {
+        currency: 'DOP', generatedAt: '2026-09-06T12:00:00.000Z', analysisStatus: 'READY',
+        fixedMonthlyBurden: 0, upcoming: [], upcomingWindows: { in7: 0, in14: 0, in30: 0 },
+        suggestions: [], attention: [], paused: [],
+      },
+    });
+    if (path.endsWith('/payday-ritual/current')) return json({
+      success: true, data: {
+        eligible: false, currency: 'DOP', status: 'UNAVAILABLE', cycleKey: null, cycleStart: null, cycleEnd: null,
+        plannedIncome: 0, paidFixed: 0, otherSpent: 0, futureFixed: 0, available: 0, overage: 0,
+        dailyAvailable: 0, daysRemaining: 0, completedAt: null,
+      },
+    });
+    if (path.endsWith('/engagement/views')) return json({ success: true, data: { recorded: true } });
     return json({ success: true, data: [] });
   });
 

@@ -5,6 +5,7 @@ export const budgetKeys = {
   all: ['budgets'] as const,
   monthly: (month: string, currency: string) => ['budgets', 'monthly', month, currency] as const,
   categories: ['budgets', 'categories'] as const,
+  safeToSpend: (currency: string) => ['budgets', 'safe-to-spend', currency] as const,
 };
 
 export function useBudgetSummary(month: string, currency: string, enabled = true) {
@@ -13,6 +14,14 @@ export function useBudgetSummary(month: string, currency: string, enabled = true
     queryFn: ({ signal }) => budgetService.monthly(month, currency, signal),
     enabled,
     placeholderData: (previous) => previous,
+  });
+}
+
+export function useSafeToSpend(currency: string) {
+  return useQuery({
+    queryKey: budgetKeys.safeToSpend(currency),
+    queryFn: ({ signal }) => budgetService.safeToSpend(currency, signal),
+    refetchOnWindowFocus: true,
   });
 }
 

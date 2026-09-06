@@ -41,4 +41,11 @@ describe('transaction application service', () => {
     await expect(service.update('workspace', 'missing', {})).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
     await expect(service.remove('workspace', 'missing')).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
   });
+
+  it('delegates successful removal to writer cleanly', async () => {
+    const { writer, service } = services();
+    vi.mocked(writer.remove).mockResolvedValue(1);
+    await expect(service.remove('workspace', 'tx-1')).resolves.toBeUndefined();
+    expect(writer.remove).toHaveBeenCalledWith('workspace', 'tx-1');
+  });
 });

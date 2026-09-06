@@ -1,6 +1,8 @@
 import {
   budgetCategoriesResponseSchema, budgetSuggestionResponseSchema, budgetSummaryResponseSchema,
+  safeToSpendResponseSchema,
   type BudgetCategoryDto, type BudgetSuggestionDto, type BudgetSummaryDto, type ReplaceMonthlyBudgetInput,
+  type SafeToSpendDto,
 } from '@bills/contracts';
 import { httpClient, parseResponse } from '@/shared/api';
 
@@ -20,5 +22,9 @@ export const budgetService = {
   async replace(input: ReplaceMonthlyBudgetInput): Promise<BudgetSummaryDto> {
     const response = await httpClient.put('/budgets/monthly', input);
     return parseResponse(budgetSummaryResponseSchema, response.data).data;
+  },
+  async safeToSpend(currency: string, signal?: AbortSignal): Promise<SafeToSpendDto> {
+    const response = await httpClient.get('/budgets/safe-to-spend', { params: { currency }, signal });
+    return parseResponse(safeToSpendResponseSchema, response.data).data;
   },
 };

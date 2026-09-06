@@ -9,6 +9,9 @@ import accountRoutes from './account.routes';
 import reportRoutes from './report.routes';
 import budgetRoutes from './budget.routes';
 import incomeRoutes from './income.routes';
+import recurringRoutes from './recurring.routes';
+import paydayRitualRoutes from './payday-ritual.routes';
+import engagementRoutes from './engagement.routes';
 import { appContainer } from '../app-container';
 import { asyncHandler } from '../shared/http/async-handler';
 
@@ -28,5 +31,8 @@ router.use('/v1', accountRoutes);
 router.use('/v1', reportRoutes);
 router.use('/v1', budgetRoutes);
 router.use('/v1', incomeRoutes);
+router.use('/v1', recurringRoutes);
+router.use('/v1', paydayRitualRoutes);
+router.use('/v1', engagementRoutes);
 
 export default router;

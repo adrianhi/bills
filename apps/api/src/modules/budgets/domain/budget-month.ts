@@ -18,6 +18,22 @@ export function santoDomingoMonth(now = new Date()): string {
   return `${year}-${month}`;
 }
 
+export function santoDomingoDateParts(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santo_Domingo', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const monthNumber = Number(parts.find((part) => part.type === 'month')?.value);
+  const dayOfMonth = Number(parts.find((part) => part.type === 'day')?.value);
+  const month = `${year}-${String(monthNumber).padStart(2, '0')}`;
+  return {
+    date: `${month}-${String(dayOfMonth).padStart(2, '0')}`,
+    month,
+    dayOfMonth,
+    daysInMonth: new Date(Date.UTC(year, monthNumber, 0)).getUTCDate(),
+  };
+}
+
 export function elapsedMonthDays(month: string, now = new Date()) {
   const [year, value] = month.split('-').map(Number);
   const daysInMonth = new Date(Date.UTC(year, value, 0)).getUTCDate();

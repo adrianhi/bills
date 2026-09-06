@@ -4,7 +4,7 @@ import type { Transaction } from '@/entities/transaction';
 import type { PeriodSelection } from '@/entities/period';
 import type { AppSection } from '@/widgets/bottom-nav';
 import { QuickAddTransactionModal } from '@/features/quick-add';
-import { EditTransactionModal } from '@/features/edit-transaction';
+import { DeleteTransactionModal, EditTransactionModal } from '@/features/edit-transaction';
 import { RulesManagerModal, type RuleSuggestion } from '@/features/manage-rules';
 import { AccountSettingsModal } from '@/features/account-settings';
 import { ProductTour, ProductTourInvite } from '@/features/product-guide';
@@ -18,9 +18,11 @@ interface DashboardModalsProps {
   isQuickAddOpen: boolean;
   setIsQuickAddOpen: (open: boolean) => void;
   onRefresh: () => void;
-  // Edit Transaction
+  // Edit & Delete Transaction
   editingTransaction: Transaction | null;
   setEditingTransaction: (transaction: Transaction | null) => void;
+  deletingTransaction?: Transaction | null;
+  setDeletingTransaction?: (transaction: Transaction | null) => void;
   onSaveTransaction: (id: string, merchant: string, category: string, notes: string) => Promise<void>;
   onDeleteTransaction?: (id: string) => Promise<void>;
   // Rules Manager
@@ -63,6 +65,8 @@ export const DashboardModals: React.FC<DashboardModalsProps> = ({
   onRefresh,
   editingTransaction,
   setEditingTransaction,
+  deletingTransaction,
+  setDeletingTransaction,
   onSaveTransaction,
   onDeleteTransaction,
   isRulesModalOpen,
@@ -102,6 +106,18 @@ export const DashboardModals: React.FC<DashboardModalsProps> = ({
         onSave={onSaveTransaction}
         onDelete={onDeleteTransaction}
         onSuggestRule={(transactionId, category) => { setRuleSuggestion({ transactionId, category }); setIsRulesModalOpen(true); }}
+      />
+      <DeleteTransactionModal
+        key={deletingTransaction?.id ?? 'no-delete-transaction'}
+        transaction={deletingTransaction ?? null}
+        isOpen={Boolean(deletingTransaction)}
+        onClose={() => setDeletingTransaction?.(null)}
+        onConfirm={async (id) => {
+          if (onDeleteTransaction) {
+            await onDeleteTransaction(id);
+          }
+          setDeletingTransaction?.(null);
+        }}
       />
       <RulesManagerModal
         key={`${isRulesModalOpen}:${ruleSuggestion?.transactionId || ''}`}

@@ -130,6 +130,19 @@ for (const relative of changed) {
 }
 
 const uniqueViolations = [...new Set(violations)];
+const requiredPublicApis = [
+  'apps/api/src/modules/recurring/index.ts',
+  'apps/api/src/modules/payday-ritual/index.ts',
+  'apps/api/src/modules/engagement/index.ts',
+  'apps/web/src/entities/recurring-bill/index.ts',
+  'apps/web/src/entities/payday-ritual/index.ts',
+  'apps/web/src/entities/engagement/index.ts',
+  'apps/web/src/features/manage-recurring/index.ts',
+  'apps/web/src/features/complete-payday-ritual/index.ts',
+];
+for (const publicApi of requiredPublicApis) {
+  if (!fs.existsSync(path.join(root, publicApi))) uniqueViolations.push(`Missing public API: ${publicApi}`);
+}
 if (uniqueViolations.length) {
   console.error(`Architecture violations:\n${uniqueViolations.map((item) => `- ${item}`).join('\n')}`);
   process.exit(1);

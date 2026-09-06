@@ -117,6 +117,8 @@ export function ExportScopeFields(props: ExportScopeFieldsProps) {
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
           <button
             type="button"
+            role="checkbox"
+            aria-checked={props.institutionCodes.length === 0}
             onClick={() => props.setInstitutionCodes([])}
             className={`flex items-center gap-2 rounded-xl border p-2 text-left text-xs transition-all cursor-pointer ${
               props.institutionCodes.length === 0
@@ -141,6 +143,8 @@ export function ExportScopeFields(props: ExportScopeFieldsProps) {
               <button
                 key={institution.code}
                 type="button"
+                role="checkbox"
+                aria-checked={isSelected}
                 onClick={() => toggleBank(institution.code)}
                 className={`flex items-center gap-2 rounded-xl border p-2 text-left text-xs transition-all cursor-pointer ${
                   isSelected

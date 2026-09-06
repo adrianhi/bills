@@ -22,6 +22,7 @@ interface TransactionsSectionProps {
   setTypeFilter: (type: string) => void;
   onResetFilters: () => void;
   onEdit: (transaction: Transaction) => void;
+  onDelete?: (transaction: Transaction) => void;
   onExport: () => void;
   loading: boolean;
   refreshing: boolean;
@@ -51,6 +52,7 @@ export const TransactionsSection: React.FC<TransactionsSectionProps> = ({
   setTypeFilter,
   onResetFilters,
   onEdit,
+  onDelete,
   onExport,
   loading,
   refreshing,
@@ -101,6 +103,7 @@ export const TransactionsSection: React.FC<TransactionsSectionProps> = ({
         setTypeFilter={setTypeFilter}
         onResetFilters={onResetFilters}
         onEdit={onEdit}
+        onDelete={onDelete}
         onExport={onExport}
         loading={loading}
         refreshing={refreshing}

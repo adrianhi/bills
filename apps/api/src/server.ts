@@ -15,6 +15,7 @@ async function bootstrap() {
   if (config.processRole === 'all' || config.processRole === 'worker') {
     appContainer.ingestionRunner.start();
     appContainer.ruleApplicationRunner.start();
+    appContainer.recurringRunner.start();
   }
 
   let shuttingDown = false;
@@ -24,6 +25,7 @@ async function bootstrap() {
     logger.info('http_server_stopping');
     await appContainer.ingestionRunner.stop();
     await appContainer.ruleApplicationRunner.stop();
+    await appContainer.recurringRunner.stop();
     server.close(async () => {
       await disconnectDB();
       logger.info('http_server_stopped');

@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FileDown } from 'lucide-react';
 import type { ProductGuideState } from '@bills/contracts';
+import type { Transaction } from '@/entities/transaction';
 import { Navbar } from '@/widgets/navbar';
 import { BottomNav } from '@/widgets/bottom-nav';
 import { useDashboardController } from '../model/useDashboardController';
@@ -20,6 +21,7 @@ interface DashboardPageProps {
   onLock: () => void;
   onAccountDeleted: () => void;
 }
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   authToken,
   productGuide,
@@ -55,6 +57,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     editingTransaction, setEditingTransaction, onSaveTransaction, onDeleteTransaction,
     isRulesModalOpen, setIsRulesModalOpen, isQuickAddOpen, setIsQuickAddOpen,
   } = model;
+  const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
   const activeFiltersCount = [categoryFilter, statusFilter, organizationFilter, typeFilter].filter(Boolean).length;
   const periodToolbarNode = (
     <PeriodToolbar
@@ -112,6 +115,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             activeMonth={currentPeriod.month}
             onSyncConnection={primaryConnection ? () => handleSyncConnection(primaryConnection.id) : undefined}
             syncingConnection={isSyncingConnection}
+            onOpenBudget={() => selectSection('budget')}
           />
         )}
         {activeSection === 'transactions' && (
@@ -134,6 +138,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             setTypeFilter={setTypeFilter}
             onResetFilters={onResetFilters}
             onEdit={setEditingTransaction}
+            onDelete={setDeletingTransaction}
             onExport={() => setIsExportModalOpen(true)}
             loading={loading}
             refreshing={refreshing}
@@ -200,6 +205,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         onRefresh={onRefresh}
         editingTransaction={editingTransaction}
         setEditingTransaction={setEditingTransaction}
+        deletingTransaction={deletingTransaction}
+        setDeletingTransaction={setDeletingTransaction}
         onSaveTransaction={onSaveTransaction}
         onDeleteTransaction={onDeleteTransaction}
         isRulesModalOpen={isRulesModalOpen}

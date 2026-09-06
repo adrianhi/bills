@@ -117,6 +117,31 @@ enum IngestionJobStatus {
   FAILED
 }
 
+enum RecurringCadence {
+  BIWEEKLY
+  MONTHLY
+  ANNUAL
+}
+
+enum RecurringStatus {
+  SUGGESTED
+  CONFIRMED
+  PAUSED
+  DISMISSED
+}
+
+enum RecurringAlertKind {
+  PRICE_HIKE
+  MISSED_EXPECTED_CHARGE
+}
+
+enum RecurringScanStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
 model Profile {
   id                           String               @id @db.Uuid
   email                        String               @unique
@@ -133,6 +158,8 @@ model Profile {
   updatedAt                    DateTime             @updatedAt @map("updated_at")
   legalAcceptances             LegalAcceptance[]
   integrationConsents          IntegrationConsent[]
+  paydayRitualReviews          PaydayRitualReview[]
+  productEvents                ProductEvent[]
 
   @@map("profiles")
 }
@@ -154,6 +181,10 @@ model Workspace {
   statusEvents     TransactionStatusEvent[]
   spendingBudgetLimits SpendingBudgetLimit[]
   incomeStreams    IncomeStream[]
+  recurringBills   RecurringBill[]
+  recurringScanJob RecurringScanJob?
+  paydayRitualReviews PaydayRitualReview[]
+  productEvents    ProductEvent[]
   createdAt        DateTime                 @default(now()) @map("created_at")
   updatedAt        DateTime                 @updatedAt @map("updated_at")
 
@@ -203,6 +234,109 @@ model IncomeStream {
 
   @@index([workspaceId])
   @@map("income_streams")
+}
+
+model RecurringBill {
+  id                 String            @id @default(uuid()) @db.Uuid
+  workspaceId        String            @map("workspace_id") @db.Uuid
+  identityKey        String            @map("identity_key")
+  displayName        String            @map("display_name")
+  currency           String
+  cadence            RecurringCadence
+  expectedAmount     Decimal           @map("expected_amount") @db.Decimal(18, 2)
+  nextExpectedDate   DateTime          @map("next_expected_date") @db.Date
+  lastSeenAt         DateTime          @map("last_seen_at")
+  occurrenceCount    Int               @default(2) @map("occurrence_count")
+  confidence         Float             @default(0.5)
+  status             RecurringStatus   @default(SUGGESTED)
+  userEditedAt       DateTime?         @map("user_edited_at")
+  dismissedAmount    Decimal?          @map("dismissed_amount") @db.Decimal(18, 2)
+  workspace          Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  occurrences        RecurringOccurrence[]
+  alerts             RecurringAlert[]
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  @@unique([workspaceId, identityKey, currency])
+  @@index([workspaceId, currency, status, nextExpectedDate])
+  @@map("recurring_bills")
+}
+
+model RecurringOccurrence {
+  id              String        @id @default(uuid()) @db.Uuid
+  recurringBillId String        @map("recurring_bill_id") @db.Uuid
+  transactionId   String        @unique @map("transaction_id")
+  amount          Decimal       @db.Decimal(18, 2)
+  occurredAt      DateTime      @map("occurred_at")
+  recurringBill   RecurringBill @relation(fields: [recurringBillId], references: [id], onDelete: Cascade)
+  transaction     Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@index([recurringBillId, occurredAt])
+  @@map("recurring_occurrences")
+}
+
+model RecurringAlert {
+  id                  String             @id @default(uuid()) @db.Uuid
+  recurringBillId     String             @map("recurring_bill_id") @db.Uuid
+  kind                RecurringAlertKind
+  sourceTransactionId String?            @map("source_transaction_id")
+  baselineAmount      Decimal?           @map("baseline_amount") @db.Decimal(18, 2)
+  observedAmount      Decimal?           @map("observed_amount") @db.Decimal(18, 2)
+  acknowledgedAt      DateTime?          @map("acknowledged_at")
+  recurringBill       RecurringBill      @relation(fields: [recurringBillId], references: [id], onDelete: Cascade)
+  createdAt           DateTime           @default(now()) @map("created_at")
+
+  @@unique([recurringBillId, kind, sourceTransactionId])
+  @@index([recurringBillId, acknowledgedAt])
+  @@map("recurring_alerts")
+}
+
+model RecurringScanJob {
+  id            String              @id @default(uuid()) @db.Uuid
+  workspaceId   String              @unique @map("workspace_id") @db.Uuid
+  status        RecurringScanStatus @default(PENDING)
+  cursor        Int                 @default(0)
+  attempts      Int                 @default(0)
+  nextAttemptAt DateTime            @default(now()) @map("next_attempt_at")
+  leaseUntil    DateTime?           @map("lease_until")
+  lastScannedAt DateTime?           @map("last_scanned_at")
+  errorCode     String?             @map("error_code")
+  workspace     Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  @@index([status, nextAttemptAt, leaseUntil])
+  @@map("recurring_scan_jobs")
+}
+
+model PaydayRitualReview {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  profileId   String    @map("profile_id") @db.Uuid
+  cycleKey    String    @map("cycle_key")
+  completedAt DateTime  @default(now()) @map("completed_at")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, profileId, cycleKey])
+  @@map("payday_ritual_reviews")
+}
+
+model ProductEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  profileId   String    @map("profile_id") @db.Uuid
+  name        String
+  contextKey  String    @map("context_key")
+  properties  Json?
+  occurredAt  DateTime  @default(now()) @map("occurred_at")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, profileId, name, contextKey])
+  @@index([occurredAt])
+  @@map("product_events")
 }
 
 model WorkspaceMember {
@@ -493,15 +627,18 @@ model Transaction {
   transactionDate  DateTime                 @map("transaction_date")
   source           String                   @default("BHD_EMAIL")
   notes            String?
+  deletedAt        DateTime?                @map("deleted_at")
   createdAt        DateTime                 @default(now()) @map("created_at")
   updatedAt        DateTime                 @updatedAt @map("updated_at")
   workspace        Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   institution      FinancialInstitution     @relation(fields: [institutionCode], references: [code], onDelete: Restrict)
   statusEvents     TransactionStatusEvent[]
+  recurringOccurrence RecurringOccurrence?
 
   @@unique([workspaceId, institutionCode, externalId])
   @@index([workspaceId, transactionDate])
   @@index([workspaceId, institutionCode])
+  @@index([workspaceId, deletedAt])
   @@index([transactionDate])
   @@index([category])
   @@index([currency])

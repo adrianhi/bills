@@ -47,9 +47,19 @@ import { BankConnectionController } from './controllers/bank-connection.controll
 import { LegalController } from './controllers/legal.controller';
 import {
   BudgetController, GetMonthlyBudget, ListBudgetCategories, PrismaBudgetExpenseReadModel,
-  PrismaBudgetRepository, ReplaceMonthlyBudget, SuggestBudget,
+  PrismaBudgetRepository, ReplaceMonthlyBudget, SuggestBudget, GetSafeToSpend,
+  PrismaSafeToSpendExpenseReader,
 } from './modules/budgets';
 import { IncomeController, IncomeService, PrismaIncomeRepository } from './modules/incomes';
+import {
+  PrismaRecurringRepository, ProcessRecurringScan, RecurringController,
+  RecurringJobService, RecurringRunner, RecurringService,
+} from './modules/recurring';
+import { EngagementController, EngagementService, PrismaEngagementRepository } from './modules/engagement';
+import {
+  PaydayRitualController, PaydayRitualService, PrismaPaydayExpenseReader,
+  PrismaPaydayIncomeReader, PrismaPaydayReviewRepository,
+} from './modules/payday-ritual';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
 const incomeRepository = new PrismaIncomeRepository();
@@ -69,11 +79,26 @@ const budgetRepository = new PrismaBudgetRepository();
 const budgetExpenses = new PrismaBudgetExpenseReadModel();
 const budgetCategories = new ListBudgetCategories(budgetExpenses, expenseCategories);
 const getMonthlyBudget = new GetMonthlyBudget(budgetRepository, budgetExpenses);
+const engagementService = new EngagementService(new PrismaEngagementRepository());
+const recurringRepository = new PrismaRecurringRepository();
+const recurringService = new RecurringService(recurringRepository, engagementService);
+const recurringJobService = new RecurringJobService(new ProcessRecurringScan(recurringRepository));
+const recurringRunner = new RecurringRunner(recurringJobService);
+const getSafeToSpend = new GetSafeToSpend(
+  budgetRepository,
+  new PrismaSafeToSpendExpenseReader(),
+  recurringService,
+);
+const paydayRitualService = new PaydayRitualService(
+  new PrismaPaydayIncomeReader(), new PrismaPaydayExpenseReader(), recurringService,
+  new PrismaPaydayReviewRepository(), engagementService,
+);
 const budgetController = new BudgetController({
   getMonthly: getMonthlyBudget,
   replaceMonthly: new ReplaceMonthlyBudget(budgetRepository, budgetCategories, getMonthlyBudget),
   suggest: new SuggestBudget(budgetExpenses, budgetCategories),
   listCategories: budgetCategories,
+  safeToSpend: getSafeToSpend,
 });
 const categoryRuleService = new CategoryRuleApplicationService(ruleRepository,
   new SaveCategoryRule(ruleRepository, expenseCategories, ruleCatalog), expenseCategories, ruleCatalog);
@@ -127,6 +152,10 @@ const inboxConnectionController = new InboxConnectionController(
 );
 
 export const appContainer = {
+  engagementController: new EngagementController(engagementService),
+  paydayRitualController: new PaydayRitualController(paydayRitualService),
+  recurringRunner,
+  recurringController: new RecurringController(recurringService),
   ruleApplicationRunner,
   ruleApplicationController: new RuleApplicationController({
     preview: previewRuleApplication.execute.bind(previewRuleApplication),
@@ -147,7 +176,7 @@ export const appContainer = {
   )),
   gmailPubSubController: new GmailPubSubController(gmailPushHandler),
   inboxConnectionController,
-  maintenanceController: new MaintenanceController(ingestionRunner),
+  maintenanceController: new MaintenanceController(ingestionRunner, recurringRunner, engagementService),
   gmailLifecycleService,
   gmailSyncService,
   ingestionJobService,

@@ -6,6 +6,7 @@ import type { GetMonthlyBudget } from '../application/get-monthly-budget';
 import type { ListBudgetCategories } from '../application/list-budget-categories';
 import type { ReplaceMonthlyBudget } from '../application/replace-monthly-budget';
 import type { SuggestBudget } from '../application/suggest-budget';
+import type { GetSafeToSpend } from '../application/get-safe-to-spend';
 import { BudgetApplicationError } from '../application/budget-error';
 
 function query(req: Request) {
@@ -26,7 +27,7 @@ async function translate<T>(operation: () => Promise<T>) {
 export class BudgetController {
   constructor(private readonly useCases: {
     getMonthly: GetMonthlyBudget; replaceMonthly: ReplaceMonthlyBudget;
-    suggest: SuggestBudget; listCategories: ListBudgetCategories;
+    suggest: SuggestBudget; listCategories: ListBudgetCategories; safeToSpend: GetSafeToSpend;
   }) {}
 
   monthly = async (req: Request, res: Response) => {
@@ -48,5 +49,14 @@ export class BudgetController {
   categories = async (req: Request, res: Response) => {
     const { actor } = requestContext(req);
     res.status(200).json({ success: true, data: await this.useCases.listCategories.execute(actor.workspaceId) });
+  };
+
+  safeToSpend = async (req: Request, res: Response) => {
+    const { actor } = requestContext(req);
+    const currency = budgetCurrencySchema.parse(String(req.query.currency || '').toUpperCase());
+    res.status(200).json({
+      success: true,
+      data: await this.useCases.safeToSpend.execute(actor.workspaceId, currency),
+    });
   };
 }

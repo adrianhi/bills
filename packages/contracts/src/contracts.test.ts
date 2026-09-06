@@ -5,6 +5,8 @@ import {
   createCategoryRuleInputSchema,
   bootstrapResponseSchema,
   PRODUCT_GUIDE_VERSION,
+  recordProductViewSchema,
+  updateRecurringBillSchema,
 } from './index';
 
 describe('createTransactionInputSchema', () => {
@@ -116,5 +118,21 @@ describe('createCategoryRuleInputSchema', () => {
       category: 'Delivery',
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe('predictive finance contracts', () => {
+  it('rejects financial values in engagement events', () => {
+    expect(recordProductViewSchema.safeParse({
+      name: 'SAFE_TO_SPEND_VIEWED', contextKey: '2026-09-06',
+      properties: { currency: 'DOP', amount: 1500 },
+    }).success).toBe(false);
+  });
+
+  it('requires at least one valid recurring bill correction', () => {
+    expect(updateRecurringBillSchema.safeParse({}).success).toBe(false);
+    expect(updateRecurringBillSchema.safeParse({
+      status: 'CONFIRMED', nextExpectedDate: '2026-09-30',
+    }).success).toBe(true);
   });
 });

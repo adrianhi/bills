@@ -38,6 +38,8 @@ export class AccountService {
             revokedAt: true,
           },
         },
+        productEvents: true,
+        paydayRitualReviews: true,
         memberships: {
           include: {
             workspace: {
@@ -75,6 +77,9 @@ export class AccountService {
                     createdAt: true,
                   },
                 },
+                incomeStreams: true,
+                recurringBills: { include: { occurrences: true, alerts: true } },
+                paydayRitualReviews: true,
               },
             },
           },

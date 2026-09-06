@@ -21,6 +21,7 @@
     "gmail:replay": "tsx src/scripts/replay-gmail-failures.ts",
     "gmail:process-jobs": "tsx src/scripts/process-ingestion-jobs.ts",
     "gmail:verify-recovery": "tsx src/scripts/verify-gmail-recovery.ts",
+    "product:metrics": "tsx src/scripts/product-metrics.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"

@@ -32,6 +32,7 @@ interface TransactionTableProps {
   setTypeFilter: (type: string) => void;
   onResetFilters: () => void;
   onEdit: (transaction: Transaction) => void;
+  onDelete?: (transaction: Transaction) => void;
   onExport?: () => void;
   loading: boolean;
   refreshing?: boolean;
@@ -54,7 +55,7 @@ const matchesType = (transaction: Transaction, type: string) => {
 export const TransactionTable = ({
   transactions, total, page, setPage, limit, search, setSearch, categoryFilter,
   setCategoryFilter, statusFilter, setStatusFilter, organizationFilter,
-  setOrganizationFilter, typeFilter, setTypeFilter, onResetFilters, onEdit,
+  setOrganizationFilter, typeFilter, setTypeFilter, onResetFilters, onEdit, onDelete,
   onExport, loading, refreshing = false, error, onRetry, hideBalances = false,
   onOpenConnections, onAddManual,
 }: TransactionTableProps) => {
@@ -109,7 +110,7 @@ export const TransactionTable = ({
         {loading ? <div className="space-y-3 p-4" aria-label="Cargando movimientos">{Array.from({ length: 5 }, (_, index) => <div key={index} className="h-16 animate-pulse rounded-xl bg-muted" />)}</div>
           : error && transactions.length === 0 ? <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center"><p className="text-sm font-semibold">No pudimos cargar tus movimientos</p><p className="max-w-sm text-xs text-muted-foreground">Tus datos siguen seguros. Revisa tu conexión e inténtalo otra vez.</p><div className="flex flex-wrap justify-center gap-2">{onRetry && <Button onClick={onRetry} className="min-h-11">Reintentar</Button>}<SafeDiagnosticButton error={error} area="movimientos" className="min-h-11" /></div></div>
           : filteredTransactions.length === 0 ? <div className="flex min-h-64 flex-col items-center justify-center p-6 text-center text-muted-foreground"><Layers className="mb-2 h-10 w-10 opacity-30" /><p className="text-sm font-semibold">{total > 0 ? 'No hay resultados con estos filtros' : 'Todavía no hay movimientos'}</p><p className="mt-1 max-w-sm text-xs">{total > 0 ? 'Prueba cambiando el mes o limpiando los filtros.' : 'Revisa tu conexión de Gmail o registra un movimiento manual.'}</p>{total === 0 && <div className="mt-4 flex flex-wrap justify-center gap-2">{onOpenConnections && <Button variant="outline" className="min-h-11" onClick={onOpenConnections}>Revisar conexión</Button>}{onAddManual && <Button className="min-h-11" onClick={onAddManual}>Registrar manual</Button>}</div>}</div>
-            : <><TransactionMobileList groups={groups} hideBalances={hideBalances} onEdit={onEdit} /><TransactionDesktopTable groups={groups} hideBalances={hideBalances} onEdit={onEdit} /></>}
+            : <><TransactionMobileList groups={groups} hideBalances={hideBalances} onEdit={onEdit} /><TransactionDesktopTable groups={groups} hideBalances={hideBalances} onEdit={onEdit} onDelete={onDelete} /></>}
       </CardContent>
       <TransactionPagination page={page} total={total} totalPages={totalPages} onPageChange={setPage} />
     </Card>

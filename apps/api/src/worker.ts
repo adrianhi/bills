@@ -8,6 +8,7 @@ async function run() {
   await connectDB();
   appContainer.ingestionRunner.start();
   appContainer.ruleApplicationRunner.start();
+  appContainer.recurringRunner.start();
 
   let shuttingDown = false;
   const shutdown = async () => {
@@ -15,6 +16,7 @@ async function run() {
     shuttingDown = true;
     await appContainer.ingestionRunner.stop();
     await appContainer.ruleApplicationRunner.stop();
+    await appContainer.recurringRunner.stop();
     await disconnectDB();
     process.exit(0);
   };

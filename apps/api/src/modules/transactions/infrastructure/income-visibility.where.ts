@@ -11,5 +11,8 @@ export function hiddenIncomeWhere(): Prisma.TransactionWhereInput {
 }
 
 export function visibleTransactionWhere(): Prisma.TransactionWhereInput {
-  return { NOT: hiddenIncomeWhere() };
+  return {
+    NOT: hiddenIncomeWhere(),
+    deletedAt: null,
+  };
 }

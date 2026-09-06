@@ -10,6 +10,10 @@ export const budgetCurrencySchema = z.enum(['DOP', 'USD']);
 export const budgetMonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 export const budgetStatusSchema = z.enum(['ON_TRACK', 'PACE_WARNING', 'NEAR_LIMIT', 'EXCEEDED']);
 export const budgetPropagationSchema = z.enum(['CURRENT_MONTH', 'CURRENT_AND_FUTURE']);
+export const safeToSpendStatusSchema = z.enum(['SURPLUS', 'ADJUSTING', 'EXCEEDED', 'UNSET']);
+export const safeToSpendReasonSchema = z.enum([
+  'NONE', 'OVER_DAILY_ALLOWANCE', 'UPCOMING_COMMITMENTS', 'BUDGET_EXCEEDED', 'BUDGET_UNSET',
+]);
 
 export const budgetCategorySchema = z.object({
   key: z.string().min(1).max(120),
@@ -46,6 +50,24 @@ export const budgetSummarySchema = z.object({
 });
 export type BudgetSummaryDto = z.infer<typeof budgetSummarySchema>;
 
+export const safeToSpendSchema = z.object({
+  date: z.string(),
+  month: budgetMonthSchema,
+  currency: budgetCurrencySchema,
+  status: safeToSpendStatusSchema,
+  reason: safeToSpendReasonSchema,
+  globalLimit: z.number().nonnegative().nullable(),
+  spentBeforeToday: z.number().nonnegative(),
+  spentToday: z.number().nonnegative(),
+  futureConfirmedCommitments: z.number().nonnegative(),
+  daysRemaining: z.number().int().positive(),
+  dailyAllowance: z.number().nonnegative(),
+  todayAvailable: z.number().nonnegative(),
+  todayOverage: z.number().nonnegative(),
+  nextDailyAllowance: z.number().nonnegative(),
+});
+export type SafeToSpendDto = z.infer<typeof safeToSpendSchema>;
+
 export const budgetSuggestionSchema = z.object({
   month: budgetMonthSchema,
   currency: budgetCurrencySchema,
@@ -77,5 +99,6 @@ export const replaceMonthlyBudgetSchema = z.object({
 export type ReplaceMonthlyBudgetInput = z.infer<typeof replaceMonthlyBudgetSchema>;
 
 export const budgetSummaryResponseSchema = z.object({ success: z.literal(true), data: budgetSummarySchema });
+export const safeToSpendResponseSchema = z.object({ success: z.literal(true), data: safeToSpendSchema });
 export const budgetSuggestionResponseSchema = z.object({ success: z.literal(true), data: budgetSuggestionSchema });
 export const budgetCategoriesResponseSchema = z.object({ success: z.literal(true), data: z.array(budgetCategorySchema) });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Edit3 } from 'lucide-react';
+import { Calendar, Edit3, Trash2 } from 'lucide-react';
 import type { Transaction } from '@/entities/transaction';
 import type { groupTransactionsByDate } from '@/entities/transaction';
 import { isSentTransfer, statusCode } from '@/entities/transaction';
@@ -29,7 +29,12 @@ const GroupHeader = ({ group, hideBalances }: { group: TransactionGroup; hideBal
   </tr>
 );
 
-const TransactionRow = ({ transaction, hideBalances, onEdit }: { transaction: Transaction; hideBalances: boolean; onEdit: (transaction: Transaction) => void }) => {
+const TransactionRow = ({ transaction, hideBalances, onEdit, onDelete }: {
+  transaction: Transaction;
+  hideBalances: boolean;
+  onEdit: (transaction: Transaction) => void;
+  onDelete?: (transaction: Transaction) => void;
+}) => {
   const inactive = statusCode(transaction) !== 'APPROVED';
   const sent = isSentTransfer(transaction);
   const institution = getOrganizationMeta(transaction.source, transaction.merchant);
@@ -53,19 +58,41 @@ const TransactionRow = ({ transaction, hideBalances, onEdit }: { transaction: Tr
       <td className="px-4 py-3.5 font-mono text-xs text-muted-foreground">{transaction.cardLast4 ? `•••• ${transaction.cardLast4}` : 'N/A'}</td>
       <td className="px-4 py-3.5"><TransactionStatus transaction={transaction} /></td>
       <td className="px-4 py-3.5 text-right"><div className={`font-mono text-sm font-bold ${inactive ? 'text-muted-foreground line-through' : ''}`}>{hideBalances ? '••••••' : formatCurrency(transaction.amount, transaction.currency)}</div></td>
-      <td className="px-4 py-3.5 text-center"><Button variant="ghost" size="icon" onClick={() => onEdit(transaction)} className="h-8 w-8 cursor-pointer text-muted-foreground hover:text-foreground" title="Editar clasificación"><Edit3 className="h-3.5 w-3.5" /></Button></td>
+      <td className="px-4 py-3.5 text-center">
+        <div className="flex items-center justify-center gap-1">
+          <Button variant="ghost" size="icon" onClick={() => onEdit(transaction)} className="h-8 w-8 cursor-pointer text-muted-foreground hover:text-foreground" title="Editar clasificación">
+            <Edit3 className="h-3.5 w-3.5" />
+          </Button>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onDelete(transaction)}
+              className="h-8 w-8 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              title="Eliminar movimiento"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </td>
     </tr>
   );
 };
 
-export const TransactionDesktopTable = ({ groups, hideBalances, onEdit }: { groups: TransactionGroup[]; hideBalances: boolean; onEdit: (transaction: Transaction) => void }) => (
+export const TransactionDesktopTable = ({ groups, hideBalances, onEdit, onDelete }: {
+  groups: TransactionGroup[];
+  hideBalances: boolean;
+  onEdit: (transaction: Transaction) => void;
+  onDelete?: (transaction: Transaction) => void;
+}) => (
   <div className="hidden overflow-x-auto lg:block">
     <table className="w-full text-left text-sm">
       <thead className="border-y bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         <tr><th className="px-4 py-3 sm:px-6">Comercio / Beneficiario</th><th className="px-4 py-3">Tipo de Movimiento</th><th className="px-4 py-3">Categoría</th><th className="px-4 py-3">Fecha & Hora</th><th className="px-4 py-3">Cuenta / Tarjeta</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3 text-right">Monto</th><th className="px-4 py-3 text-center">Acciones</th></tr>
       </thead>
       <tbody className="divide-y divide-border/40">
-        {groups.map((group) => <React.Fragment key={group.dateKey}><GroupHeader group={group} hideBalances={hideBalances} />{group.transactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} hideBalances={hideBalances} onEdit={onEdit} />)}</React.Fragment>)}
+        {groups.map((group) => <React.Fragment key={group.dateKey}><GroupHeader group={group} hideBalances={hideBalances} />{group.transactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} hideBalances={hideBalances} onEdit={onEdit} onDelete={onDelete} />)}</React.Fragment>)}
       </tbody>
     </table>
   </div>

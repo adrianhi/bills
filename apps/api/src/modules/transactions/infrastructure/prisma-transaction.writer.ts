@@ -40,6 +40,9 @@ export class PrismaTransactionWriter implements TransactionWriter {
       where: { workspaceId_institutionCode_externalId: { workspaceId, institutionCode, externalId: data.externalId } },
     });
     if (existing) {
+      if (existing.deletedAt) {
+        return { isDuplicate: true, transaction: existing };
+      }
       const effectiveStatus = existing.statusCode === 'REVERSED' && statusCode === 'APPROVED' ? 'REVERSED' : statusCode;
       const transaction = await prisma.transaction.update({
         where: { id: existing.id },
@@ -69,6 +72,7 @@ export class PrismaTransactionWriter implements TransactionWriter {
         institutionCode,
         amount: data.amount,
         currency: data.currency,
+        deletedAt: null,
         transactionDate: {
           gte: new Date(txDate.getTime() - 10 * 60 * 1000),
           lte: new Date(txDate.getTime() + 10 * 60 * 1000),
@@ -162,6 +166,10 @@ export class PrismaTransactionWriter implements TransactionWriter {
   }
 
   public async remove(workspaceId: string, id: string): Promise<number> {
-    return (await prisma.transaction.deleteMany({ where: { id, workspaceId } })).count;
+    const result = await prisma.transaction.updateMany({
+      where: { id, workspaceId, ...visibleTransactionWhere() },
+      data: { deletedAt: new Date() },
+    });
+    return result.count;
   }
 }
