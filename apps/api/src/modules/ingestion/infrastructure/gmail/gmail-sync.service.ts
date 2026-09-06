@@ -1,11 +1,14 @@
 import { config } from '../../../../config';
 import { prisma } from '../../../../config/database';
-import type { GmailReplayFilters, GmailSyncOperations } from '../../../connections';
-import { GmailQueryService } from '../../../connections/infrastructure/gmail-query.service';
-import { GmailTokenProvider } from '../../../connections/infrastructure/gmail-token.provider';
-import { GoogleGmailClient } from '../../../connections/infrastructure/google/google-gmail.client';
-import { emptySyncSummary } from '../../../connections/infrastructure/google/gmail-types';
-import { InstitutionSelectionService } from '../../../connections/infrastructure/institution-selection.service';
+import {
+  emptySyncSummary,
+  GmailQueryService,
+  GmailTokenProvider,
+  GoogleGmailClient,
+  InstitutionSelectionService,
+  type GmailReplayFilters,
+  type GmailSyncOperations,
+} from '../../../connections';
 import { GmailMessageProcessor } from './gmail-message.processor';
 import { restoreRetainedEmail } from './retained-email';
 
@@ -84,6 +87,7 @@ export class GmailSyncService implements GmailSyncOperations {
     const supportedIds: string[] = [];
     for (const messageId of messageIds) {
       const metadata = await this.google.message(accessToken, messageId, 'metadata');
+      if (!metadata) continue;
       const from = (metadata.payload?.headers || [])
         .find((header) => header.name.toLowerCase() === 'from')?.value.toLowerCase() || '';
       if (senderTerms.some((sender) => from.includes(sender.replace(/^@/, '').toLowerCase()))) supportedIds.push(messageId);
@@ -143,7 +147,13 @@ export class GmailSyncService implements GmailSyncOperations {
         });
       }));
     }
-    await this.queries.finishSync(connection.id, connection.syncCursor, summary);
+    await prisma.inboxConnection.update({
+      where: { id: connection.id },
+      data: {
+        syncLeaseUntil: null,
+        lastErrorCode: summary.failed > 0 ? 'PARTIAL_SYNC_FAILURE' : null,
+      },
+    });
     return summary;
   }
 }

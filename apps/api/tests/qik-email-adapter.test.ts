@@ -82,4 +82,16 @@ describe('Qik email adapter contract', () => {
   it('does not claim messages from unrelated institutions', () => {
     expect(parser.canParse(email({ from: 'alertas@bhd.com.do', text: 'Monto: RD$ 100' }))).toBe(false);
   });
+
+  it('gracefully ignores maintenance and informational announcements', async () => {
+    const result = await parser.parse(
+      email({
+        from: 'Qik Banco Digital <informacion@mail.qik.com.do>',
+        subject: '7 días para el mantenimiento del App Qik ⚙️',
+        text: 'Seguimos avanzando en la evolución de Qik para brindarte una mejor experiencia.',
+      }),
+      { ingestionChannel: 'GMAIL_OAUTH' }
+    );
+    expect(result).toEqual({ status: 'ignored', reason: 'PROMOTIONAL_EMAIL' });
+  });
 });

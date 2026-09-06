@@ -78,7 +78,10 @@ export class QikEmailParser implements BankEmailParser {
       .replace(/\s+/g, ' ')
       .trim();
 
-    if (/promoci[oó]n|oferta|novedades/i.test(content) && !/monto|importe|compra|transferencia/i.test(content)) {
+    if (
+      /promoci[oó]n|oferta|novedades|mantenimiento|actualizaci[oó]n|comunicado|aviso|informaci[oó]n importante/i.test(content) &&
+      !/monto|importe|compra|transferencia/i.test(content)
+    ) {
       return { status: 'ignored', reason: 'PROMOTIONAL_EMAIL' };
     }
 

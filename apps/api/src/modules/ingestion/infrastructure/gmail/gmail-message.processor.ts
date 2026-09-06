@@ -4,9 +4,12 @@ import { prisma } from '../../../../config/database';
 import { AppError } from '../../../../errors/app-error';
 import { ParserRegistry } from '../../../../ingestion/parser-registry';
 import type { NormalizedEmail } from '../../../../ingestion/types';
-import { InstitutionSelectionService } from '../../../connections/infrastructure/institution-selection.service';
-import { GoogleGmailClient, normalizeGmailMessage } from '../../../connections/infrastructure/google/google-gmail.client';
-import type { SyncSummary } from '../../../connections/infrastructure/google/gmail-types';
+import {
+  GoogleGmailClient,
+  InstitutionSelectionService,
+  normalizeGmailMessage,
+  type SyncSummary,
+} from '../../../connections';
 import { retainEmail } from './retained-email';
 
 const FAILED_CONTENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -107,7 +110,23 @@ export class GmailMessageProcessor {
 
     let normalized = input.retainedEmail || null;
     try {
-      if (!normalized) normalized = normalizeGmailMessage(await this.google.message(input.accessToken, input.messageId));
+      if (!normalized) {
+        const raw = await this.google.message(input.accessToken, input.messageId);
+        if (!raw) {
+          input.summary.ignored += 1;
+          await prisma.ingestionEvent.update({
+            where: { id: eventId },
+            data: {
+              status: 'IGNORED',
+              errorCode: 'GMAIL_MESSAGE_NOT_FOUND',
+              errorMessage: 'Message was not found or deleted in Gmail.',
+              processedAt: new Date(),
+            },
+          });
+          return;
+        }
+        normalized = normalizeGmailMessage(raw);
+      }
       const result = await this.emailProcessor.process({
         workspaceId: input.workspaceId,
         email: normalized,

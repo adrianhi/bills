@@ -63,10 +63,13 @@ export class GoogleGmailClient {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
     });
     if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      console.error(`[GoogleGmailClient] HTTP ${response.status} for ${url}: ${errorBody}`);
       throw new AppError(
-        response.status === 401 ? 401 : 502,
-        response.status === 401 ? 'GOOGLE_REAUTH_REQUIRED' : 'GOOGLE_API_ERROR',
-        'Google could not complete the requested operation.'
+        response.status === 401 ? 401 : response.status === 404 ? 404 : 502,
+        response.status === 401 ? 'GOOGLE_REAUTH_REQUIRED' : response.status === 404 ? 'GOOGLE_NOT_FOUND' : 'GOOGLE_API_ERROR',
+        `Google API error (${response.status}): ${errorBody.slice(0, 200)}`,
+        { status: response.status, body: errorBody, url }
       );
     }
     return (await response.json()) as T;
@@ -96,9 +99,19 @@ export class GoogleGmailClient {
     return this.json(`${GMAIL_API_URL}/profile`, accessToken);
   }
 
-  public message(accessToken: string, messageId: string, format = 'full'): Promise<GmailMessage> {
+  public async message(accessToken: string, messageId: string, format = 'full'): Promise<GmailMessage | null> {
     const suffix = format === 'metadata' ? '&metadataHeaders=From' : '';
-    return this.json(`${GMAIL_API_URL}/messages/${encodeURIComponent(messageId)}?format=${format}${suffix}`, accessToken);
+    try {
+      return await this.json<GmailMessage>(
+        `${GMAIL_API_URL}/messages/${encodeURIComponent(messageId)}?format=${format}${suffix}`,
+        accessToken
+      );
+    } catch (error) {
+      if (error instanceof AppError && error.statusCode === 404) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   public listMessages(accessToken: string, query: string, pageToken?: string): Promise<GmailMessagePage> {
