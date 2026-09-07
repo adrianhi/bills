@@ -105,6 +105,10 @@ export const DashboardModals: React.FC<DashboardModalsProps> = ({
         onClose={() => setEditingTransaction(null)}
         onSave={onSaveTransaction}
         onDelete={onDeleteTransaction}
+        onRequestDelete={(t) => {
+          setEditingTransaction(null);
+          setDeletingTransaction?.(t);
+        }}
         onSuggestRule={(transactionId, category) => { setRuleSuggestion({ transactionId, category }); setIsRulesModalOpen(true); }}
       />
       <DeleteTransactionModal

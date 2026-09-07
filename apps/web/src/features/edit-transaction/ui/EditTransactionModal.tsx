@@ -18,25 +18,14 @@ interface EditTransactionModalProps {
   onClose: () => void;
   onSave: (id: string, merchant: string, category: string, notes: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onRequestDelete?: (transaction: Transaction) => void;
   onSuggestRule?: (transactionId: string, category: string) => void;
 }
 
 const COMMON_CATEGORIES = [
-  'Supermercado',
-  'Restaurantes & Delivery',
-  'Servicios Financieros',
-  'Transferencias',
-  'Transporte',
-  'Combustible',
-  'Servicios',
-  'Suscripciones',
-  'Salud & Farmacia',
-  'Compras Online',
-  'Hogar',
-  'Ropa & Moda',
-  'Entretenimiento',
-  'Tecnología',
-  'Otros',
+  'Supermercado', 'Restaurantes & Delivery', 'Servicios Financieros', 'Transferencias',
+  'Transporte', 'Combustible', 'Servicios', 'Suscripciones', 'Salud & Farmacia',
+  'Compras Online', 'Hogar', 'Ropa & Moda', 'Entretenimiento', 'Tecnología', 'Otros',
 ];
 
 export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
@@ -45,6 +34,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   onClose,
   onSave,
   onDelete,
+  onRequestDelete,
   onSuggestRule,
 }) => {
   const [merchant, setMerchant] = useState(() => transaction?.merchant || transaction?.rawMerchant || '');
@@ -92,6 +82,11 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   };
 
   const handleDelete = async () => {
+    if (!transaction) return;
+    if (onRequestDelete) {
+      onRequestDelete(transaction);
+      return;
+    }
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
@@ -211,18 +206,22 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             )}
           </div>
 
-          <DialogFooter className="flex-col gap-2 pt-2 sm:flex-row sm:justify-between">
-            {onDelete ? (
+          <DialogFooter className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            {onDelete || onRequestDelete ? (
               <Button
                 type="button"
-                variant={confirmDelete ? 'destructive' : 'ghost'}
+                variant={confirmDelete ? 'destructive' : 'outline'}
                 size="sm"
                 onClick={handleDelete}
                 disabled={saving || deleting}
-                className="gap-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive self-start sm:self-auto"
+                className={
+                  confirmDelete
+                    ? 'gap-1.5 text-xs text-white'
+                    : 'gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50'
+                }
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                <span>{deleting ? 'Eliminando...' : confirmDelete ? '¿Confirmar eliminación?' : 'Eliminar'}</span>
+                <span>{deleting ? 'Eliminando...' : confirmDelete ? '¿Confirmar?' : 'Eliminar'}</span>
               </Button>
             ) : <div />}
             <div className="flex gap-2 justify-end w-full sm:w-auto">
