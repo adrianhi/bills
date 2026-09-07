@@ -11,6 +11,7 @@
     "worker": "node dist/worker.js",
     "dev:worker": "tsx watch src/worker.ts",
     "prisma:generate": "prisma generate",
+    "prisma:deploy": "prisma migrate deploy",
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
