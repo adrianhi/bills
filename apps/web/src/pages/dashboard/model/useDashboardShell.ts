@@ -15,7 +15,7 @@ export const DASHBOARD_SECTION_TITLES: Record<AppSection, string> = {
 function sectionFromPath(pathname: string): AppSection | null {
   if (pathname.includes('/transactions') || pathname.includes('/movimientos')) return 'transactions';
   if (pathname.includes('/analytics') || pathname.includes('/analitica')) return 'analytics';
-  if (pathname.includes('/budget') || pathname.includes('/presupuesto')) return 'budget';
+  if (pathname.includes('/budget') || pathname.includes('/presupuesto') || pathname.includes('/recurring')) return 'budget';
   if (pathname.includes('/more') || pathname.includes('/mas')) return 'home';
   if (pathname.includes('/home') || pathname.includes('/inicio')) return 'home';
   return null;
@@ -70,6 +70,10 @@ export function useDashboardShell(productGuide: ProductGuideState) {
     }
     if (location.pathname.includes('/presupuesto')) {
       navigate('/app/budget', { replace: true });
+      return;
+    }
+    if (location.pathname.includes('/recurring') || location.pathname.includes('/suscripciones')) {
+      navigate('/app/budget?tab=recurring', { replace: true });
       return;
     }
     if (location.pathname.includes('/analitica')) {

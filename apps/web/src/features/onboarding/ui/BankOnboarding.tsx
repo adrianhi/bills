@@ -2,6 +2,7 @@ import { AlertCircle, ArrowRight, Building2, Check, ExternalLink, Inbox, Loader2
 import { Button, Card, CardContent } from '@/shared/ui';
 import { BankSelector } from '@/entities/connection';
 import { useBankOnboarding } from '../model/useBankOnboarding';
+import { FinancialBaselineStep } from './FinancialBaselineStep';
 
 interface BankOnboardingProps {
   authToken: string;
@@ -12,9 +13,31 @@ interface BankOnboardingProps {
 export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardingProps) {
   const model = useBankOnboarding(Boolean(authToken), onComplete);
   const { institutions, activeInbox, reconnectNeeded, selectedInstitutionCodes, setSelectedInstitutionCodes, loading, busy,
-    syncState, isSyncing,
-    error, notice, googleUnavailable, connectGoogle, sync, saveSelection, complete } = model;
+    syncState, isSyncing, step,
+    error, notice, googleUnavailable, connectGoogle, sync, saveSelection, goToBaseline, finishWithBaseline, skipToDashboard } = model;
   const summary = activeInbox?.lastSyncSummary || null;
+
+  if (step === 'baseline') {
+    return (
+      <div className="min-h-screen bg-background px-4 py-8 sm:py-12">
+        <div className="mx-auto w-full max-w-2xl space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500 text-xl font-black text-white shadow-lg shadow-emerald-500/20">b.</div>
+              <div><p className="font-bold">Tu punto de partida</p><p className="text-xs text-muted-foreground">Define tus ingresos y gastos fijos base.</p></div>
+            </div>
+            <Button variant="ghost" size="sm" className="gap-2" onClick={onLogout}><LogOut className="h-4 w-4" /> Salir</Button>
+          </div>
+
+          <FinancialBaselineStep
+            busy={busy === 'complete'}
+            onFinish={finishWithBaseline}
+            onSkip={skipToDashboard}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background px-4 py-8 sm:py-12">
@@ -51,7 +74,7 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
                 ) : null}
                 {isSyncing && (
                   <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-4" role="status" aria-live="polite">
-                    <div className="flex items-center gap-3"><Loader2 className="h-5 w-5 shrink-0 animate-spin text-sky-600" /><div><p className="text-sm font-semibold text-sky-800 dark:text-sky-200">{syncState === 'PENDING' ? 'Preparando tu primera sincronización' : 'Importando tus movimientos'}</p><p className="mt-1 text-xs text-sky-700/80 dark:text-sky-300/80">Puedes entrar a la aplicación; este proceso continuará en segundo plano.</p></div></div>
+                    <div className="flex items-center gap-3"><Loader2 className="h-5 w-5 shrink-0 animate-spin text-sky-600" /><div><p className="text-sm font-semibold text-sky-800 dark:text-sky-200">{syncState === 'PENDING' ? 'Preparando tu primera sincronización' : 'Importando tus movimientos'}</p><p className="mt-1 text-xs text-sky-700/80 dark:text-sky-300/80">Puedes continuar; este proceso continuará en segundo plano.</p></div></div>
                     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sky-500/15"><div className="h-full w-2/3 animate-pulse rounded-full bg-sky-500" /></div>
                   </div>
                 )}
@@ -78,8 +101,9 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
                 <Button variant="outline" className="min-h-11 w-full gap-2" disabled={activeInbox.requiresBankSelection || busy === 'sync' || isSyncing} onClick={() => sync(activeInbox)}>
                   {busy === 'sync' || isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} {isSyncing ? 'Sincronizando…' : syncState === 'FAILED' ? 'Reintentar sincronización' : 'Sincronizar de nuevo'}
                 </Button>
-                <Button className="min-h-11 w-full gap-2" disabled={activeInbox.requiresBankSelection || Boolean(busy)} onClick={() => complete()}>
-                  {busy === 'complete' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Ir a mi dashboard
+                <Button className="min-h-11 w-full gap-2" disabled={activeInbox.requiresBankSelection || Boolean(busy)} onClick={() => goToBaseline()}>
+                  <span>Siguiente: Configurar punto de partida</span>
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>
             ) : (
@@ -97,7 +121,7 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
 
             {!activeInbox && googleUnavailable && <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-300">Gmail OAuth no está disponible en este entorno. Puedes continuar con movimientos manuales.</div>}
 
-            {!activeInbox && <button className="w-full text-center text-xs text-muted-foreground underline-offset-4 hover:underline" disabled={busy === 'complete'} onClick={() => complete()}>Continuar con movimientos manuales por ahora</button>}
+            {!activeInbox && <button className="w-full text-center text-xs text-muted-foreground underline-offset-4 hover:underline" disabled={busy === 'complete'} onClick={() => goToBaseline()}>Continuar con movimientos manuales por ahora</button>}
           </CardContent>
         </Card>
 
