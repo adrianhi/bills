@@ -1,7 +1,8 @@
 import type { RecurringAlert, RecurringBill } from '@prisma/client';
-import type { RecurringBillDto, RecurringRadarDto, UpdateRecurringBillInput } from '@bills/contracts';
+import type { CreateRecurringBillInput, RecurringBillDto, RecurringMonthStatus, RecurringRadarDto, UpdateRecurringBillInput } from '@bills/contracts';
 import { prisma } from '../../../config/database';
 import { visibleTransactionWhere } from '../../transactions';
+import { projectTotalMonthlyIncome } from '../../incomes/domain/income-projection';
 import { daysFrom, monthlyBurden, parseDateOnly, projectedDates, toDateOnly } from '../domain/recurring-projection';
 
 type BillWithAlerts = RecurringBill & { alerts: RecurringAlert[] };
@@ -13,7 +14,11 @@ function santoDomingoToday() {
   }).format(new Date());
 }
 
-export function recurringDto(bill: BillWithAlerts, today = santoDomingoToday()): RecurringBillDto {
+export function recurringDto(
+  bill: BillWithAlerts,
+  today = santoDomingoToday(),
+  extra?: { monthStatus?: RecurringMonthStatus; lastPaidAmount?: number | null; lastPaidDate?: string | null },
+): RecurringBillDto {
   return {
     id: bill.id, displayName: bill.displayName, currency: bill.currency as 'DOP' | 'USD',
     cadence: bill.cadence, expectedAmount: Number(bill.expectedAmount),
@@ -21,6 +26,9 @@ export function recurringDto(bill: BillWithAlerts, today = santoDomingoToday()):
     occurrenceCount: bill.occurrenceCount, confidence: bill.confidence,
     status: bill.status, userEdited: Boolean(bill.userEditedAt),
     daysRemaining: daysFrom(today, bill.nextExpectedDate),
+    monthStatus: extra?.monthStatus ?? 'UPCOMING',
+    lastPaidAmount: extra?.lastPaidAmount ?? null,
+    lastPaidDate: extra?.lastPaidDate ?? null,
     alerts: bill.alerts.map((alert) => ({
       id: alert.id, kind: alert.kind,
       baselineAmount: alert.baselineAmount === null ? null : Number(alert.baselineAmount),
@@ -37,25 +45,160 @@ export class PrismaRecurringQuery {
     });
   }
 
+  async create(workspaceId: string, input: CreateRecurringBillInput): Promise<RecurringBillDto> {
+    const today = santoDomingoToday();
+    const identityKey = input.displayName.trim().toLocaleLowerCase('es');
+    const parsedDate = parseDateOnly(input.nextExpectedDate);
+
+    const bill = await prisma.recurringBill.upsert({
+      where: {
+        workspaceId_identityKey_currency: {
+          workspaceId,
+          identityKey,
+          currency: input.currency,
+        },
+      },
+      create: {
+        workspaceId,
+        identityKey,
+        displayName: input.displayName.trim(),
+        currency: input.currency,
+        cadence: input.cadence,
+        expectedAmount: input.expectedAmount,
+        nextExpectedDate: parsedDate,
+        lastSeenAt: new Date(),
+        occurrenceCount: 1,
+        confidence: 1.0,
+        status: 'CONFIRMED',
+        userEditedAt: new Date(),
+      },
+      update: {
+        displayName: input.displayName.trim(),
+        cadence: input.cadence,
+        expectedAmount: input.expectedAmount,
+        nextExpectedDate: parsedDate,
+        status: 'CONFIRMED',
+        userEditedAt: new Date(),
+      },
+      include: { alerts: { where: { acknowledgedAt: null }, orderBy: { createdAt: 'desc' } } },
+    });
+
+    return recurringDto(bill, today, { monthStatus: 'UPCOMING' });
+  }
+
   async radar(workspaceId: string, currency: 'DOP' | 'USD', window: number): Promise<RecurringRadarDto> {
     const today = santoDomingoToday();
-    const [bills, job] = await Promise.all([
+    const currentMonthPrefix = today.slice(0, 7);
+    const [currentYear, currentMonth] = currentMonthPrefix.split('-').map(Number);
+    const startOfMonth = new Date(`${currentMonthPrefix}-01T00:00:00.000-04:00`);
+    const lastDay = new Date(Date.UTC(currentYear, currentMonth, 0)).getUTCDate();
+    const endOfMonth = new Date(`${currentMonthPrefix}-${String(lastDay).padStart(2, '0')}T23:59:59.999-04:00`);
+
+    const [bills, job, incomeStreams, monthTransactions] = await Promise.all([
       prisma.recurringBill.findMany({
         where: { workspaceId, currency, status: { not: 'DISMISSED' } },
         include: { alerts: { where: { acknowledgedAt: null }, orderBy: { createdAt: 'desc' } } },
         orderBy: [{ nextExpectedDate: 'asc' }, { displayName: 'asc' }],
       }),
       prisma.recurringScanJob.findUnique({ where: { workspaceId } }),
+      prisma.incomeStream.findMany({
+        where: { workspaceId, currency, isActive: true },
+      }),
+      prisma.transaction.findMany({
+        where: {
+          workspaceId,
+          currency,
+          statusCode: 'APPROVED',
+          ...visibleTransactionWhere(),
+          transactionDate: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+        },
+        select: { id: true, merchant: true, merchantKey: true, amount: true, transactionDate: true },
+        orderBy: { transactionDate: 'desc' },
+      }),
     ]);
-    const mapped = bills.map((bill) => recurringDto(bill, today));
+
+    const estimatedMonthlyIncome = projectTotalMonthlyIncome(
+      incomeStreams.map((s) => ({
+        id: s.id,
+        name: s.name,
+        amount: Number(s.amount),
+        currency: s.currency,
+        frequency: s.frequency,
+        dayOfMonth: s.dayOfMonth,
+        isActive: s.isActive,
+      })),
+      currency,
+    );
+
+    let paidThisMonth = 0;
+    let pendingThisMonth = 0;
+
+    const mapped = bills.map((bill) => {
+      const isConfirmed = bill.status === 'CONFIRMED';
+      const billIdentity = bill.identityKey.toLowerCase();
+      const billName = bill.displayName.trim().toLowerCase();
+
+      // Check if there was an approved charge in current calendar month
+      const match = monthTransactions.find((tx) => {
+        const txKey = (tx.merchantKey || '').toLowerCase();
+        const txName = tx.merchant.trim().toLowerCase();
+        return (
+          (txKey && txKey === billIdentity) ||
+          txName === billName ||
+          txName.includes(billIdentity) ||
+          billIdentity.includes(txName)
+        );
+      });
+
+      let monthStatus: RecurringMonthStatus = 'UPCOMING';
+      let lastPaidAmount: number | null = null;
+      let lastPaidDate: string | null = null;
+
+      const daysRemaining = daysFrom(today, bill.nextExpectedDate);
+
+      if (match) {
+        monthStatus = 'PAID';
+        lastPaidAmount = Number(match.amount);
+        lastPaidDate = toDateOnly(match.transactionDate);
+        if (isConfirmed) {
+          paidThisMonth += Number(bill.expectedAmount);
+        }
+      } else {
+        if (daysRemaining < 0) {
+          monthStatus = 'OVERDUE';
+        } else {
+          monthStatus = 'UPCOMING';
+        }
+        if (isConfirmed) {
+          pendingThisMonth += Number(bill.expectedAmount);
+        }
+      }
+
+      return recurringDto(bill, today, { monthStatus, lastPaidAmount, lastPaidDate });
+    });
+
     const confirmed = mapped.filter((bill) => bill.status === 'CONFIRMED');
+    const fixedMonthlyBurden = round(confirmed.reduce(
+      (sum, bill) => sum + monthlyBurden(bill.expectedAmount, bill.cadence), 0,
+    ));
+
+    const freeDiscretionaryCash = Math.max(0, round(estimatedMonthlyIncome - fixedMonthlyBurden));
     const dueWithin = (days: number) => confirmed.filter((bill) => bill.daysRemaining >= 0 && bill.daysRemaining <= days).length;
+
     return {
-      currency, generatedAt: new Date().toISOString(), analysisStatus: job?.status || 'PENDING',
-      fixedMonthlyBurden: round(confirmed.reduce(
-        (sum, bill) => sum + monthlyBurden(bill.expectedAmount, bill.cadence), 0,
-      )),
+      currency,
+      generatedAt: new Date().toISOString(),
+      analysisStatus: job?.status || 'PENDING',
+      fixedMonthlyBurden,
+      paidThisMonth: round(paidThisMonth),
+      pendingThisMonth: round(pendingThisMonth),
+      estimatedMonthlyIncome,
+      freeDiscretionaryCash,
       upcoming: confirmed.filter((bill) => bill.daysRemaining >= 0 && bill.daysRemaining <= window),
+      allConfirmed: confirmed,
       upcomingWindows: { in7: dueWithin(7), in14: dueWithin(14), in30: dueWithin(30) },
       suggestions: mapped.filter((bill) => bill.status === 'SUGGESTED'),
       attention: mapped.filter((bill) => bill.alerts.length > 0),

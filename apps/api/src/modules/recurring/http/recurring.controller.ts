@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { acknowledgeRecurringAlertSchema, budgetCurrencySchema, updateRecurringBillSchema } from '@bills/contracts';
+import { acknowledgeRecurringAlertSchema, budgetCurrencySchema, createRecurringBillSchema, updateRecurringBillSchema } from '@bills/contracts';
 import { z } from 'zod';
 import { AppError } from '../../../errors/app-error';
 import { requestContext } from '../../../shared/application/request-context';
@@ -13,6 +13,13 @@ export class RecurringController {
     const currency = budgetCurrencySchema.parse(String(req.query.currency || '').toUpperCase());
     const window = z.coerce.number().pipe(z.union([z.literal(7), z.literal(14), z.literal(30)])).default(30).parse(req.query.window);
     res.status(200).json({ success: true, data: await this.service.radar(actor.workspaceId, currency, window) });
+  };
+
+  create = async (req: Request, res: Response) => {
+    const { actor } = requestContext(req);
+    const input = createRecurringBillSchema.parse(req.body);
+    const result = await this.service.create(actor.workspaceId, actor.userId, input);
+    res.status(201).json({ success: true, data: result });
   };
 
   update = async (req: Request, res: Response) => {

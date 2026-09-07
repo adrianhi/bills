@@ -1,4 +1,4 @@
-import type { RecurringBillDto, RecurringRadarDto, UpdateRecurringBillInput } from '@bills/contracts';
+import type { CreateRecurringBillInput, RecurringBillDto, RecurringRadarDto, UpdateRecurringBillInput } from '@bills/contracts';
 import type { RecurringDetection } from '../domain/recurring-detection';
 
 export interface RecurringCandidate {
@@ -11,6 +11,7 @@ export interface RecurringCandidate {
 export interface RecurringRepository {
   ensureScanScheduled(workspaceId: string): Promise<void>;
   radar(workspaceId: string, currency: 'DOP' | 'USD', window: number): Promise<RecurringRadarDto>;
+  create(workspaceId: string, input: CreateRecurringBillInput): Promise<RecurringBillDto>;
   update(workspaceId: string, id: string, input: UpdateRecurringBillInput): Promise<RecurringBillDto | null>;
   acknowledgeAlert(workspaceId: string, id: string): Promise<boolean>;
   sumFutureThroughMonthEnd(workspaceId: string, currency: string, today: string): Promise<number>;

@@ -8,6 +8,7 @@ export class PrismaRecurringRepository implements RecurringRepository {
 
   ensureScanScheduled = this.query.ensureScanScheduled.bind(this.query);
   radar = this.query.radar.bind(this.query);
+  create = this.query.create.bind(this.query);
   update = this.query.update.bind(this.query);
   acknowledgeAlert = this.query.acknowledgeAlert.bind(this.query);
   sumFutureThroughMonthEnd = this.query.sumFutureThroughMonthEnd.bind(this.query);

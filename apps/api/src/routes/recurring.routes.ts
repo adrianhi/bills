@@ -8,6 +8,7 @@ const router = Router();
 const protectedRoute = [requireAuth, requireCurrentLegalAcceptance, requireWorkspace];
 
 router.get('/recurring', ...protectedRoute, asyncHandler(appContainer.recurringController.radar));
+router.post('/recurring', ...protectedRoute, asyncHandler(appContainer.recurringController.create));
 router.patch('/recurring/:id', ...protectedRoute, asyncHandler(appContainer.recurringController.update));
 router.patch('/recurring/alerts/:id', ...protectedRoute, asyncHandler(appContainer.recurringController.acknowledgeAlert));
 

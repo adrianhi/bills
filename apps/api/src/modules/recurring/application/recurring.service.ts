@@ -1,4 +1,4 @@
-import type { UpdateRecurringBillInput } from '@bills/contracts';
+import type { CreateRecurringBillInput, UpdateRecurringBillInput } from '@bills/contracts';
 import type { RecurringActionRecorder, RecurringRepository } from './recurring.ports';
 
 export class RecurringService {
@@ -7,6 +7,17 @@ export class RecurringService {
   async radar(workspaceId: string, currency: 'DOP' | 'USD', window: number) {
     await this.repository.ensureScanScheduled(workspaceId);
     return this.repository.radar(workspaceId, currency, window);
+  }
+
+  async create(workspaceId: string, profileId: string, input: CreateRecurringBillInput) {
+    const result = await this.repository.create(workspaceId, input);
+    await this.events?.recordAction({
+      workspaceId, profileId,
+      name: 'RECURRING_CREATED',
+      contextKey: `${result.id}:manual`,
+      properties: { currency: result.currency, status: result.status },
+    });
+    return result;
   }
 
   async update(workspaceId: string, profileId: string, id: string, input: UpdateRecurringBillInput) {
