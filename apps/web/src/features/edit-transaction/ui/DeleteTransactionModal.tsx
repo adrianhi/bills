@@ -68,12 +68,12 @@ export const DeleteTransactionModal: React.FC<DeleteTransactionModalProps> = ({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+        <DialogFooter className="grid grid-cols-2 sm:flex sm:justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={loading} className="w-full sm:w-auto">
             Cancelar
           </Button>
-          <Button type="button" variant="destructive" onClick={handleConfirm} disabled={loading}>
-            {loading ? 'Eliminando...' : 'Eliminar movimiento'}
+          <Button type="button" variant="destructive" size="sm" onClick={handleConfirm} disabled={loading} className="w-full sm:w-auto">
+            {loading ? 'Eliminando...' : 'Eliminar'}
           </Button>
         </DialogFooter>
       </DialogContent>

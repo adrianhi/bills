@@ -206,29 +206,29 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             )}
           </div>
 
-          <DialogFooter className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
+          <DialogFooter className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
             {onDelete || onRequestDelete ? (
               <Button
                 type="button"
-                variant={confirmDelete ? 'destructive' : 'outline'}
+                variant={confirmDelete ? 'destructive' : 'ghost'}
                 size="sm"
                 onClick={handleDelete}
                 disabled={saving || deleting}
                 className={
                   confirmDelete
-                    ? 'gap-1.5 text-xs text-white'
-                    : 'gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50'
+                    ? 'w-full sm:w-auto gap-1.5 text-xs text-white bg-destructive hover:bg-destructive/90'
+                    : 'w-full sm:w-auto gap-1.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10'
                 }
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span>{deleting ? 'Eliminando...' : confirmDelete ? '¿Confirmar?' : 'Eliminar'}</span>
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                <span>{deleting ? 'Eliminando...' : confirmDelete ? '¿Confirmar eliminación?' : 'Eliminar movimiento'}</span>
               </Button>
             ) : <div />}
-            <div className="flex gap-2 justify-end w-full sm:w-auto">
-              <Button type="button" variant="outline" onClick={onClose} disabled={saving || deleting}>
+            <div className="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
+              <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={saving || deleting} className="w-full sm:w-auto">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={saving || deleting}>
+              <Button type="submit" size="sm" disabled={saving || deleting} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white">
                 {saving ? 'Guardando...' : 'Guardar Cambios'}
               </Button>
             </div>
