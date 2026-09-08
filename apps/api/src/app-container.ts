@@ -60,6 +60,9 @@ import {
   PaydayRitualController, PaydayRitualService, PrismaPaydayExpenseReader,
   PrismaPaydayIncomeReader, PrismaPaydayReviewRepository,
 } from './modules/payday-ritual';
+import {
+  PrismaProactiveRepository, ProactiveController, ProactiveEngineService,
+} from './modules/proactivity';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
 const incomeRepository = new PrismaIncomeRepository();
@@ -151,7 +154,18 @@ const inboxConnectionController = new InboxConnectionController(
   { replace: InstitutionSelectionService.replace.bind(InstitutionSelectionService) }
 );
 
+const proactiveRepository = new PrismaProactiveRepository();
+const proactiveEngineService = new ProactiveEngineService(
+  { radar: (wId, curr, win) => recurringService.radar(wId, curr, win) },
+  { getMonthlyBudget: (wId, m, curr) => getMonthlyBudget.execute(wId, m, curr) },
+  { getSafeToSpend: (wId, curr) => getSafeToSpend.execute(wId, curr) },
+  proactiveRepository,
+  proactiveRepository,
+);
+const proactiveController = new ProactiveController(proactiveEngineService);
+
 export const appContainer = {
+  proactiveController,
   engagementController: new EngagementController(engagementService),
   paydayRitualController: new PaydayRitualController(paydayRitualService),
   recurringRunner,

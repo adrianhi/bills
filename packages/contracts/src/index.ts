@@ -9,3 +9,4 @@ export * from './incomes';
 export * from './recurring';
 export * from './payday-ritual';
 export * from './engagement';
+export * from './proactive';

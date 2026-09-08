@@ -134,11 +134,15 @@ const requiredPublicApis = [
   'apps/api/src/modules/recurring/index.ts',
   'apps/api/src/modules/payday-ritual/index.ts',
   'apps/api/src/modules/engagement/index.ts',
+  'apps/api/src/modules/proactivity/index.ts',
   'apps/web/src/entities/recurring-bill/index.ts',
   'apps/web/src/entities/payday-ritual/index.ts',
   'apps/web/src/entities/engagement/index.ts',
+  'apps/web/src/entities/proactive/index.ts',
+  'apps/web/src/widgets/proactive-feed/index.ts',
   'apps/web/src/features/manage-recurring/index.ts',
   'apps/web/src/features/complete-payday-ritual/index.ts',
+  'apps/web/src/features/quick-triage/index.ts',
 ];
 for (const publicApi of requiredPublicApis) {
   if (!fs.existsSync(path.join(root, publicApi))) uniqueViolations.push(`Missing public API: ${publicApi}`);
