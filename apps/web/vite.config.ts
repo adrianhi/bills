@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
+      '@bills/contracts': path.resolve(import.meta.dirname, '../../packages/contracts/src/index.ts'),
     },
     dedupe: ['react', 'react-dom'],
   },

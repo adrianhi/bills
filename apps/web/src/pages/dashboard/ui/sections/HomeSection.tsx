@@ -18,6 +18,9 @@ import { usePaydayRitual } from "@/entities/payday-ritual";
 import { useCompletePaydayRitual } from "@/features/complete-payday-ritual";
 import { PaydayRitualCard } from "@/widgets/payday-ritual";
 import { useTrackProductView } from "@/features/track-engagement";
+import { useProactiveFeed, useDismissProactiveAction } from "@/entities/proactive";
+import { ProactiveFeedCard } from "@/widgets/proactive-feed";
+import { QuickTriageDialog, type QuickTriageItem } from "@/features/quick-triage";
 
 interface HomeSectionProps {
   periodToolbar: ReactNode;
@@ -40,6 +43,7 @@ interface HomeSectionProps {
   onSyncConnection?: () => void;
   syncingConnection?: boolean;
   onOpenBudget: () => void;
+  onOpenRecurring?: () => void;
 }
 
 function LoadingSummaryCards() {
@@ -76,6 +80,7 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
   onSyncConnection,
   syncingConnection,
   onOpenBudget,
+  onOpenRecurring,
 }) => {
   const safeToSpend = useSafeToSpend(currency === 'USD' ? 'USD' : 'DOP');
   const activeCurrency = currency === 'USD' ? 'USD' : 'DOP';
@@ -83,7 +88,11 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
   const recurringActions = useManageRecurring(activeCurrency);
   const paydayRitual = usePaydayRitual(activeCurrency);
   const completePaydayRitual = useCompletePaydayRitual(activeCurrency);
+  const proactiveFeed = useProactiveFeed(activeCurrency);
+  const dismissProactiveAction = useDismissProactiveAction(activeCurrency);
   const [editingRecurring, setEditingRecurring] = React.useState<RecurringBillDto | null>(null);
+  const [triageItems, setTriageItems] = React.useState<QuickTriageItem[]>([]);
+  const [isTriageOpen, setIsTriageOpen] = React.useState(false);
   useTrackProductView(safeToSpend.data ? {
     name: 'SAFE_TO_SPEND_VIEWED', contextKey: safeToSpend.data.date,
     properties: { currency: activeCurrency, status: safeToSpend.data.status },
@@ -132,6 +141,18 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
         syncing={syncingConnection}
       />
 
+      <ProactiveFeedCard
+        feed={proactiveFeed.data || null}
+        loading={proactiveFeed.isLoading}
+        onDismiss={(actionId) => dismissProactiveAction.mutate(actionId)}
+        onNavigateBudget={onOpenBudget}
+        onNavigateRecurring={onOpenRecurring || onOpenBudget}
+        onQuickCategorize={(items) => {
+          setTriageItems(items);
+          setIsTriageOpen(true);
+        }}
+      />
+
       <SafeToSpendDial
         value={safeToSpend.data || null}
         loading={safeToSpend.isLoading}
@@ -167,6 +188,13 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
           await recurringActions.update.mutateAsync({ id: editingRecurring.id, input });
           setEditingRecurring(null);
         }}
+      />
+
+      <QuickTriageDialog
+        open={isTriageOpen}
+        onOpenChange={setIsTriageOpen}
+        items={triageItems}
+        currency={activeCurrency}
       />
 
       {statsError && !stats ? (

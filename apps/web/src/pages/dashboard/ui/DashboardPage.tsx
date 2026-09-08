@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FileDown } from 'lucide-react';
 import type { ProductGuideState } from '@bills/contracts';
 import type { Transaction } from '@/entities/transaction';
@@ -58,6 +59,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     isRulesModalOpen, setIsRulesModalOpen, isQuickAddOpen, setIsQuickAddOpen,
   } = model;
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
+  const [, setSearchParams] = useSearchParams();
+  const openBudgetTab = (tab?: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (tab) next.set('tab', tab); else next.delete('tab');
+      return next;
+    });
+    selectSection('budget');
+  };
   const activeFiltersCount = [categoryFilter, statusFilter, organizationFilter, typeFilter].filter(Boolean).length;
   const periodToolbarNode = (
     <PeriodToolbar
@@ -115,7 +125,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             activeMonth={currentPeriod.month}
             onSyncConnection={primaryConnection ? () => handleSyncConnection(primaryConnection.id) : undefined}
             syncingConnection={isSyncingConnection}
-            onOpenBudget={() => selectSection('budget')}
+            onOpenBudget={() => openBudgetTab()}
+            onOpenRecurring={() => openBudgetTab('recurring')}
           />
         )}
         {activeSection === 'transactions' && (
