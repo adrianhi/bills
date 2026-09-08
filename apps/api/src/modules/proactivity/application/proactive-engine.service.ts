@@ -1,11 +1,14 @@
-import type { ProactiveFeedDto } from '@bills/contracts';
+import type { ProactiveFeedDto, WeeklyCheckinDto } from '@bills/contracts';
 import { evaluateProactiveFeed } from '../domain/proactive-rules';
+import { computeWeeklyCheckin, resolveWeekPeriod } from '../domain/weekly-checkin';
 import type {
   ProactiveBudgetReader,
   ProactiveDismissalRepository,
   ProactiveRecurringReader,
   ProactiveSafeToSpendReader,
   ProactiveTransactionReader,
+  ProactiveWeeklyExpenseReader,
+  ProactiveWeeklyReviewRepository,
 } from './proactive.ports';
 
 function santoDomingoDate(now = new Date()) {
@@ -29,6 +32,8 @@ export class ProactiveEngineService {
     private readonly safeToSpend: ProactiveSafeToSpendReader,
     private readonly transactions: ProactiveTransactionReader,
     private readonly dismissals: ProactiveDismissalRepository,
+    private readonly weeklyReviews: ProactiveWeeklyReviewRepository,
+    private readonly weeklyExpenses: ProactiveWeeklyExpenseReader,
   ) {}
 
   async getFeed(
@@ -43,12 +48,13 @@ export class ProactiveEngineService {
     const monthDaysRemaining = calculateMonthDaysRemaining(year, monthNum, day);
     const fourteenDaysAgo = new Date(now.getTime() - 14 * 86_400_000);
 
-    const [radar, budgetSummary, safeToSpendVal, unclassified, dismissedIds] = await Promise.all([
+    const [radar, budgetSummary, safeToSpendVal, unclassified, dismissedIds, weeklyCheckin] = await Promise.all([
       this.recurring.radar(workspaceId, currency, 30).catch(() => null),
       this.budgets.getMonthlyBudget(workspaceId, month, currency).catch(() => null),
       this.safeToSpend.getSafeToSpend(workspaceId, currency).catch(() => null),
       this.transactions.findUnclassified(workspaceId, currency, 20, fourteenDaysAgo).catch(() => []),
       this.dismissals.listDismissed(workspaceId, profileId, fourteenDaysAgo).catch(() => []),
+      this.getWeeklyCheckin(workspaceId, profileId, currency, now).catch(() => null),
     ]);
 
     const evaluated = evaluateProactiveFeed({
@@ -61,6 +67,7 @@ export class ProactiveEngineService {
       budgetSummary,
       safeToSpend: safeToSpendVal,
       unclassifiedTransactions: unclassified,
+      weeklyCheckin,
       dismissedActionIds: new Set(dismissedIds),
     });
 
@@ -70,6 +77,43 @@ export class ProactiveEngineService {
       actions: evaluated.actions,
       counts: evaluated.counts,
     };
+  }
+
+  async getWeeklyCheckin(
+    workspaceId: string,
+    profileId: string,
+    currency: 'DOP' | 'USD',
+    now = new Date()
+  ): Promise<WeeklyCheckinDto> {
+    const period = resolveWeekPeriod(now);
+    const [completedAt, currentWeekTx, prevWeekTx, safeToSpendVal] = await Promise.all([
+      this.weeklyReviews.completedAt(workspaceId, profileId, period.weekKey).catch(() => null),
+      this.weeklyExpenses.listBetween(workspaceId, currency, period.currentStart, period.currentEnd).catch(() => []),
+      this.weeklyExpenses.listBetween(workspaceId, currency, period.previousStart, period.previousEnd).catch(() => []),
+      this.safeToSpend.getSafeToSpend(workspaceId, currency).catch(() => null),
+    ]);
+
+    return computeWeeklyCheckin({
+      currency,
+      weekKey: period.weekKey,
+      startDate: period.startDateStr,
+      endDate: period.endDateStr,
+      currentWeekTransactions: currentWeekTx,
+      previousWeekTransactions: prevWeekTx,
+      daysToNextPayday: period.daysToNextPayday,
+      dailyAllowance: safeToSpendVal?.dailyAllowance || 0,
+      completedAt: completedAt ? completedAt.toISOString() : null,
+    });
+  }
+
+  async completeWeeklyCheckin(
+    workspaceId: string,
+    profileId: string,
+    weekKey: string,
+    currency: 'DOP' | 'USD'
+  ): Promise<WeeklyCheckinDto> {
+    await this.weeklyReviews.complete(workspaceId, profileId, weekKey);
+    return this.getWeeklyCheckin(workspaceId, profileId, currency);
   }
 
   async dismissAction(workspaceId: string, profileId: string, actionId: string): Promise<void> {

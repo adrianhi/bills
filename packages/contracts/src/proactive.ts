@@ -7,6 +7,7 @@ export const proactiveActionKindSchema = z.enum([
   'UNCLASSIFIED_EXPENSES',
   'PRICE_HIKE',
   'SAVING_STREAK',
+  'WEEKLY_CHECKIN',
 ]);
 export type ProactiveActionKind = z.infer<typeof proactiveActionKindSchema>;
 
@@ -50,3 +51,45 @@ export const dismissProactiveActionSchema = z.object({
   actionId: z.string().min(1).max(120),
 });
 export type DismissProactiveActionInput = z.infer<typeof dismissProactiveActionSchema>;
+
+export const weeklyCheckinCategorySchema = z.object({
+  name: z.string(),
+  amount: z.number().nonnegative(),
+  percentage: z.number().min(0).max(100),
+});
+export type WeeklyCheckinCategoryDto = z.infer<typeof weeklyCheckinCategorySchema>;
+
+export const weeklyCheckinMerchantSchema = z.object({
+  name: z.string(),
+  amount: z.number().nonnegative(),
+});
+export type WeeklyCheckinMerchantDto = z.infer<typeof weeklyCheckinMerchantSchema>;
+
+export const weeklyCheckinSchema = z.object({
+  weekKey: z.string(),
+  currency: budgetCurrencySchema,
+  startDate: z.string(),
+  endDate: z.string(),
+  totalSpentThisWeek: z.number().nonnegative(),
+  totalSpentPreviousWeek: z.number().nonnegative(),
+  changePercent: z.number().nullable(),
+  netDifference: z.number(),
+  topCategory: weeklyCheckinCategorySchema.nullable(),
+  topMerchant: weeklyCheckinMerchantSchema.nullable(),
+  daysToNextPayday: z.number().int().nonnegative(),
+  estimatedDailyAllowance: z.number().nonnegative(),
+  status: z.enum(['OPEN', 'COMPLETED']),
+  completedAt: z.string().nullable(),
+});
+export type WeeklyCheckinDto = z.infer<typeof weeklyCheckinSchema>;
+
+export const weeklyCheckinResponseSchema = z.object({
+  success: z.literal(true),
+  data: weeklyCheckinSchema,
+});
+export type WeeklyCheckinResponse = z.infer<typeof weeklyCheckinResponseSchema>;
+
+export const completeWeeklyCheckinSchema = z.object({
+  weekKey: z.string().min(1).max(80),
+});
+export type CompleteWeeklyCheckinInput = z.infer<typeof completeWeeklyCheckinSchema>;

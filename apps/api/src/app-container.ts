@@ -161,6 +161,8 @@ const proactiveEngineService = new ProactiveEngineService(
   { getSafeToSpend: (wId, curr) => getSafeToSpend.execute(wId, curr) },
   proactiveRepository,
   proactiveRepository,
+  proactiveRepository,
+  proactiveRepository,
 );
 const proactiveController = new ProactiveController(proactiveEngineService);
 

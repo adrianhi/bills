@@ -47,4 +47,55 @@ describe('proactiveService', () => {
     });
     await expect(proactiveService.dismiss('action-123')).resolves.toBeUndefined();
   });
+
+  it('fetches weekly checkin data', async () => {
+    const sampleCheckin = {
+      weekKey: '2026-W37',
+      startDate: '2026-09-07',
+      endDate: '2026-09-13',
+      currency: 'DOP',
+      totalSpentThisWeek: 4500,
+      totalSpentPreviousWeek: 5000,
+      changePercent: -10,
+      netDifference: -500,
+      topCategory: { name: 'Supermercado', amount: 3000, percentage: 67 },
+      topMerchant: { name: 'Bravo', amount: 3000 },
+      daysToNextPayday: 7,
+      estimatedDailyAllowance: 1200,
+      status: 'OPEN',
+      completedAt: null,
+    };
+    mock.onGet('/proactive/weekly-checkin').reply(200, { success: true, data: sampleCheckin });
+    const result = await proactiveService.weeklyCheckin('DOP');
+    expect(result.weekKey).toBe('2026-W37');
+    expect(result.totalSpentThisWeek).toBe(4500);
+    expect(result.changePercent).toBe(-10);
+  });
+
+  it('posts complete weekly checkin request', async () => {
+    const completedCheckin = {
+      weekKey: '2026-W37',
+      startDate: '2026-09-07',
+      endDate: '2026-09-13',
+      currency: 'DOP',
+      totalSpentThisWeek: 4500,
+      totalSpentPreviousWeek: 5000,
+      changePercent: -10,
+      netDifference: -500,
+      topCategory: null,
+      topMerchant: null,
+      daysToNextPayday: 7,
+      estimatedDailyAllowance: 1200,
+      status: 'COMPLETED',
+      completedAt: '2026-09-08T19:00:00.000Z',
+    };
+    mock.onPost('/proactive/weekly-checkin/2026-W37/complete').reply(200, {
+      success: true,
+      data: completedCheckin,
+    });
+    const result = await proactiveService.completeWeeklyCheckin('2026-W37', 'DOP');
+    expect(result.status).toBe('COMPLETED');
+    expect(result.completedAt).toBe('2026-09-08T19:00:00.000Z');
+  });
 });
+

@@ -2,6 +2,8 @@ export { proactiveService } from './api/proactive.service';
 export {
   proactiveKeys,
   useProactiveFeed,
+  useWeeklyCheckin,
+  useCompleteWeeklyCheckin,
   useDismissProactiveAction,
 } from './model/proactive.queries';
 export type {
@@ -9,4 +11,6 @@ export type {
   ProactiveActionKind,
   ProactiveActionPriority,
   ProactiveFeedDto,
+  WeeklyCheckinDto,
 } from '@bills/contracts';
+

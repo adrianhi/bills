@@ -19,9 +19,17 @@ interface ProactiveFeedCardProps {
   onNavigateBudget: () => void;
   onNavigateRecurring: () => void;
   onQuickCategorize: (items: QuickTriageItem[]) => void;
+  onOpenWeeklyCheckin?: () => void;
 }
 
 function ActionIcon({ kind, priority }: { kind: ProactiveActionDto['kind']; priority: ProactiveActionDto['priority'] }) {
+  if (kind === 'WEEKLY_CHECKIN') {
+    return (
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400">
+        <Sparkles className="h-4 w-4" />
+      </span>
+    );
+  }
   if (kind === 'IMMINENT_BILL') {
     return (
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
@@ -83,6 +91,8 @@ export function ProactiveFeedCard(props: ProactiveFeedCardProps) {
     if (action.actionType === 'QUICK_CATEGORIZE') {
       const sample = (action.metadata?.sample as QuickTriageItem[]) || [];
       props.onQuickCategorize(sample);
+    } else if (action.actionType === 'OPEN_WEEKLY_CHECKIN') {
+      props.onOpenWeeklyCheckin?.();
     } else if (action.actionType === 'NAVIGATE_RECURRING') {
       props.onNavigateRecurring();
     } else if (action.actionType === 'NAVIGATE_BUDGET') {

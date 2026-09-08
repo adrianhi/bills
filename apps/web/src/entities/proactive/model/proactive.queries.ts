@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ProactiveActionDto, ProactiveFeedDto } from '@bills/contracts';
+import type { ProactiveActionDto, ProactiveFeedDto, WeeklyCheckinDto } from '@bills/contracts';
 import { proactiveService } from '../api/proactive.service';
 
 export const proactiveKeys = {
   all: ['proactive'] as const,
   feed: (currency: string) => [...proactiveKeys.all, 'feed', currency] as const,
+  weeklyCheckin: (currency: string) => [...proactiveKeys.all, 'weekly-checkin', currency] as const,
 };
 
 export function useProactiveFeed(currency: string) {
@@ -14,6 +15,26 @@ export function useProactiveFeed(currency: string) {
     staleTime: 60_000,
   });
 }
+
+export function useWeeklyCheckin(currency: string) {
+  return useQuery({
+    queryKey: proactiveKeys.weeklyCheckin(currency),
+    queryFn: ({ signal }) => proactiveService.weeklyCheckin(currency, signal),
+    staleTime: 60_000,
+  });
+}
+
+export function useCompleteWeeklyCheckin(currency: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (weekKey: string) => proactiveService.completeWeeklyCheckin(weekKey, currency),
+    onSuccess: (updated: WeeklyCheckinDto) => {
+      queryClient.setQueryData(proactiveKeys.weeklyCheckin(currency), updated);
+      queryClient.invalidateQueries({ queryKey: proactiveKeys.feed(currency) });
+    },
+  });
+}
+
 
 export function useDismissProactiveAction(currency: string) {
   const queryClient = useQueryClient();

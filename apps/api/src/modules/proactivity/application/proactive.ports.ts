@@ -25,3 +25,12 @@ export interface ProactiveDismissalRepository {
   listDismissed(workspaceId: string, profileId: string, since: Date): Promise<string[]>;
   dismiss(workspaceId: string, profileId: string, actionId: string): Promise<void>;
 }
+
+export interface ProactiveWeeklyReviewRepository {
+  completedAt(workspaceId: string, profileId: string, weekKey: string): Promise<Date | null>;
+  complete(workspaceId: string, profileId: string, weekKey: string): Promise<void>;
+}
+
+export interface ProactiveWeeklyExpenseReader {
+  listBetween(workspaceId: string, currency: string, from: Date, to: Date): Promise<TransactionDto[]>;
+}

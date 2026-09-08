@@ -18,9 +18,16 @@ import { usePaydayRitual } from "@/entities/payday-ritual";
 import { useCompletePaydayRitual } from "@/features/complete-payday-ritual";
 import { PaydayRitualCard } from "@/widgets/payday-ritual";
 import { useTrackProductView } from "@/features/track-engagement";
-import { useProactiveFeed, useDismissProactiveAction } from "@/entities/proactive";
+import {
+  useProactiveFeed,
+  useWeeklyCheckin,
+  useCompleteWeeklyCheckin,
+  useDismissProactiveAction,
+} from "@/entities/proactive";
 import { ProactiveFeedCard } from "@/widgets/proactive-feed";
 import { QuickTriageDialog, type QuickTriageItem } from "@/features/quick-triage";
+import { WeeklyCheckinDialog } from "@/features/weekly-checkin";
+import { LoadingSummaryCards } from "./LoadingSummaryCards";
 
 interface HomeSectionProps {
   periodToolbar: ReactNode;
@@ -46,18 +53,7 @@ interface HomeSectionProps {
   onOpenRecurring?: () => void;
 }
 
-function LoadingSummaryCards() {
-  return (
-    <div
-      className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-      aria-label="Cargando resumen"
-    >
-      {Array.from({ length: 4 }, (_, index) => (
-        <div key={index} className="h-32 animate-pulse rounded-2xl bg-muted" />
-      ))}
-    </div>
-  );
-}
+
 
 export const HomeSection: React.FC<HomeSectionProps> = ({
   periodToolbar,
@@ -90,9 +86,12 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
   const completePaydayRitual = useCompletePaydayRitual(activeCurrency);
   const proactiveFeed = useProactiveFeed(activeCurrency);
   const dismissProactiveAction = useDismissProactiveAction(activeCurrency);
+  const weeklyCheckin = useWeeklyCheckin(activeCurrency);
+  const completeWeeklyCheckin = useCompleteWeeklyCheckin(activeCurrency);
   const [editingRecurring, setEditingRecurring] = React.useState<RecurringBillDto | null>(null);
   const [triageItems, setTriageItems] = React.useState<QuickTriageItem[]>([]);
   const [isTriageOpen, setIsTriageOpen] = React.useState(false);
+  const [isWeeklyCheckinOpen, setIsWeeklyCheckinOpen] = React.useState(false);
   useTrackProductView(safeToSpend.data ? {
     name: 'SAFE_TO_SPEND_VIEWED', contextKey: safeToSpend.data.date,
     properties: { currency: activeCurrency, status: safeToSpend.data.status },
@@ -105,29 +104,16 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
     name: 'PAYDAY_RITUAL_VIEWED', contextKey: paydayRitual.data.cycleKey,
     properties: { currency: activeCurrency, status: paydayRitual.data.status },
   } : null);
-  if (
-    (loadingTransactions && transactions.length === 0) ||
-    (loadingStats && !stats)
-  ) {
-    return (
-      <LoadingScreen
-        message="Cargando tus finanzas..."
-        description="Analizando tus movimientos más recientes"
-        fullPage
-      />
-    );
+  if ((loadingTransactions && transactions.length === 0) || (loadingStats && !stats)) {
+    return <LoadingScreen message="Cargando tus finanzas..." description="Analizando tus movimientos más recientes" fullPage />;
   }
 
   return (
     <>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-            Tu panorama
-          </h2>
-          <p className="text-xs text-muted-foreground sm:text-sm">
-            Lo importante de este período, sin sobrecargarte.
-          </p>
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Tu panorama</h2>
+          <p className="text-xs text-muted-foreground sm:text-sm">Lo importante de este período, sin sobrecargarte.</p>
         </div>
         {periodToolbar}
       </div>
@@ -147,10 +133,8 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
         onDismiss={(actionId) => dismissProactiveAction.mutate(actionId)}
         onNavigateBudget={onOpenBudget}
         onNavigateRecurring={onOpenRecurring || onOpenBudget}
-        onQuickCategorize={(items) => {
-          setTriageItems(items);
-          setIsTriageOpen(true);
-        }}
+        onQuickCategorize={(items) => { setTriageItems(items); setIsTriageOpen(true); }}
+        onOpenWeeklyCheckin={() => setIsWeeklyCheckinOpen(true)}
       />
 
       <SafeToSpendDial
@@ -190,20 +174,24 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
         }}
       />
 
-      <QuickTriageDialog
-        open={isTriageOpen}
-        onOpenChange={setIsTriageOpen}
-        items={triageItems}
-        currency={activeCurrency}
+      <QuickTriageDialog open={isTriageOpen} onOpenChange={setIsTriageOpen} items={triageItems} currency={activeCurrency} />
+
+      <WeeklyCheckinDialog
+        open={isWeeklyCheckinOpen}
+        onOpenChange={setIsWeeklyCheckinOpen}
+        checkin={weeklyCheckin.data || null}
+        isCompleting={completeWeeklyCheckin.isPending}
+        onComplete={async (weekKey) => {
+          await completeWeeklyCheckin.mutateAsync(weekKey);
+          setIsWeeklyCheckinOpen(false);
+        }}
       />
 
       {statsError && !stats ? (
         <Card>
           <CardContent className="flex flex-col items-start gap-3 p-5">
             <p className="font-semibold">No pudimos cargar el resumen</p>
-            <p className="text-sm text-muted-foreground">
-              Los movimientos no se han perdido. Puedes volver a intentarlo.
-            </p>
+            <p className="text-sm text-muted-foreground">Los movimientos no se han perdido. Puedes volver a intentarlo.</p>
             <Button onClick={onRefresh}>Reintentar</Button>
           </CardContent>
         </Card>

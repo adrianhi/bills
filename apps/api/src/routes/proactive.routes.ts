@@ -9,5 +9,7 @@ const protectedRoute = [requireAuth, requireCurrentLegalAcceptance, requireWorks
 
 router.get('/proactive/feed', ...protectedRoute, asyncHandler(appContainer.proactiveController.feed));
 router.post('/proactive/actions/:actionId/dismiss', ...protectedRoute, asyncHandler(appContainer.proactiveController.dismiss));
+router.get('/proactive/weekly-checkin', ...protectedRoute, asyncHandler(appContainer.proactiveController.weeklyCheckin));
+router.post('/proactive/weekly-checkin/:weekKey/complete', ...protectedRoute, asyncHandler(appContainer.proactiveController.completeWeeklyCheckin));
 
 export default router;

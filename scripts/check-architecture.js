@@ -143,6 +143,7 @@ const requiredPublicApis = [
   'apps/web/src/features/manage-recurring/index.ts',
   'apps/web/src/features/complete-payday-ritual/index.ts',
   'apps/web/src/features/quick-triage/index.ts',
+  'apps/web/src/features/weekly-checkin/index.ts',
 ];
 for (const publicApi of requiredPublicApis) {
   if (!fs.existsSync(path.join(root, publicApi))) uniqueViolations.push(`Missing public API: ${publicApi}`);

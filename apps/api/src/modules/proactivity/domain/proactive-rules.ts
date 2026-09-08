@@ -5,6 +5,7 @@ import type {
   RecurringBillDto,
   SafeToSpendDto,
   TransactionDto,
+  WeeklyCheckinDto,
 } from '@bills/contracts';
 
 export interface ProactiveEvaluationInput {
@@ -17,6 +18,7 @@ export interface ProactiveEvaluationInput {
   budgetSummary: BudgetSummaryDto | null;
   safeToSpend: SafeToSpendDto | null;
   unclassifiedTransactions: TransactionDto[];
+  weeklyCheckin?: WeeklyCheckinDto | null;
   dismissedActionIds: Set<string>;
 }
 
@@ -146,6 +148,34 @@ export function evaluateProactiveFeed(input: ProactiveEvaluationInput): {
         actionType: 'VIEW_OVERVIEW',
         dismissible: true,
         metadata: { todayAvailable: input.safeToSpend.todayAvailable },
+      });
+    }
+  }
+
+  // 6. Weekly Check-In
+  if (input.weeklyCheckin && input.weeklyCheckin.status === 'OPEN' && (input.weeklyCheckin.totalSpentThisWeek > 0 || input.weeklyCheckin.totalSpentPreviousWeek > 0)) {
+    const id = `weekly-checkin-${input.weeklyCheckin.weekKey}`;
+    if (!input.dismissedActionIds.has(id)) {
+      const pct = input.weeklyCheckin.changePercent;
+      const desc = pct !== null
+        ? pct <= 0
+          ? `Gastaste un ${Math.abs(pct)}% menos que la semana anterior. Cierra tu semana y mantén tu plan.`
+          : `Gastaste un ${pct}% más que la semana anterior. Revisa tu ritmo en 30 segundos.`
+        : 'Tu resumen de los últimos 7 días está listo para revisar en 30 segundos.';
+      actions.push({
+        id,
+        kind: 'WEEKLY_CHECKIN',
+        priority: 'HIGH',
+        title: 'Tu semana está lista para revisar',
+        description: desc,
+        ctaLabel: 'Hacer check-in',
+        actionType: 'OPEN_WEEKLY_CHECKIN',
+        dismissible: true,
+        metadata: {
+          weekKey: input.weeklyCheckin.weekKey,
+          totalSpentThisWeek: input.weeklyCheckin.totalSpentThisWeek,
+          changePercent: input.weeklyCheckin.changePercent,
+        },
       });
     }
   }
