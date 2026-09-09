@@ -95,7 +95,7 @@ export function ProactiveFeedCard(props: ProactiveFeedCardProps) {
       props.onOpenWeeklyCheckin?.();
     } else if (action.actionType === 'NAVIGATE_RECURRING') {
       props.onNavigateRecurring();
-    } else if (action.actionType === 'NAVIGATE_BUDGET') {
+    } else if (action.actionType === 'NAVIGATE_BUDGET' || action.actionType === 'VIEW_OVERVIEW') {
       props.onNavigateBudget();
     }
   };

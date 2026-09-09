@@ -144,8 +144,8 @@ export function evaluateProactiveFeed(input: ProactiveEvaluationInput): {
         priority: 'LOW',
         title: 'Ritmo financiero saludable',
         description: `Vas dentro de tu plan mensual. Cuentas con ${formatMoney(input.safeToSpend.todayAvailable, input.currency)} de margen libre para hoy.`,
-        ctaLabel: 'Ver panorama',
-        actionType: 'VIEW_OVERVIEW',
+        ctaLabel: 'Ver presupuesto',
+        actionType: 'NAVIGATE_BUDGET',
         dismissible: true,
         metadata: { todayAvailable: input.safeToSpend.todayAvailable },
       });
