@@ -34,3 +34,13 @@ export interface ProactiveWeeklyReviewRepository {
 export interface ProactiveWeeklyExpenseReader {
   listBetween(workspaceId: string, currency: string, from: Date, to: Date): Promise<TransactionDto[]>;
 }
+
+export interface ProactiveEmailTransport {
+  sendEmail(options: { recipient: string; subject: string; html: string }): Promise<{
+    delivered: boolean;
+    recipient: string;
+    subject: string;
+    mode: 'SMTP' | 'AUDIT_LOG';
+  }>;
+}
+

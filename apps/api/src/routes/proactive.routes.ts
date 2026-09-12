@@ -11,5 +11,9 @@ router.get('/proactive/feed', ...protectedRoute, asyncHandler(appContainer.proac
 router.post('/proactive/actions/:actionId/dismiss', ...protectedRoute, asyncHandler(appContainer.proactiveController.dismiss));
 router.get('/proactive/weekly-checkin', ...protectedRoute, asyncHandler(appContainer.proactiveController.weeklyCheckin));
 router.post('/proactive/weekly-checkin/:weekKey/complete', ...protectedRoute, asyncHandler(appContainer.proactiveController.completeWeeklyCheckin));
+router.post('/proactive/simulate-expense', ...protectedRoute, asyncHandler(appContainer.proactiveController.simulateExpense));
+router.get('/proactive/weekly-digest/preview', ...protectedRoute, asyncHandler(appContainer.proactiveController.weeklyDigestPreview));
+router.post('/proactive/weekly-digest/send-test', ...protectedRoute, asyncHandler(appContainer.proactiveController.sendWeeklyDigestTest));
 
 export default router;
+

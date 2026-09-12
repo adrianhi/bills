@@ -6,6 +6,7 @@ export const proactiveKeys = {
   all: ['proactive'] as const,
   feed: (currency: string) => [...proactiveKeys.all, 'feed', currency] as const,
   weeklyCheckin: (currency: string) => [...proactiveKeys.all, 'weekly-checkin', currency] as const,
+  weeklyDigestPreview: (currency: string) => [...proactiveKeys.all, 'weekly-digest-preview', currency] as const,
 };
 
 export function useProactiveFeed(currency: string) {
@@ -34,6 +35,28 @@ export function useCompleteWeeklyCheckin(currency: string) {
     },
   });
 }
+
+export function useSimulateExpense() {
+  return useMutation({
+    mutationFn: proactiveService.simulateExpense,
+  });
+}
+
+export function useWeeklyDigestPreview(currency: string, enabled = true) {
+  return useQuery({
+    queryKey: proactiveKeys.weeklyDigestPreview(currency),
+    queryFn: ({ signal }) => proactiveService.weeklyDigestPreview(currency, signal),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+export function useSendWeeklyDigestTest() {
+  return useMutation({
+    mutationFn: proactiveService.sendWeeklyDigestTest,
+  });
+}
+
 
 
 export function useDismissProactiveAction(currency: string) {

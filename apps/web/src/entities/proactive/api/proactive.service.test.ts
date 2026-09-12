@@ -97,5 +97,79 @@ describe('proactiveService', () => {
     expect(result.status).toBe('COMPLETED');
     expect(result.completedAt).toBe('2026-09-08T19:00:00.000Z');
   });
+
+  it('calls simulateExpense and returns projection verdict', async () => {
+    const sampleResult = {
+      currency: 'DOP' as const,
+      simulatedAmount: 1500,
+      verdict: 'SAFE' as const,
+      currentDailyAllowance: 1500,
+      projectedDailyAllowance: 1250,
+      allowanceDifference: -250,
+      daysRemaining: 10,
+      adviceTitle: 'Gasto seguro',
+      adviceDescription: 'Tu margen diario proyectado se mantendrá saludable.',
+      categoryImpact: {
+        categoryKey: 'restaurantes',
+        categoryLabel: 'Restaurantes',
+        currentSpent: 2000,
+        projectedSpent: 3500,
+        limit: 5000,
+        currentPercent: 40,
+        projectedPercent: 70,
+        status: 'HEALTHY' as const,
+      },
+    };
+    mock.onPost('/proactive/simulate-expense').reply(200, {
+      success: true,
+      data: sampleResult,
+    });
+    const result = await proactiveService.simulateExpense({
+      amount: 1500,
+      currency: 'DOP',
+      categoryKey: 'restaurantes',
+    });
+    expect(result.verdict).toBe('SAFE');
+    expect(result.projectedDailyAllowance).toBe(1250);
+    expect(result.categoryImpact?.projectedPercent).toBe(70);
+  });
+
+  it('fetches weekly digest preview', async () => {
+    const samplePreview = {
+      subject: 'Resumen Semanal Bills · Semana 37',
+      recipient: 'adrian@bills.local',
+      weekKey: '2026-W37',
+      html: '<html><body>Preview content</body></html>',
+      generatedAt: '2026-09-08T19:00:00.000Z',
+    };
+    mock.onGet('/proactive/weekly-digest/preview').reply(200, {
+      success: true,
+      data: samplePreview,
+    });
+    const result = await proactiveService.weeklyDigestPreview('DOP');
+    expect(result.subject).toContain('Resumen Semanal');
+    expect(result.weekKey).toBe('2026-W37');
+    expect(result.html).toContain('Preview content');
+  });
+
+  it('posts sendWeeklyDigestTest and returns dispatch status', async () => {
+    mock.onPost('/proactive/weekly-digest/send-test').reply(200, {
+      success: true,
+      data: {
+        delivered: true,
+        recipient: 'test@example.com',
+        subject: 'Resumen Semanal',
+        mode: 'SMTP' as const,
+      },
+    });
+    const result = await proactiveService.sendWeeklyDigestTest({
+      currency: 'DOP',
+      recipientEmail: 'test@example.com',
+    });
+    expect(result.delivered).toBe(true);
+    expect(result.mode).toBe('SMTP');
+    expect(result.recipient).toBe('test@example.com');
+  });
 });
+
 

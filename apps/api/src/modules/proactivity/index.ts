@@ -7,4 +7,6 @@ export type {
   ProactiveDismissalRepository,
 } from './application/proactive.ports';
 export { PrismaProactiveRepository } from './infrastructure/prisma-proactive.repository';
+export { EmailTransportService } from './infrastructure/email-transport.service';
 export { ProactiveController } from './http/proactive.controller';
+

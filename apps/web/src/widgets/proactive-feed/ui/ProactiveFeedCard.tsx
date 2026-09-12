@@ -20,6 +20,7 @@ interface ProactiveFeedCardProps {
   onNavigateRecurring: () => void;
   onQuickCategorize: (items: QuickTriageItem[]) => void;
   onOpenWeeklyCheckin?: () => void;
+  onOpenSimulator?: () => void;
 }
 
 function ActionIcon({ kind, priority }: { kind: ProactiveActionDto['kind']; priority: ProactiveActionDto['priority'] }) {
@@ -78,11 +79,23 @@ export function ProactiveFeedCard(props: ProactiveFeedCardProps) {
   const feed = props.feed;
   if (!feed || feed.actions.length === 0) {
     return (
-      <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-xs text-emerald-800 dark:text-emerald-300">
-        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-        <span className="font-medium">
-          Todo en orden hoy · Tus cobros fijos y presupuestos van al día.
-        </span>
+      <div className="flex flex-col gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-xs text-emerald-800 dark:text-emerald-300 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2.5">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <span className="font-medium">
+            Todo en orden hoy · Tus cobros fijos y presupuestos van al día.
+          </span>
+        </div>
+        {props.onOpenSimulator && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 self-start px-2.5 text-xs font-semibold text-emerald-800 border-emerald-500/30 hover:bg-emerald-500/10 dark:text-emerald-200 sm:self-auto"
+            onClick={props.onOpenSimulator}
+          >
+            <Sparkles className="h-3 w-3" /> ¿Puedo darme un gusto?
+          </Button>
+        )}
       </div>
     );
   }
@@ -110,9 +123,22 @@ export function ProactiveFeedCard(props: ProactiveFeedCardProps) {
             </span>
             <h3 className="text-sm font-bold tracking-tight">Tu copiloto hoy</h3>
           </div>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
-            {feed.actions.length} {feed.actions.length === 1 ? 'sugerencia' : 'sugerencias'}
-          </span>
+          <div className="flex items-center gap-2">
+            {props.onOpenSimulator && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1 px-2 text-xs font-semibold text-primary hover:bg-primary/10"
+                onClick={props.onOpenSimulator}
+                title="Simular impacto de un gasto antes de comprar"
+              >
+                <Sparkles className="h-3 w-3" /> ¿Puedo gastar esto?
+              </Button>
+            )}
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+              {feed.actions.length} {feed.actions.length === 1 ? 'sugerencia' : 'sugerencias'}
+            </span>
+          </div>
         </div>
 
         <div className="space-y-2.5">

@@ -61,7 +61,7 @@ import {
   PrismaPaydayIncomeReader, PrismaPaydayReviewRepository,
 } from './modules/payday-ritual';
 import {
-  PrismaProactiveRepository, ProactiveController, ProactiveEngineService,
+  EmailTransportService, PrismaProactiveRepository, ProactiveController, ProactiveEngineService,
 } from './modules/proactivity';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
@@ -163,6 +163,7 @@ const proactiveEngineService = new ProactiveEngineService(
   proactiveRepository,
   proactiveRepository,
   proactiveRepository,
+  new EmailTransportService(),
 );
 const proactiveController = new ProactiveController(proactiveEngineService);
 

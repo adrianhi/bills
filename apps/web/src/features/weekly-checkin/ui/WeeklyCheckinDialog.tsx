@@ -1,6 +1,7 @@
 import {
   Calendar,
   CheckCircle2,
+  Mail,
   Sparkles,
   Store,
   TrendingDown,
@@ -25,6 +26,7 @@ export interface WeeklyCheckinDialogProps {
   checkin: WeeklyCheckinDto | null;
   isCompleting?: boolean;
   onComplete: (weekKey: string) => Promise<void> | void;
+  onOpenDigestPreview?: () => void;
 }
 
 export function WeeklyCheckinDialog({
@@ -33,6 +35,7 @@ export function WeeklyCheckinDialog({
   checkin,
   isCompleting,
   onComplete,
+  onOpenDigestPreview,
 }: WeeklyCheckinDialogProps) {
   if (!checkin) return null;
 
@@ -151,6 +154,18 @@ export function WeeklyCheckinDialog({
                 Revisión completada para esta semana
                 {checkin.completedAt ? ` el ${formatDate(checkin.completedAt)}` : ''}.
               </span>
+            </div>
+          )}
+
+          {onOpenDigestPreview && (
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={onOpenDigestPreview}
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition cursor-pointer"
+              >
+                <Mail className="h-3.5 w-3.5" /> Ver vista previa del reporte por correo
+              </button>
             </div>
           )}
         </div>

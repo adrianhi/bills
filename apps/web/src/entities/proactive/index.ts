@@ -4,6 +4,9 @@ export {
   useProactiveFeed,
   useWeeklyCheckin,
   useCompleteWeeklyCheckin,
+  useSimulateExpense,
+  useWeeklyDigestPreview,
+  useSendWeeklyDigestTest,
   useDismissProactiveAction,
 } from './model/proactive.queries';
 export type {
@@ -12,5 +15,11 @@ export type {
   ProactiveActionPriority,
   ProactiveFeedDto,
   WeeklyCheckinDto,
+  SimulateExpenseInput,
+  SimulateExpenseResultDto,
+  SimulateExpenseCategoryImpactDto,
+  WeeklyDigestPreviewDto,
+  SendWeeklyDigestTestInput,
 } from '@bills/contracts';
+
 

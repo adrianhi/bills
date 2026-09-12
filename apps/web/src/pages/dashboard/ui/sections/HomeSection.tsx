@@ -27,6 +27,8 @@ import {
 import { ProactiveFeedCard } from "@/widgets/proactive-feed";
 import { QuickTriageDialog, type QuickTriageItem } from "@/features/quick-triage";
 import { WeeklyCheckinDialog } from "@/features/weekly-checkin";
+import { ExpenseSimulatorDialog } from "@/features/expense-simulator";
+import { WeeklyDigestPreviewDialog } from "@/features/weekly-digest";
 import { LoadingSummaryCards } from "./LoadingSummaryCards";
 
 interface HomeSectionProps {
@@ -52,8 +54,6 @@ interface HomeSectionProps {
   onOpenBudget: () => void;
   onOpenRecurring?: () => void;
 }
-
-
 
 export const HomeSection: React.FC<HomeSectionProps> = ({
   periodToolbar,
@@ -92,6 +92,8 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
   const [triageItems, setTriageItems] = React.useState<QuickTriageItem[]>([]);
   const [isTriageOpen, setIsTriageOpen] = React.useState(false);
   const [isWeeklyCheckinOpen, setIsWeeklyCheckinOpen] = React.useState(false);
+  const [isSimulatorOpen, setIsSimulatorOpen] = React.useState(false);
+  const [isDigestOpen, setIsDigestOpen] = React.useState(false);
   useTrackProductView(safeToSpend.data ? {
     name: 'SAFE_TO_SPEND_VIEWED', contextKey: safeToSpend.data.date,
     properties: { currency: activeCurrency, status: safeToSpend.data.status },
@@ -135,6 +137,7 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
         onNavigateRecurring={onOpenRecurring || onOpenBudget}
         onQuickCategorize={(items) => { setTriageItems(items); setIsTriageOpen(true); }}
         onOpenWeeklyCheckin={() => setIsWeeklyCheckinOpen(true)}
+        onOpenSimulator={() => setIsSimulatorOpen(true)}
       />
 
       <SafeToSpendDial
@@ -181,10 +184,24 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
         onOpenChange={setIsWeeklyCheckinOpen}
         checkin={weeklyCheckin.data || null}
         isCompleting={completeWeeklyCheckin.isPending}
+        onOpenDigestPreview={() => setIsDigestOpen(true)}
         onComplete={async (weekKey) => {
           await completeWeeklyCheckin.mutateAsync(weekKey);
           setIsWeeklyCheckinOpen(false);
         }}
+      />
+
+      <ExpenseSimulatorDialog
+        open={isSimulatorOpen}
+        onOpenChange={setIsSimulatorOpen}
+        currency={activeCurrency}
+        onProceedToRecord={() => onAddManual()}
+      />
+
+      <WeeklyDigestPreviewDialog
+        open={isDigestOpen}
+        onOpenChange={setIsDigestOpen}
+        currency={activeCurrency}
       />
 
       {statsError && !stats ? (
@@ -198,29 +215,15 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
       ) : loadingStats ? (
         <LoadingSummaryCards />
       ) : (
-        <MetricCards
-          stats={stats}
-          currency={currency}
-          hideBalances={hideBalances}
-        />
+        <MetricCards stats={stats} currency={currency} hideBalances={hideBalances} />
       )}
 
       {!loadingStats && (
-        <MonthPerspectiveCard
-          stats={stats}
-          currency={currency}
-          hideBalances={hideBalances}
-        />
+        <MonthPerspectiveCard stats={stats} currency={currency} hideBalances={hideBalances} />
       )}
 
-      <CashFlowCard
-        currency={currency}
-        hideBalances={hideBalances}
-        activeMonth={activeMonth}
-      />
-
+      <CashFlowCard currency={currency} hideBalances={hideBalances} activeMonth={activeMonth} />
       <CurrentBudgetCard currency={currency} hideBalances={hideBalances} />
-
       <RecentTransactionsCard
         transactions={transactions}
         loading={loadingTransactions}
