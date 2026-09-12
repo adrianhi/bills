@@ -13,7 +13,7 @@ describe('reportService.financialExport', () => {
     let captured: Record<string, unknown> = {};
     mock.onGet('/reports/financial-export').reply((config) => {
       captured = config.params as Record<string, unknown>;
-      return [200, new Blob(['data']), { 'content-disposition': 'attachment; filename="bills-informe-2026-08.xlsx"' }];
+      return [200, new Blob(['data']), { 'content-disposition': 'attachment; filename="cuadre-informe-2026-08.xlsx"' }];
     });
     const result = await reportService.financialExport({
       format: 'xlsx', currency: 'USD', month: '2026-08', category: 'Supermercado', includeNotes: true,
@@ -23,7 +23,7 @@ describe('reportService.financialExport', () => {
       format: 'xlsx', currency: 'USD', month: '2026-08', category: 'Supermercado', includeNotes: 'true',
       institutionCodes: 'BHD,POPULAR', title: 'Gastos agosto', sections: 'summary,movements',
     });
-    expect(result.filename).toBe('bills-informe-2026-08.xlsx');
+    expect(result.filename).toBe('cuadre-informe-2026-08.xlsx');
     expect(result.blob).toBeInstanceOf(Blob);
   });
 
@@ -47,13 +47,13 @@ describe('reportService.financialExport', () => {
   it('falls back to a generated filename when the header is missing', async () => {
     mock.onGet('/reports/financial-export').reply(200, new Blob(['data']));
     const result = await reportService.financialExport({ format: 'pdf', currency: 'DOP', month: '2026-08' });
-    expect(result.filename).toBe('bills-informe-2026-08.pdf');
+    expect(result.filename).toBe('cuadre-informe-2026-08.pdf');
   });
 });
 
 describe('filenameFromDisposition', () => {
   it('parses quoted filenames', () => {
-    expect(filenameFromDisposition('attachment; filename="bills-informe-2026-08.pdf"', 'fallback.pdf')).toBe('bills-informe-2026-08.pdf');
+    expect(filenameFromDisposition('attachment; filename="cuadre-informe-2026-08.pdf"', 'fallback.pdf')).toBe('cuadre-informe-2026-08.pdf');
   });
   it('returns the fallback when the header is missing or malformed', () => {
     expect(filenameFromDisposition(undefined, 'fallback.pdf')).toBe('fallback.pdf');

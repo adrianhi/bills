@@ -43,7 +43,7 @@ export class TransactionHttpController {
     const query = ExportQuerySchema.parse(req.query);
     const transactions = await this.service.export(actor.workspaceId, query);
     const suffix = query.month || new Date().toISOString().slice(0, 10);
-    res.setHeader('Content-Disposition', `attachment; filename="bills-export-${suffix}.${query.format}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="cuadre-export-${suffix}.${query.format}"`);
     if (query.format === 'csv') {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.status(200).send(transactionsToCsv(transactions)); return;

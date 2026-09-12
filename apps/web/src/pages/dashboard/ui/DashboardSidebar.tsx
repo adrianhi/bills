@@ -20,12 +20,12 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r bg-card lg:flex">
       <div className="flex h-20 items-center gap-3 border-b px-6">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-lg font-black text-white shadow-md">
-          c.
+          C.
         </div>
         <div>
           <div className="flex items-center gap-2">
             <p className="text-xl font-black tracking-tight">
-              cuadre<span className="text-primary">.</span>
+              Cuadre<span className="text-primary">.</span>
             </p>
             <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">
               Beta privada

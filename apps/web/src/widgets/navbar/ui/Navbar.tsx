@@ -15,7 +15,7 @@ export function Navbar({ title, hideBalances, setHideBalances, onRefresh, onOpen
     <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-xl lg:pl-64" data-product-tour-occluder="top-navigation">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-base font-black text-white shadow-sm lg:hidden">c.</div>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-base font-black text-white shadow-sm lg:hidden">C.</div>
           <div className="min-w-0">
             <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-primary sm:text-[11px]">Beta privada <span className="hidden text-muted-foreground sm:inline">· Tus cuartos al día</span></p>
             <h1 className="truncate text-lg font-bold tracking-tight sm:text-xl">{title}</h1>

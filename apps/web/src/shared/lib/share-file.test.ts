@@ -31,7 +31,7 @@ describe('shareOrDownloadFile', () => {
   it('shares through the Web Share API when files are supported', async () => {
     const share = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { share, canShare: vi.fn().mockReturnValue(true) });
-    const outcome = await shareOrDownloadFile(blob, 'bills-informe.pdf', 'Informe');
+    const outcome = await shareOrDownloadFile(blob, 'cuadre-informe.pdf', 'Informe');
     expect(outcome).toBe('shared');
     expect(share).toHaveBeenCalledOnce();
     expect(downloadBlob).not.toHaveBeenCalled();
@@ -42,16 +42,16 @@ describe('shareOrDownloadFile', () => {
       share: vi.fn().mockRejectedValue(new DOMException('cancel', 'AbortError')),
       canShare: vi.fn().mockReturnValue(true),
     });
-    const outcome = await shareOrDownloadFile(blob, 'bills-informe.pdf', 'Informe');
+    const outcome = await shareOrDownloadFile(blob, 'cuadre-informe.pdf', 'Informe');
     expect(outcome).toBe('cancelled');
     expect(downloadBlob).not.toHaveBeenCalled();
   });
 
   it('falls back to download when sharing is unavailable', async () => {
     vi.stubGlobal('navigator', {});
-    const outcome = await shareOrDownloadFile(blob, 'bills-informe.pdf', 'Informe');
+    const outcome = await shareOrDownloadFile(blob, 'cuadre-informe.pdf', 'Informe');
     expect(outcome).toBe('downloaded');
-    expect(downloadBlob).toHaveBeenCalledWith(blob, 'bills-informe.pdf');
+    expect(downloadBlob).toHaveBeenCalledWith(blob, 'cuadre-informe.pdf');
   });
 
   it('falls back to download when the share dialog fails for other reasons', async () => {
@@ -59,8 +59,8 @@ describe('shareOrDownloadFile', () => {
       share: vi.fn().mockRejectedValue(new Error('not allowed')),
       canShare: vi.fn().mockReturnValue(true),
     });
-    const outcome = await shareOrDownloadFile(blob, 'bills-informe.pdf', 'Informe');
+    const outcome = await shareOrDownloadFile(blob, 'cuadre-informe.pdf', 'Informe');
     expect(outcome).toBe('downloaded');
-    expect(downloadBlob).toHaveBeenCalledWith(blob, 'bills-informe.pdf');
+    expect(downloadBlob).toHaveBeenCalledWith(blob, 'cuadre-informe.pdf');
   });
 });

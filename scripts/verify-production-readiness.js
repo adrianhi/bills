@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * bills. - Preflight Production Readiness Verification Tool
+ * Cuadre - Preflight Production Readiness Verification Tool
  * 
  * Runs automated checks before deploying to production:
  * 1. Build artifacts integrity (Web SPA, Contracts, API dist)

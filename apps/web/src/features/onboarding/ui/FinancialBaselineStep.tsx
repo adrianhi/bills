@@ -123,7 +123,7 @@ export function FinancialBaselineStep({
               Selecciona tus cobros fijos habituales
             </h3>
             <p className="text-xs text-muted-foreground">
-              Bills los monitoreará automáticamente en tus movimientos.
+              Cuadre los monitoreará automáticamente en tus movimientos.
             </p>
           </div>
 
@@ -194,7 +194,7 @@ export function FinancialBaselineStep({
               </>
             ) : (
               <>
-                <span>Finalizar y entrar a Bills</span>
+                <span>Finalizar y entrar a Cuadre</span>
                 <ArrowRight className="h-4 w-4" />
               </>
             )}

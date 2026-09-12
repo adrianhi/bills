@@ -43,7 +43,7 @@ export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAc
   });
   const syncMutation = useMutation({ mutationFn: connectionService.sync, onSuccess: async () => { setNotice('Sincronización en cola; continuará en segundo plano.'); await refresh(); } });
   const disconnectMutation = useMutation({ mutationFn: connectionService.disconnect, onSuccess: refresh });
-  const exportMutation = useMutation({ mutationFn: accountService.exportData, onSuccess: (blob) => downloadBlob(blob, `bills-account-export-${new Date().toISOString().slice(0, 10)}.json`) });
+  const exportMutation = useMutation({ mutationFn: accountService.exportData, onSuccess: (blob) => downloadBlob(blob, `cuadre-account-export-${new Date().toISOString().slice(0, 10)}.json`) });
   const deleteMutation = useMutation({ mutationFn: accountService.deleteAccount, onSuccess: onAccountDeleted });
   const error = query.error || google.error || selectionMutation.error || syncMutation.error || disconnectMutation.error || exportMutation.error || deleteMutation.error;
   const busy = google.isPending ? 'google' : syncMutation.isPending ? `sync:${syncMutation.variables ?? ''}` :

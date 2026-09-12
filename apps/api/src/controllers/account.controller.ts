@@ -13,7 +13,7 @@ export class AccountController {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="bills-account-export-${new Date().toISOString().slice(0, 10)}.json"`
+        `attachment; filename="cuadre-account-export-${new Date().toISOString().slice(0, 10)}.json"`
       );
       res.status(200).json({ success: true, data });
     } catch (error) {

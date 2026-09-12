@@ -51,7 +51,7 @@ export const reportService = {
     const period = filters.month || `${filters.startDate ?? 'inicio'}-${filters.endDate ?? 'hoy'}`;
     return {
       blob: response.data,
-      filename: filenameFromDisposition(response.headers['content-disposition'], `bills-informe-${period}.${format}`),
+      filename: filenameFromDisposition(response.headers['content-disposition'], `cuadre-informe-${period}.${format}`),
     };
   },
 };

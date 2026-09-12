@@ -110,11 +110,11 @@ Copia y pega las siguientes variables en la pestaña **Environment** de tu servi
 
 1. Ve a tu proyecto en [Supabase Dashboard](https://supabase.com/dashboard/project/cnedhjfwaxtbvszqgqcb).
 2. **Authentication → URL Configuration:**
-   - **Site URL:** Pon tu URL de producción: `https://tu-servicio.onrender.com` (o `https://bills.do`).
+   - **Site URL:** Pon tu URL de producción: `https://tu-servicio.onrender.com` (o `https://cuadre.do`).
    - **Redirect URLs:** Agrega:
      - `https://tu-servicio.onrender.com/**`
      - `https://tu-servicio.onrender.com/auth/callback`
-     - *(Si tienes dominio propio, agrega también `https://bills.do/**`)*
+     - *(Si tienes dominio propio, agrega también `https://cuadre.do/**`)*
 3. **Authentication → Providers → Google:**
    - Asegúrate de que el proveedor Google esté habilitado y tenga configurados tu `Client ID` y `Client Secret`.
 

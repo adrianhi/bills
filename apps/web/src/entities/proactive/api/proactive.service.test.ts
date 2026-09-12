@@ -136,8 +136,8 @@ describe('proactiveService', () => {
 
   it('fetches weekly digest preview', async () => {
     const samplePreview = {
-      subject: 'Resumen Semanal Bills · Semana 37',
-      recipient: 'adrian@bills.local',
+      subject: 'Resumen Semanal Cuadre · Semana 37',
+      recipient: 'adrian@cuadre.local',
       weekKey: '2026-W37',
       html: '<html><body>Preview content</body></html>',
       generatedAt: '2026-09-08T19:00:00.000Z',

@@ -28,7 +28,7 @@ export function App() {
   if (checkingSession) {
     return (
       <LoadingScreen
-        message="Iniciando Bills…"
+        message="Iniciando Cuadre…"
         description="Validando tus credenciales seguras…"
       />
     );
@@ -58,7 +58,7 @@ export function App() {
       <Suspense
         fallback={
           <LoadingScreen
-            message="Cargando Bills…"
+            message="Cargando Cuadre…"
             description="Preparando tu dashboard y herramientas…"
           />
         }

@@ -31,7 +31,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       req.auth = {
         user: {
           id: String(req.headers['x-test-user-id']),
-          email: String(req.headers['x-test-user-email'] || 'test@bills.local').toLowerCase(),
+          email: String(req.headers['x-test-user-email'] || 'test@cuadre.local').toLowerCase(),
           displayName: String(req.headers['x-test-user-name'] || 'Test User'),
         },
       };

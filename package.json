@@ -2,7 +2,7 @@
   "name": "bills-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Banco BHD & Multi-Bank Expense Tracker Monorepo",
+  "description": "Cuadre - Finanzas Personales & Multi-Bank Expense Tracker Monorepo",
   "workspaces": [
     "apps/*",
     "packages/*"

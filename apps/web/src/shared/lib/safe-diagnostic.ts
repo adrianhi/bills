@@ -1,12 +1,13 @@
 import { ApiClientError } from '@/shared/api';
 
-export const BILLS_BETA_VERSION = '2026-08-30.1';
+export const CUADRE_BETA_VERSION = '2026-08-30.1';
+export const BILLS_BETA_VERSION = CUADRE_BETA_VERSION;
 
 export function safeDiagnostic(error: unknown, area: string, extra: Record<string, string | number | null | undefined> = {}) {
   const normalized = error instanceof ApiClientError ? error : null;
   return [
     'Cuadre diagnóstico seguro',
-    `versión=${BILLS_BETA_VERSION}`,
+    `versión=${CUADRE_BETA_VERSION}`,
     `área=${area}`,
     `fecha=${new Date().toISOString()}`,
     `código=${normalized?.code || (error instanceof Error ? error.name : 'UNKNOWN_ERROR')}`,

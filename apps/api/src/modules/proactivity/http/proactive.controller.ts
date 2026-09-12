@@ -51,7 +51,7 @@ export class ProactiveController {
   weeklyDigestPreview = async (req: Request, res: Response) => {
     const { actor } = requestContext(req);
     const currency = budgetCurrencySchema.parse(String(req.query.currency || 'DOP').toUpperCase());
-    const recipient = req.auth?.user?.email || 'usuario@bills.local';
+    const recipient = req.auth?.user?.email || 'usuario@cuadre.local';
     const displayName = req.auth?.user?.displayName || 'Ahorrador';
     const appUrl = `${req.protocol}://${req.get('host')}`;
 
@@ -75,7 +75,7 @@ export class ProactiveController {
   sendWeeklyDigestTest = async (req: Request, res: Response) => {
     const { actor } = requestContext(req);
     const input = sendWeeklyDigestTestSchema.parse(req.body || {});
-    const recipient = input.recipientEmail || req.auth?.user?.email || 'usuario@bills.local';
+    const recipient = input.recipientEmail || req.auth?.user?.email || 'usuario@cuadre.local';
     const displayName = req.auth?.user?.displayName || 'Ahorrador';
     const appUrl = `${req.protocol}://${req.get('host')}`;
 
