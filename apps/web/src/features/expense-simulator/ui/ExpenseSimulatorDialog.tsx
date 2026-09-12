@@ -1,25 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
-  AlertCircle,
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  Loader2,
-  Plus,
-  Sparkles,
-  Wallet,
+  AlertCircle, AlertTriangle, ArrowRight, CheckCircle2,
+  Loader2, Plus, Sparkles, Wallet,
 } from 'lucide-react';
 import { useSimulateExpense } from '@/entities/proactive';
 import { currentBudgetMonth, useBudgetSummary } from '@/entities/budget';
 import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
+  Button, Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem,
+  SelectTrigger, SelectValue,
 } from '@/shared/ui';
 import { formatCurrency } from '@/shared/lib';
 
@@ -85,7 +74,7 @@ export function ExpenseSimulatorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-6">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md p-6">
         <DialogHeader className="text-left space-y-1">
           <div className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary w-fit">
             <Sparkles className="h-3.5 w-3.5" /> Simulador Proactivo
@@ -143,18 +132,22 @@ export function ExpenseSimulatorDialog({
           {availableCategories.length > 0 && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground">Categoría (opcional)</label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs font-medium text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              <Select
+                value={selectedCategory || 'ALL'}
+                onValueChange={(val) => setSelectedCategory(val === 'ALL' ? '' : val)}
               >
-                <option value="">Cualquiera / Sin categoría específica</option>
-                {availableCategories.map((c) => (
-                  <option key={c.key} value={c.key}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Cualquiera / Sin categoría específica" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Cualquiera / Sin categoría específica</SelectItem>
+                  {availableCategories.map((c) => (
+                    <SelectItem key={c.key} value={c.key}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 

@@ -9,3 +9,4 @@ export * from './date-picker-field';
 export * from './date-time-picker-field';
 export * from './loading-screen';
 export * from './card-overlay-loader';
+export * from './select';
