@@ -53,11 +53,7 @@ export function ExpenseSimulatorDialog({
   const activeCurrency = currency === 'USD' ? 'USD' : 'DOP';
 
   useEffect(() => {
-    if (!open) return;
-    if (numericAmount <= 0) {
-      setResult(null);
-      return;
-    }
+    if (!open || numericAmount <= 0) return;
     const timer = setTimeout(() => {
       simulateMutation.mutate(
         {
@@ -69,16 +65,18 @@ export function ExpenseSimulatorDialog({
       );
     }, 200);
     return () => clearTimeout(timer);
-  }, [numericAmount, selectedCategory, activeCurrency, open]);
+  }, [numericAmount, selectedCategory, activeCurrency, open, simulateMutation]);
+
+  const displayedResult = numericAmount > 0 ? result : null;
 
   const handleQuickAddAmount = (add: number) => {
     const next = (parseFloat(amountStr) || 0) + add;
     setAmountStr(String(next));
   };
 
-  const isSafe = result?.verdict === 'SAFE';
-  const isTight = result?.verdict === 'TIGHT';
-  const isOverspend = result?.verdict === 'OVERSPEND';
+  const isSafe = displayedResult?.verdict === 'SAFE';
+  const isTight = displayedResult?.verdict === 'TIGHT';
+  const isOverspend = displayedResult?.verdict === 'OVERSPEND';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -149,7 +147,7 @@ export function ExpenseSimulatorDialog({
           )}
 
           {/* Resultado de la simulación */}
-          {result && (
+          {displayedResult && (
             <div
               className={`rounded-xl border p-3.5 space-y-2.5 transition-all ${
                 isSafe
@@ -168,11 +166,11 @@ export function ExpenseSimulatorDialog({
                     isSafe ? 'text-emerald-500' : isTight ? 'text-amber-500' : 'text-rose-500'
                   }`}
                 >
-                  {result.adviceTitle}
+                  {displayedResult.adviceTitle}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                {result.adviceDescription}
+                {displayedResult.adviceDescription}
               </p>
 
               {/* Comparativa de margen diario */}
@@ -183,36 +181,36 @@ export function ExpenseSimulatorDialog({
                 </div>
                 <div className="flex items-center gap-1.5 font-bold">
                   <span className="text-muted-foreground line-through">
-                    {formatCurrency(result.currentDailyAllowance, activeCurrency)}
+                    {formatCurrency(displayedResult.currentDailyAllowance, activeCurrency)}
                   </span>
                   <ArrowRight className="h-3 w-3 text-muted-foreground" />
                   <span className={isOverspend ? 'text-rose-500' : 'text-foreground'}>
-                    {formatCurrency(result.projectedDailyAllowance, activeCurrency)}/día
+                    {formatCurrency(displayedResult.projectedDailyAllowance, activeCurrency)}/día
                   </span>
                 </div>
               </div>
 
               {/* Impacto en categoría si existe */}
-              {result.categoryImpact && (
+              {displayedResult.categoryImpact && (
                 <div className="space-y-1 text-xs">
                   <div className="flex justify-between">
                     <span className="font-medium text-muted-foreground">
-                      Consumo en {result.categoryImpact.categoryLabel}:
+                      Consumo en {displayedResult.categoryImpact.categoryLabel}:
                     </span>
                     <span className="font-semibold text-foreground">
-                      {result.categoryImpact.projectedPercent}%
+                      {displayedResult.categoryImpact.projectedPercent}%
                     </span>
                   </div>
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        result.categoryImpact.status === 'EXCEEDED'
+                        displayedResult.categoryImpact.status === 'EXCEEDED'
                           ? 'bg-rose-500'
-                          : result.categoryImpact.status === 'PACE_WARNING'
+                          : displayedResult.categoryImpact.status === 'PACE_WARNING'
                           ? 'bg-amber-500'
                           : 'bg-emerald-500'
                       }`}
-                      style={{ width: `${Math.min(100, result.categoryImpact.projectedPercent)}%` }}
+                      style={{ width: `${Math.min(100, displayedResult.categoryImpact.projectedPercent)}%` }}
                     />
                   </div>
                 </div>

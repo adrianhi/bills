@@ -1,0 +1,79 @@
+services:
+  # Servicio Web Unificado: Frontend SPA + API Express + Cola de Ingesta Gmail (PROCESS_ROLE=all)
+  - type: web
+    name: bills-app
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.13.0
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: PROCESS_ROLE
+        value: all
+      - key: APP_URL
+        sync: false
+      - key: API_PUBLIC_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: INGESTION_ENCRYPTION_KEY
+        sync: false
+      - key: LEGAL_AUDIT_SALT
+        sync: false
+      - key: LEGAL_PROVIDER_NAME
+        sync: false
+      - key: LEGAL_PROVIDER_ID
+        sync: false
+      - key: LEGAL_CONTACT_EMAIL
+        sync: false
+      - key: LEGAL_CONTACT_ADDRESS
+        sync: false
+      - key: MAINTENANCE_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        sync: false
+      - key: GMAIL_INITIAL_SYNC_MONTHS
+        value: "2"
+      - key: GMAIL_RECONCILE_INTERVAL_MINUTES
+        value: "5"
+      - key: GMAIL_WATCH_RENEWAL_HOURS
+        value: "24"
+      - key: GMAIL_SYNC_CONCURRENCY
+        value: "4"
+      - key: GMAIL_BACKFILL_CONCURRENCY
+        value: "2"
+
+  # Cron job cada 10 minutos para despertar el servicio y avanzar reconciliaciones de Gmail
+  - type: cron
+    name: bills-maintenance-tick
+    runtime: node
+    plan: starter
+    region: oregon
+    schedule: "*/10 * * * *"
+    buildCommand: "echo 'Maintenance cron ready'"
+    startCommand: "curl -fsS -X POST -H \"Authorization: Bearer $MAINTENANCE_SECRET\" \"$API_PUBLIC_URL/api/v1/internal/maintenance/tick\""
+    envVars:
+      - key: API_PUBLIC_URL
+        sync: false
+      - key: MAINTENANCE_SECRET
+        sync: false

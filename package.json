@@ -28,6 +28,7 @@
     "check:architecture": "node scripts/check-architecture.js",
     "verify": "npm run check:architecture && npm run test && npm run build && npm run lint --prefix apps/web && npm run test:e2e",
     "verify:full": "npm run verify && npm run test:integration",
+    "verify:preflight": "node scripts/verify-production-readiness.js",
     "prisma:generate": "npm run prisma:generate --prefix apps/api",
     "prisma:deploy": "npm run prisma:deploy --prefix apps/api",
     "prisma:push": "npm run prisma:push --prefix apps/api",
