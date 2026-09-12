@@ -5,6 +5,7 @@ import { AppError } from '../errors/app-error';
 import type { IngestionRunner } from '../ingestion/ingestion-runner';
 import type { RecurringRunner } from '../modules/recurring';
 import type { EngagementService } from '../modules/engagement';
+import type { ProactiveEmailRunner } from '../modules/proactivity';
 
 function authorized(header: string | undefined) {
   if (!config.maintenanceSecret || !header?.startsWith('Bearer ')) return false;
@@ -17,6 +18,7 @@ export class MaintenanceController {
   public constructor(
     private readonly ingestionRunner: IngestionRunner,
     private readonly recurringRunner: RecurringRunner,
+    private readonly emailRunner: ProactiveEmailRunner,
     private readonly engagement: EngagementService,
   ) {}
 
@@ -27,11 +29,12 @@ export class MaintenanceController {
     if (!authorized(req.header('authorization'))) {
       throw new AppError(401, 'INVALID_MAINTENANCE_TOKEN', 'Maintenance token is invalid.');
     }
-    const [ingestion, recurring] = await Promise.all([
+    const [ingestion, recurring, email] = await Promise.all([
       this.ingestionRunner.maintenanceTick(4_000),
       this.recurringRunner.maintenanceTick(4_000),
+      this.emailRunner.maintenanceTick(4_000),
       this.engagement.pruneExpired(),
     ]);
-    res.status(200).json({ success: true, data: { ...ingestion, ...recurring } });
+    res.status(200).json({ success: true, data: { ...ingestion, ...recurring, ...email } });
   };
 }

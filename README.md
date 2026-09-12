@@ -111,6 +111,21 @@ Authorization: Bearer <MAINTENANCE_SECRET>
 
 El endpoint agenda reconciliaciones y procesa trabajo durante una ventana corta; no expone datos financieros.
 
+### Correo proactivo
+
+El correo proactivo usa una cola persistente y preferencias por miembro. En desarrollo se recomienda el modo de auditoría, que ejercita programación, deduplicación y plantillas sin contactar al proveedor:
+
+```dotenv
+EMAIL_DELIVERY_MODE=AUDIT
+EMAIL_WEEKLY_DIGEST_ENABLED=false
+EMAIL_IMMINENT_BILL_ENABLED=false
+EMAIL_PRICE_HIKE_ENABLED=false
+EMAIL_PACING_WARNING_ENABLED=false
+EMAIL_PAYDAY_RITUAL_ENABLED=false
+```
+
+Para producción configura además `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `EMAIL_FROM` y un `EMAIL_UNSUBSCRIBE_SECRET` de al menos 32 caracteres. Verifica primero un subdominio dedicado en Resend y mantén todos los flags apagados hasta completar SPF, DKIM y DMARC. El procedimiento completo está en [docs/DEPLOYMENT-GUIDE.md](docs/DEPLOYMENT-GUIDE.md#71-preparar-resend-sin-enviar-a-usuarios-reales).
+
 Genera la clave de retención localmente:
 
 ```bash

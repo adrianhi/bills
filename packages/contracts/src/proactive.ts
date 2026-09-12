@@ -151,9 +151,8 @@ export const weeklyDigestPreviewResponseSchema = z.object({
 export type WeeklyDigestPreviewResponse = z.infer<typeof weeklyDigestPreviewResponseSchema>;
 
 export const sendWeeklyDigestTestSchema = z.object({
-  recipientEmail: z.string().email().optional(),
   currency: budgetCurrencySchema.default('DOP'),
-});
+}).strict();
 export type SendWeeklyDigestTestInput = z.infer<typeof sendWeeklyDigestTestSchema>;
 
 export const sendWeeklyDigestTestResponseSchema = z.object({
@@ -166,4 +165,30 @@ export const sendWeeklyDigestTestResponseSchema = z.object({
   }),
 });
 export type SendWeeklyDigestTestResponse = z.infer<typeof sendWeeklyDigestTestResponseSchema>;
+
+// --- Proactive email preferences ---
+export const emailDigestScheduleSchema = z.enum(['MONDAY_0730', 'SUNDAY_1800']);
+export type EmailDigestSchedule = z.infer<typeof emailDigestScheduleSchema>;
+
+export const emailNotificationPreferencesSchema = z.object({
+  weeklyDigestEnabled: z.boolean(),
+  criticalAlertsEnabled: z.boolean(),
+  digestSchedule: emailDigestScheduleSchema,
+  timezone: z.string(),
+  recipientMasked: z.string(),
+});
+export type EmailNotificationPreferencesDto = z.infer<typeof emailNotificationPreferencesSchema>;
+
+export const updateEmailNotificationPreferencesSchema = z.object({
+  weeklyDigestEnabled: z.boolean(),
+  criticalAlertsEnabled: z.boolean(),
+  digestSchedule: emailDigestScheduleSchema,
+}).strict();
+export type UpdateEmailNotificationPreferencesInput = z.infer<typeof updateEmailNotificationPreferencesSchema>;
+
+export const emailNotificationPreferencesResponseSchema = z.object({
+  success: z.literal(true),
+  data: emailNotificationPreferencesSchema,
+});
+export type EmailNotificationPreferencesResponse = z.infer<typeof emailNotificationPreferencesResponseSchema>;
 

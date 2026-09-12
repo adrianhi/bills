@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { accountService } from '@/entities/account';
 import { connectionService } from '@/entities/connection';
+import { proactiveService, type UpdateEmailNotificationPreferencesInput } from '@/entities/proactive';
 import { downloadBlob } from '@/shared/lib';
 
 export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAccountDeleted: () => void) {
@@ -14,10 +15,11 @@ export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAc
   const [bankSelections, setBankSelections] = useState<Record<string, string[]>>({});
   const query = useQuery({
     queryKey: ['inbox-connections'], queryFn: async ({ signal }) => {
-      const [connections, institutions] = await Promise.all([
+      const [connections, institutions, emailPreferences] = await Promise.all([
         connectionService.listInboxConnections(signal), connectionService.listInstitutions(signal),
+        proactiveService.emailPreferences(signal),
       ]);
-      return { connections, institutions };
+      return { connections, institutions, emailPreferences };
     },
     enabled: isOpen && authenticated,
     gcTime: 0,
@@ -45,12 +47,22 @@ export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAc
   const disconnectMutation = useMutation({ mutationFn: connectionService.disconnect, onSuccess: refresh });
   const exportMutation = useMutation({ mutationFn: accountService.exportData, onSuccess: (blob) => downloadBlob(blob, `cuadre-account-export-${new Date().toISOString().slice(0, 10)}.json`) });
   const deleteMutation = useMutation({ mutationFn: accountService.deleteAccount, onSuccess: onAccountDeleted });
-  const error = query.error || google.error || selectionMutation.error || syncMutation.error || disconnectMutation.error || exportMutation.error || deleteMutation.error;
+  const emailPreferencesMutation = useMutation({
+    mutationFn: proactiveService.updateEmailPreferences,
+    onSuccess: async () => { setNotice('Preferencias de correo guardadas.'); await refresh(); },
+  });
+  const emailTestMutation = useMutation({
+    mutationFn: () => proactiveService.sendWeeklyDigestTest({ currency: 'DOP' }),
+    onSuccess: ({ mode }) => setNotice(mode === 'SMTP' ? 'Correo de prueba enviado.' : 'Prueba registrada en modo auditoría.'),
+  });
+  const error = query.error || google.error || selectionMutation.error || syncMutation.error || disconnectMutation.error || exportMutation.error || deleteMutation.error || emailPreferencesMutation.error || emailTestMutation.error;
   const busy = google.isPending ? 'google' : syncMutation.isPending ? `sync:${syncMutation.variables ?? ''}` :
     selectionMutation.isPending ? `selection:${selectionMutation.variables?.id ?? ''}` :
-    disconnectMutation.isPending ? `disconnect:${disconnectMutation.variables ?? ''}` : exportMutation.isPending ? 'export' : deleteMutation.isPending ? 'delete' : '';
+    disconnectMutation.isPending ? `disconnect:${disconnectMutation.variables ?? ''}` : exportMutation.isPending ? 'export' :
+      deleteMutation.isPending ? 'delete' : emailPreferencesMutation.isPending ? 'email-preferences' : emailTestMutation.isPending ? 'email-test' : '';
   return {
     connections: query.data?.connections ?? [], institutions: query.data?.institutions ?? [],
+    emailPreferences: query.data?.emailPreferences,
     newBankSelection, setNewBankSelection, bankSelections,
     setBankSelection: (id: string, codes: string[]) => setBankSelections((current) => ({ ...current, [id]: codes })),
     confirmation, setConfirmation, notice, error: error?.message ?? '', diagnosticError: error, busy,
@@ -62,6 +74,8 @@ export function useAccountSettings(isOpen: boolean, authenticated: boolean, onAc
     sync: (id: string) => syncMutation.mutate(id),
     disconnect: (id: string) => disconnectMutation.mutate(id), exportData: () => exportMutation.mutate(),
     deleteAccount: () => deleteMutation.mutate(),
+    updateEmailPreferences: (input: UpdateEmailNotificationPreferencesInput) => emailPreferencesMutation.mutate(input),
+    sendEmailTest: () => emailTestMutation.mutate(),
   };
 }
 

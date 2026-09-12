@@ -42,6 +42,8 @@ export class AccountService {
         paydayRitualReviews: true,
         memberships: {
           include: {
+            emailNotificationPreferences: true,
+            emailDeliveries: { include: { events: true } },
             workspace: {
               include: {
                 transactions: true,

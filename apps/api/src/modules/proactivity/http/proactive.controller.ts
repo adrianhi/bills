@@ -5,12 +5,14 @@ import {
   dismissProactiveActionSchema,
   sendWeeklyDigestTestSchema,
   simulateExpenseInputSchema,
+  updateEmailNotificationPreferencesSchema,
 } from '@bills/contracts';
 import { requestContext } from '../../../shared/application/request-context';
 import type { ProactiveEngineService } from '../application/proactive-engine.service';
+import type { ProactiveEmailService } from '../application/proactive-email.service';
 
 export class ProactiveController {
-  constructor(private readonly service: ProactiveEngineService) {}
+  constructor(private readonly service: ProactiveEngineService, private readonly email: ProactiveEmailService) {}
 
   feed = async (req: Request, res: Response) => {
     const { actor } = requestContext(req);
@@ -51,18 +53,7 @@ export class ProactiveController {
   weeklyDigestPreview = async (req: Request, res: Response) => {
     const { actor } = requestContext(req);
     const currency = budgetCurrencySchema.parse(String(req.query.currency || 'DOP').toUpperCase());
-    const recipient = req.auth?.user?.email || 'usuario@cuadre.local';
-    const displayName = req.auth?.user?.displayName || 'Ahorrador';
-    const appUrl = `${req.protocol}://${req.get('host')}`;
-
-    const preview = await this.service.getWeeklyDigestPreview(
-      actor.workspaceId,
-      actor.userId,
-      recipient,
-      displayName,
-      currency,
-      appUrl
-    );
+    const preview = await this.email.previewWeekly(actor.workspaceId, actor.userId, currency);
 
     if (req.query.format === 'html') {
       res.status(200).type('html').send(preview.html);
@@ -75,20 +66,20 @@ export class ProactiveController {
   sendWeeklyDigestTest = async (req: Request, res: Response) => {
     const { actor } = requestContext(req);
     const input = sendWeeklyDigestTestSchema.parse(req.body || {});
-    const recipient = input.recipientEmail || req.auth?.user?.email || 'usuario@cuadre.local';
-    const displayName = req.auth?.user?.displayName || 'Ahorrador';
-    const appUrl = `${req.protocol}://${req.get('host')}`;
-
-    const result = await this.service.sendWeeklyDigestTest(
-      actor.workspaceId,
-      actor.userId,
-      recipient,
-      displayName,
-      input.currency,
-      appUrl
-    );
+    const result = await this.email.sendTest(actor.workspaceId, actor.userId, input.currency);
 
     res.status(200).json({ success: true, data: result });
+  };
+
+  emailPreferences = async (req: Request, res: Response) => {
+    const { actor } = requestContext(req);
+    res.status(200).json({ success: true, data: await this.email.getPreferences(actor.workspaceId, actor.userId) });
+  };
+
+  updateEmailPreferences = async (req: Request, res: Response) => {
+    const { actor } = requestContext(req);
+    const input = updateEmailNotificationPreferencesSchema.parse(req.body);
+    res.status(200).json({ success: true, data: await this.email.updatePreferences(actor.workspaceId, actor.userId, input) });
   };
 }
 

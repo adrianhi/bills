@@ -61,7 +61,9 @@ import {
   PrismaPaydayIncomeReader, PrismaPaydayReviewRepository,
 } from './modules/payday-ritual';
 import {
-  EmailTransportService, PrismaProactiveRepository, ProactiveController, ProactiveEngineService,
+  EmailNotificationController, EmailTransportService, PrismaEmailRepository, PrismaProactiveRepository,
+  ProactiveController, ProactiveEmailRunner, ProactiveEmailScheduler, ProactiveEmailService,
+  ProactiveEngineService, WeeklyEmailBuilder,
 } from './modules/proactivity';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
@@ -163,12 +165,35 @@ const proactiveEngineService = new ProactiveEngineService(
   proactiveRepository,
   proactiveRepository,
   proactiveRepository,
-  new EmailTransportService(),
 );
-const proactiveController = new ProactiveController(proactiveEngineService);
+const emailRepository = new PrismaEmailRepository();
+const emailTransport = new EmailTransportService();
+const weeklyEmailBuilder = new WeeklyEmailBuilder(
+  { radar: (wId, curr, win) => recurringService.radar(wId, curr, win) },
+  { getSafeToSpend: (wId, curr) => getSafeToSpend.execute(wId, curr) },
+  proactiveRepository,
+);
+const proactiveEmailService = new ProactiveEmailService(emailRepository, emailTransport, weeklyEmailBuilder, {
+  appUrl: config.appUrl, apiPublicUrl: config.apiPublicUrl, unsubscribeSecret: config.emailUnsubscribeSecret,
+});
+const proactiveEmailScheduler = new ProactiveEmailScheduler(
+  emailRepository, { radar: (wId, curr, win) => recurringService.radar(wId, curr, win) },
+  { getMonthlyBudget: (wId, month, curr) => getMonthlyBudget.execute(wId, month, curr) },
+  { current: (wId, pId, curr, now) => paydayRitualService.current(wId, pId, curr, now) },
+  weeklyEmailBuilder, proactiveEmailService, {
+    weekly: config.emailWeeklyEnabled, imminentBill: config.emailImminentBillEnabled,
+    priceHike: config.emailPriceHikeEnabled, pacingWarning: config.emailPacingWarningEnabled,
+    paydayRitual: config.emailPaydayRitualEnabled,
+  }, config.appUrl,
+);
+const proactiveEmailRunner = new ProactiveEmailRunner(proactiveEmailScheduler, proactiveEmailService);
+const proactiveController = new ProactiveController(proactiveEngineService, proactiveEmailService);
+const emailNotificationController = new EmailNotificationController(proactiveEmailService);
 
 export const appContainer = {
   proactiveController,
+  proactiveEmailRunner,
+  emailNotificationController,
   engagementController: new EngagementController(engagementService),
   paydayRitualController: new PaydayRitualController(paydayRitualService),
   recurringRunner,
@@ -193,7 +218,7 @@ export const appContainer = {
   )),
   gmailPubSubController: new GmailPubSubController(gmailPushHandler),
   inboxConnectionController,
-  maintenanceController: new MaintenanceController(ingestionRunner, recurringRunner, engagementService),
+  maintenanceController: new MaintenanceController(ingestionRunner, recurringRunner, proactiveEmailRunner, engagementService),
   gmailLifecycleService,
   gmailSyncService,
   ingestionJobService,

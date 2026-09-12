@@ -44,7 +44,7 @@ export function WeeklyDigestPreviewDialog({
         <DialogHeader className="text-left space-y-1">
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-              <Sparkles className="h-3.5 w-3.5" /> Pulso Dominical
+              <Sparkles className="h-3.5 w-3.5" /> Pulso Semanal
             </span>
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <Mail className="h-3 w-3" /> Correo automatizado
@@ -54,7 +54,7 @@ export function WeeklyDigestPreviewDialog({
             Resumen Semanal por Correo
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            Así es como luce el reporte que puedes recibir cada domingo con tus cobros y balance.
+            Así luce el reporte de tus últimos siete días, próximos cobros y margen diario.
           </DialogDescription>
         </DialogHeader>
 

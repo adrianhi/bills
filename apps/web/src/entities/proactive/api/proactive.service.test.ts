@@ -164,11 +164,27 @@ describe('proactiveService', () => {
     });
     const result = await proactiveService.sendWeeklyDigestTest({
       currency: 'DOP',
-      recipientEmail: 'test@example.com',
     });
     expect(result.delivered).toBe(true);
     expect(result.mode).toBe('SMTP');
     expect(result.recipient).toBe('test@example.com');
+  });
+
+  it('reads and updates proactive email preferences', async () => {
+    const preferences = {
+      weeklyDigestEnabled: false, criticalAlertsEnabled: true,
+      digestSchedule: 'MONDAY_0730' as const, timezone: 'America/Santo_Domingo',
+      recipientMasked: 'ad****@example.com',
+    };
+    mock.onGet('/proactive/email-preferences').reply(200, { success: true, data: preferences });
+    mock.onPut('/proactive/email-preferences').reply((request) => [200, {
+      success: true, data: { ...preferences, ...JSON.parse(request.data) },
+    }]);
+    expect(await proactiveService.emailPreferences()).toEqual(preferences);
+    const updated = await proactiveService.updateEmailPreferences({
+      weeklyDigestEnabled: true, criticalAlertsEnabled: true, digestSchedule: 'SUNDAY_1800',
+    });
+    expect(updated).toMatchObject({ weeklyDigestEnabled: true, digestSchedule: 'SUNDAY_1800' });
   });
 });
 

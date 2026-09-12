@@ -58,6 +58,16 @@ export const config = {
     ? (process.env.PROCESS_ROLE as 'all' | 'web' | 'worker')
     : 'all',
   maintenanceSecret: process.env.MAINTENANCE_SECRET || '',
+  emailDeliveryMode: process.env.EMAIL_DELIVERY_MODE === 'LIVE' ? 'LIVE' as const : 'AUDIT' as const,
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || '',
+  emailFrom: process.env.EMAIL_FROM || '',
+  emailUnsubscribeSecret: process.env.EMAIL_UNSUBSCRIBE_SECRET || '',
+  emailWeeklyEnabled: process.env.EMAIL_WEEKLY_DIGEST_ENABLED === 'true',
+  emailImminentBillEnabled: process.env.EMAIL_IMMINENT_BILL_ENABLED === 'true',
+  emailPriceHikeEnabled: process.env.EMAIL_PRICE_HIKE_ENABLED === 'true',
+  emailPacingWarningEnabled: process.env.EMAIL_PACING_WARNING_ENABLED === 'true',
+  emailPaydayRitualEnabled: process.env.EMAIL_PAYDAY_RITUAL_ENABLED === 'true',
 };
 
 export function validateRuntimeConfig() {
@@ -75,6 +85,13 @@ export function validateRuntimeConfig() {
     if (encryptionKey.length !== 32) errors.push('INGESTION_ENCRYPTION_KEY (32 bytes, base64)');
     if (!config.appUrl.startsWith('https://')) errors.push('APP_URL (HTTPS required)');
     if (!config.apiPublicUrl.startsWith('https://')) errors.push('API_PUBLIC_URL (HTTPS required)');
+  }
+
+  if (config.emailDeliveryMode === 'LIVE') {
+    if (!config.resendApiKey) errors.push('RESEND_API_KEY');
+    if (!config.resendWebhookSecret.startsWith('whsec_') || config.resendWebhookSecret.length < 32) errors.push('RESEND_WEBHOOK_SECRET');
+    if (!/^.+<[^<>\s]+@[^<>\s]+>$/.test(config.emailFrom)) errors.push('EMAIL_FROM');
+    if (config.emailUnsubscribeSecret.length < 32) errors.push('EMAIL_UNSUBSCRIBE_SECRET (minimum 32 characters)');
   }
 
   const hasGoogleId = Boolean(config.googleOAuthClientId);

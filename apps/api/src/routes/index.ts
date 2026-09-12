@@ -20,6 +20,8 @@ const router = Router();
 
 router.get('/v1/health/ready', asyncHandler(appContainer.readinessController.handle));
 router.post('/v1/internal/maintenance/tick', asyncHandler(appContainer.maintenanceController.tick));
+router.get('/v1/notifications/unsubscribe', asyncHandler(appContainer.emailNotificationController.unsubscribeGet));
+router.post('/v1/notifications/unsubscribe', asyncHandler(appContainer.emailNotificationController.unsubscribePost));
 
 // Mount API v1 routes
 router.use('/v1', authRoutes);

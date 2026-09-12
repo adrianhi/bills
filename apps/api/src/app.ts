@@ -76,6 +76,11 @@ export function createApp(): Express {
     express.json({ limit: '256kb' }),
     appContainer.gmailPubSubController.handle
   );
+  app.post(
+    '/api/v1/webhooks/resend/email',
+    express.raw({ type: 'application/json', limit: '256kb' }),
+    appContainer.emailNotificationController.resendWebhook
+  );
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,

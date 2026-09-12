@@ -103,6 +103,16 @@ Copia y pega las siguientes variables en la pestaña **Environment** de tu servi
 | `GOOGLE_OAUTH_CLIENT_ID` | `10522...apps.googleusercontent.com` | Cliente OAuth de Google Cloud |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | `GOCSPX-...` | Secreto OAuth de Google Cloud |
 | `GOOGLE_OAUTH_REDIRECT_URI` | `https://tu-servicio.onrender.com/api/v1/oauth/google/callback` | Callback exacto registrado en Google |
+| `EMAIL_DELIVERY_MODE` | `AUDIT` / `LIVE` | En `AUDIT` registra la aceptación sin contactar a Resend |
+| `RESEND_API_KEY` | `re_...` | Obligatoria al usar `LIVE` |
+| `RESEND_WEBHOOK_SECRET` | `whsec_...` | Secreto Svix del webhook de Resend |
+| `EMAIL_FROM` | `Cuadre <notificaciones@mail.tu-dominio.com>` | Remitente de un dominio verificado |
+| `EMAIL_UNSUBSCRIBE_SECRET` | *(Mínimo 32 caracteres)* | Firma los enlaces de baja por 180 días |
+| `EMAIL_WEEKLY_DIGEST_ENABLED` | `false` | Feature flag global; además exige opt-in del miembro |
+| `EMAIL_IMMINENT_BILL_ENABLED` | `false` | Feature flag global para cobros fuertes próximos |
+| `EMAIL_PRICE_HIKE_ENABLED` | `false` | Mantener apagado durante el lanzamiento inicial |
+| `EMAIL_PACING_WARNING_ENABLED` | `false` | Mantener apagado durante el lanzamiento inicial |
+| `EMAIL_PAYDAY_RITUAL_ENABLED` | `false` | Mantener apagado durante el lanzamiento inicial |
 
 ---
 
@@ -146,6 +156,16 @@ Si usas el plan Free o deseas asegurar que la cola de Gmail nunca se congele:
    ```bash
    curl -fsS -X POST -H "Authorization: Bearer <TU_MAINTENANCE_SECRET>" "https://tu-servicio.onrender.com/api/v1/internal/maintenance/tick"
    ```
+
+### 7.1 Preparar Resend sin enviar a usuarios reales
+
+1. Registra el dominio de marca y administra su DNS. Para un dominio `.do`, usa MiDominio.do o un revendedor acreditado por NIC.DO; Cloudflare DNS puede alojar la zona.
+2. En Resend agrega un subdominio dedicado, por ejemplo `mail.tu-dominio.com`, y publica exactamente los registros SPF, DKIM y MX indicados. Agrega DMARC inicialmente con política `p=none`.
+3. Crea el webhook `https://tu-servicio.onrender.com/api/v1/webhooks/resend/email` y suscribe los eventos `email.delivered`, `email.failed`, `email.bounced`, `email.complained` y `email.suppressed`.
+4. Desactiva el tracking de aperturas y clics en la configuración del dominio de Resend.
+5. Despliega primero con `EMAIL_DELIVERY_MODE=AUDIT` y todas las feature flags en `false`. Las preferencias de todos los miembros también nacen desactivadas.
+6. Solo cambia a `LIVE` cuando Resend muestre SPF y DKIM verificados y un correo interno confirme `spf=pass`, `dkim=pass` y `dmarc=pass`. La API rechazará el arranque en `LIVE` si faltan credenciales o secretos.
+7. Activa primero `EMAIL_WEEKLY_DIGEST_ENABLED` y `EMAIL_IMMINENT_BILL_ENABLED` para cuentas internas que hayan hecho opt-in. Conserva los otros tres flags apagados durante al menos dos semanas de observación.
 
 ---
 

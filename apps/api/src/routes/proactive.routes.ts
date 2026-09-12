@@ -14,6 +14,8 @@ router.post('/proactive/weekly-checkin/:weekKey/complete', ...protectedRoute, as
 router.post('/proactive/simulate-expense', ...protectedRoute, asyncHandler(appContainer.proactiveController.simulateExpense));
 router.get('/proactive/weekly-digest/preview', ...protectedRoute, asyncHandler(appContainer.proactiveController.weeklyDigestPreview));
 router.post('/proactive/weekly-digest/send-test', ...protectedRoute, asyncHandler(appContainer.proactiveController.sendWeeklyDigestTest));
+router.get('/proactive/email-preferences', ...protectedRoute, asyncHandler(appContainer.proactiveController.emailPreferences));
+router.put('/proactive/email-preferences', ...protectedRoute, asyncHandler(appContainer.proactiveController.updateEmailPreferences));
 
 export default router;
 

@@ -7,7 +7,14 @@ import {
   PRODUCT_GUIDE_VERSION,
   recordProductViewSchema,
   updateRecurringBillSchema,
+  sendWeeklyDigestTestSchema,
 } from './index';
+
+describe('sendWeeklyDigestTestSchema', () => {
+  it('does not accept an arbitrary recipient address', () => {
+    expect(sendWeeklyDigestTestSchema.safeParse({ currency: 'DOP', recipientEmail: 'third-party@example.com' }).success).toBe(false);
+  });
+});
 
 describe('createTransactionInputSchema', () => {
   it('validates a correct manual transaction payload', () => {
@@ -97,7 +104,7 @@ describe('updateTransactionInputSchema', () => {
 });
 
 describe('createCategoryRuleInputSchema', () => {
-  it('normalizes pattern to uppercase and trims', () => {
+  it('trims the pattern while preserving the entered casing', () => {
     const parsed = createCategoryRuleInputSchema.safeParse({
       pattern: '  pedidosya  ',
       normalizedMerchant: 'PedidosYa',
@@ -105,7 +112,7 @@ describe('createCategoryRuleInputSchema', () => {
     });
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.pattern).toBe('PEDIDOSYA');
+      expect(parsed.data.pattern).toBe('pedidosya');
       expect(parsed.data.normalizedMerchant).toBe('PedidosYa');
       expect(parsed.data.category).toBe('Delivery');
     }

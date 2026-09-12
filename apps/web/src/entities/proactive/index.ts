@@ -20,6 +20,8 @@ export type {
   SimulateExpenseCategoryImpactDto,
   WeeklyDigestPreviewDto,
   SendWeeklyDigestTestInput,
+  EmailNotificationPreferencesDto,
+  UpdateEmailNotificationPreferencesInput,
 } from '@bills/contracts';
 
 

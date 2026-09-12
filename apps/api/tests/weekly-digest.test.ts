@@ -56,6 +56,9 @@ describe('renderWeeklyDigestHtml', () => {
     expect(rendered.html).toContain('1,200');
     expect(rendered.html).toContain('Adrian');
     expect(rendered.html).toContain('https://bills.app');
+    expect(rendered.html).toContain('>C.</div>');
+    expect(rendered.html).not.toContain('cifrado de extremo a extremo');
+    expect(rendered.text).toContain('Gasto de los últimos 7 días');
   });
 
   it('handles empty bills gracefully', () => {
@@ -65,5 +68,18 @@ describe('renderWeeklyDigestHtml', () => {
     });
 
     expect(rendered.html).toContain('No tienes cobros fijos programados');
+  });
+
+  it('escapes all user-controlled values', () => {
+    const rendered = renderWeeklyDigestHtml({
+      checkin: { ...checkin, topCategory: { name: '<script>alert(1)</script>', amount: 10, percentage: 1 } },
+      upcomingBills: [{ ...upcomingBills[0], displayName: '<img src=x onerror=alert(1)>' }],
+      userDisplayName: '<b>Adrian</b>', unsubscribeUrl: 'https://api.example/unsubscribe?a=1&b=2',
+    });
+    expect(rendered.html).not.toContain('<script>');
+    expect(rendered.html).not.toContain('<img src=x');
+    expect(rendered.html).not.toContain('<b>Adrian</b>');
+    expect(rendered.html).toContain('&lt;script&gt;');
+    expect(rendered.html).toContain('a=1&amp;b=2');
   });
 });

@@ -1,5 +1,6 @@
 import type { TransactionDto } from '@bills/contracts';
 import { prisma } from '../../../config/database';
+import { visibleTransactionWhere } from '../../transactions';
 import type {
   ProactiveDismissalRepository,
   ProactiveTransactionReader,
@@ -164,6 +165,7 @@ export class PrismaProactiveRepository
         workspaceId,
         currency,
         statusCode: 'APPROVED',
+        ...visibleTransactionWhere(),
         transactionDate: { gte: from, lte: to },
       },
       orderBy: { transactionDate: 'desc' },

@@ -142,6 +142,32 @@ enum RecurringScanStatus {
   FAILED
 }
 
+enum EmailDigestSchedule {
+  MONDAY_0730
+  SUNDAY_1800
+}
+
+enum EmailDeliveryKind {
+  WEEKLY_DIGEST
+  IMMINENT_BILL
+  PRICE_HIKE
+  PACING_WARNING
+  PAYDAY_RITUAL
+  TEST
+}
+
+enum EmailDeliveryStatus {
+  PENDING
+  PROCESSING
+  ACCEPTED
+  DELIVERED
+  FAILED
+  BOUNCED
+  COMPLAINED
+  SUPPRESSED
+  UNKNOWN
+}
+
 model Profile {
   id                           String               @id @db.Uuid
   email                        String               @unique
@@ -339,12 +365,78 @@ model ProductEvent {
   @@map("product_events")
 }
 
-model WorkspaceMember {
+model EmailNotificationPreference {
+  workspaceId           String              @map("workspace_id") @db.Uuid
+  profileId             String              @map("profile_id") @db.Uuid
+  weeklyDigestEnabled   Boolean             @default(false) @map("weekly_digest_enabled")
+  criticalAlertsEnabled Boolean             @default(false) @map("critical_alerts_enabled")
+    digestSchedule        EmailDigestSchedule @default(MONDAY_0730) @map("digest_schedule")
+    nextWeeklyDigestAt    DateTime?           @map("next_weekly_digest_at")
+    lastCriticalScanAt    DateTime            @default(now()) @map("last_critical_scan_at")
+    membership            WorkspaceMember      @relation("EmailPreferenceMembership", fields: [workspaceId, profileId], references: [workspaceId, profileId], onDelete: Cascade)
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  @@id([workspaceId, profileId])
+    @@index([weeklyDigestEnabled, nextWeeklyDigestAt])
+    @@index([criticalAlertsEnabled, lastCriticalScanAt])
+  @@map("email_notification_preferences")
+}
+
+model EmailDelivery {
+  id                String              @id @default(uuid()) @db.Uuid
+  workspaceId       String              @map("workspace_id") @db.Uuid
+  profileId         String              @map("profile_id") @db.Uuid
+  kind              EmailDeliveryKind
+  status            EmailDeliveryStatus @default(PENDING)
+  recipient         String
+  contextKey        String              @map("context_key")
+  subject           String
+  html              String?             @db.Text
+  text              String?             @db.Text
+  headers           Json?
+  providerMessageId String?             @unique @map("provider_message_id")
+  attempts          Int                 @default(0)
+  maxAttempts       Int                 @default(5) @map("max_attempts")
+  nextAttemptAt     DateTime            @default(now()) @map("next_attempt_at")
+  leaseToken        String?             @map("lease_token")
+  leaseUntil        DateTime?           @map("lease_until")
+  errorCode         String?             @map("error_code")
+  acceptedAt        DateTime?           @map("accepted_at")
+  deliveredAt       DateTime?           @map("delivered_at")
+  processedAt       DateTime?           @map("processed_at")
+    membership        WorkspaceMember      @relation("EmailDeliveryMembership", fields: [workspaceId, profileId], references: [workspaceId, profileId], onDelete: Cascade)
+  events            EmailDeliveryEvent[]
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  @@unique([workspaceId, profileId, kind, contextKey])
+  @@index([status, nextAttemptAt, leaseUntil])
+  @@index([profileId, createdAt])
+  @@map("email_deliveries")
+}
+
+model EmailDeliveryEvent {
+  id              String        @id @default(uuid()) @db.Uuid
+  deliveryId      String        @map("delivery_id") @db.Uuid
+  providerEventId String        @unique @map("provider_event_id")
+  type            String
+  occurredAt      DateTime      @map("occurred_at")
+  delivery        EmailDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@index([deliveryId, occurredAt])
+  @@map("email_delivery_events")
+}
+
+  model WorkspaceMember {
   workspaceId String        @map("workspace_id") @db.Uuid
   profileId   String        @map("profile_id") @db.Uuid
   role        WorkspaceRole @default(OWNER)
   workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  profile     Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+    profile     Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+    emailNotificationPreferences EmailNotificationPreference[] @relation("EmailPreferenceMembership")
+    emailDeliveries EmailDelivery[] @relation("EmailDeliveryMembership")
   createdAt   DateTime      @default(now()) @map("created_at")
 
   @@id([workspaceId, profileId])

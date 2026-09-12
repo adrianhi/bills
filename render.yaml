@@ -46,6 +46,26 @@ services:
         sync: false
       - key: MAINTENANCE_SECRET
         sync: false
+      - key: EMAIL_DELIVERY_MODE
+        value: AUDIT
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_WEBHOOK_SECRET
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_UNSUBSCRIBE_SECRET
+        sync: false
+      - key: EMAIL_WEEKLY_DIGEST_ENABLED
+        value: "false"
+      - key: EMAIL_IMMINENT_BILL_ENABLED
+        value: "false"
+      - key: EMAIL_PRICE_HIKE_ENABLED
+        value: "false"
+      - key: EMAIL_PACING_WARNING_ENABLED
+        value: "false"
+      - key: EMAIL_PAYDAY_RITUAL_ENABLED
+        value: "false"
       - key: GOOGLE_OAUTH_CLIENT_ID
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_SECRET

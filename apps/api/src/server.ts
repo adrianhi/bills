@@ -16,6 +16,7 @@ async function bootstrap() {
     appContainer.ingestionRunner.start();
     appContainer.ruleApplicationRunner.start();
     appContainer.recurringRunner.start();
+    appContainer.proactiveEmailRunner.start();
   }
 
   let shuttingDown = false;
@@ -26,6 +27,7 @@ async function bootstrap() {
     await appContainer.ingestionRunner.stop();
     await appContainer.ruleApplicationRunner.stop();
     await appContainer.recurringRunner.stop();
+    await appContainer.proactiveEmailRunner.stop();
     server.close(async () => {
       await disconnectDB();
       logger.info('http_server_stopped');

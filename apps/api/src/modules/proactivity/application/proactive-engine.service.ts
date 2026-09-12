@@ -1,18 +1,14 @@
 import type {
   ProactiveFeedDto,
-  SendWeeklyDigestTestResponse,
   SimulateExpenseResultDto,
   WeeklyCheckinDto,
-  WeeklyDigestPreviewDto,
 } from '@bills/contracts';
 import { evaluateProactiveFeed } from '../domain/proactive-rules';
 import { computeWeeklyCheckin, resolveWeekPeriod } from '../domain/weekly-checkin';
 import { simulateExpenseImpact } from '../domain/expense-simulator';
-import { renderWeeklyDigestHtml } from '../domain/weekly-digest-template';
 import type {
   ProactiveBudgetReader,
   ProactiveDismissalRepository,
-  ProactiveEmailTransport,
   ProactiveRecurringReader,
   ProactiveSafeToSpendReader,
   ProactiveTransactionReader,
@@ -43,7 +39,6 @@ export class ProactiveEngineService {
     private readonly dismissals: ProactiveDismissalRepository,
     private readonly weeklyReviews: ProactiveWeeklyReviewRepository,
     private readonly weeklyExpenses: ProactiveWeeklyExpenseReader,
-    private readonly emailTransport?: ProactiveEmailTransport,
   ) {}
 
 
@@ -152,69 +147,5 @@ export class ProactiveEngineService {
     });
   }
 
-  async getWeeklyDigestPreview(
-    workspaceId: string,
-    profileId: string,
-    recipientEmail: string,
-    displayName: string,
-    currency: 'DOP' | 'USD',
-    appUrl?: string,
-    now = new Date()
-  ): Promise<WeeklyDigestPreviewDto> {
-    const [checkin, radar] = await Promise.all([
-      this.getWeeklyCheckin(workspaceId, profileId, currency, now),
-      this.recurring.radar(workspaceId, currency, 7).catch(() => null),
-    ]);
-
-    const rendered = renderWeeklyDigestHtml({
-      checkin,
-      upcomingBills: radar?.upcoming || [],
-      userDisplayName: displayName,
-      appUrl,
-    });
-
-    return {
-      subject: rendered.subject,
-      recipient: recipientEmail,
-      weekKey: checkin.weekKey,
-      html: rendered.html,
-      generatedAt: now.toISOString(),
-    };
-  }
-
-  async sendWeeklyDigestTest(
-    workspaceId: string,
-    profileId: string,
-    recipientEmail: string,
-    displayName: string,
-    currency: 'DOP' | 'USD',
-    appUrl?: string,
-    now = new Date()
-  ): Promise<SendWeeklyDigestTestResponse['data']> {
-    const preview = await this.getWeeklyDigestPreview(
-      workspaceId,
-      profileId,
-      recipientEmail,
-      displayName,
-      currency,
-      appUrl,
-      now
-    );
-
-    if (this.emailTransport) {
-      return this.emailTransport.sendEmail({
-        recipient: preview.recipient,
-        subject: preview.subject,
-        html: preview.html,
-      });
-    }
-
-    return {
-      delivered: true,
-      recipient: preview.recipient,
-      subject: preview.subject,
-      mode: 'AUDIT_LOG',
-    };
-  }
 }
 

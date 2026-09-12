@@ -4,6 +4,7 @@ import {
   simulateExpenseResponseSchema,
   weeklyCheckinResponseSchema,
   weeklyDigestPreviewResponseSchema,
+  emailNotificationPreferencesResponseSchema,
   type ProactiveFeedDto,
   type SendWeeklyDigestTestInput,
   type SendWeeklyDigestTestResponse,
@@ -11,6 +12,8 @@ import {
   type SimulateExpenseResultDto,
   type WeeklyCheckinDto,
   type WeeklyDigestPreviewDto,
+  type EmailNotificationPreferencesDto,
+  type UpdateEmailNotificationPreferencesInput,
 } from '@bills/contracts';
 import { httpClient, parseResponse } from '@/shared/api';
 
@@ -45,6 +48,14 @@ export const proactiveService = {
   async sendWeeklyDigestTest(input: SendWeeklyDigestTestInput): Promise<SendWeeklyDigestTestResponse['data']> {
     const response = await httpClient.post('/proactive/weekly-digest/send-test', input);
     return parseResponse(sendWeeklyDigestTestResponseSchema, response.data).data;
+  },
+  async emailPreferences(signal?: AbortSignal): Promise<EmailNotificationPreferencesDto> {
+    const response = await httpClient.get('/proactive/email-preferences', { signal });
+    return parseResponse(emailNotificationPreferencesResponseSchema, response.data).data;
+  },
+  async updateEmailPreferences(input: UpdateEmailNotificationPreferencesInput): Promise<EmailNotificationPreferencesDto> {
+    const response = await httpClient.put('/proactive/email-preferences', input);
+    return parseResponse(emailNotificationPreferencesResponseSchema, response.data).data;
   },
 };
 
