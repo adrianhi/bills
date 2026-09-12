@@ -23,7 +23,7 @@ export class EmailTransportService implements ProactiveEmailTransport {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: process.env.EMAIL_FROM || 'bills. <notificaciones@bills.local>',
+            from: process.env.EMAIL_FROM || 'Cuadre <notificaciones@cuadre.do>',
             to: options.recipient,
             subject: options.subject,
             html: options.html,

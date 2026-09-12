@@ -201,7 +201,7 @@ function checkRuntimeConfiguration() {
 
 async function main() {
   console.log('================================================================');
-  console.log('  bills. - Preflight Production Readiness Verification');
+  console.log('  Cuadre - Preflight Production Readiness Verification');
   console.log('================================================================');
 
   await checkBuildArtifacts();

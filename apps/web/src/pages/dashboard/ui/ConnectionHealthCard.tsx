@@ -51,7 +51,7 @@ export function ConnectionHealthCard({
       <Card className="border-border/60" data-product-tour="connection-health">
         <CardContent className="flex items-center gap-3 p-4">
           <MailPlus className="h-5 w-5 shrink-0 text-primary" />
-          <div className="min-w-0 flex-1"><p className="text-sm font-bold">Estás usando bills. en modo manual</p><p className="text-xs text-muted-foreground">Puedes registrar movimientos o conectar Gmail cuando quieras.</p></div>
+          <div className="min-w-0 flex-1"><p className="text-sm font-bold">Estás usando Cuadre en modo manual</p><p className="text-xs text-muted-foreground">Puedes registrar movimientos o conectar Gmail cuando quieras.</p></div>
           <Button variant="outline" className="min-h-11 shrink-0" onClick={onOpenConnections}>Conectar</Button>
         </CardContent>
       </Card>

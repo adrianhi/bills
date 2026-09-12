@@ -1,12 +1,12 @@
-# Guía Definitiva de Despliegue a Producción (Go-Live Weekend) — bills.
+# Guía Definitiva de Despliegue a Producción (Go-Live Weekend) — Cuadre
 
-Esta guía documenta el procedimiento paso a paso para desplegar **bills.** a producción este fin de semana en un **único servicio web de Render** (o contenedor Docker), conectado a **Supabase** y **Google Cloud**.
+Esta guía documenta el procedimiento paso a paso para desplegar **Cuadre** a producción este fin de semana en un **único servicio web de Render** (o contenedor Docker), conectado a **Supabase** y **Google Cloud**.
 
 ---
 
 ## 1. Arquitectura de Despliegue Simplificada
 
-bills. está empaquetado para operar en un modelo **monolítico de proceso único** (`PROCESS_ROLE=all`):
+Cuadre está empaquetado para operar en un modelo **monolítico de proceso único** (`PROCESS_ROLE=all`):
 - **Web:** La SPA React compilada con Vite se sirve como archivos estáticos optimizados con caché desde `public/index.html`.
 - **API:** El servidor Express atiende todas las rutas `/api/v1/*`.
 - **Worker:** El runner de ingesta de Gmail, el motor proactivo y el calculador de gastos recurrentes corren en el mismo proceso, eliminando la necesidad de pagar por workers adicionales.
@@ -16,7 +16,7 @@ bills. está empaquetado para operar en un modelo **monolítico de proceso únic
 [ Navegador del Usuario ]
            │
            ▼
-[ Render Web Service (bills-app) ]
+[ Render Web Service (cuadre-app) ]
   ├── Express HTTP Server (:3000)
   ├── Static SPA Assets (public/index.html)
   └── Ingestion & Proactive Runners (Background Jobs)
@@ -53,17 +53,17 @@ Debe mostrar:
 ### Opción A: Usando Render Blueprint (Recomendado - 1 Clic)
 1. Inicia sesión en tu cuenta de [Render](https://dashboard.render.com/).
 2. Haz clic en **New +** y selecciona **Blueprint**.
-3. Conecta tu repositorio GitHub de `bills` y selecciona la rama `master` (o `develop`).
+3. Conecta tu repositorio GitHub y selecciona la rama `master` (o `develop`).
 4. Render detectará automáticamente el archivo [`render.yaml`](../render.yaml) configurando:
-   - El servicio web `bills-app`.
-   - El cron job de mantenimiento `bills-maintenance-tick` (cada 10 minutos).
+   - El servicio web `cuadre-app`.
+   - El cron job de mantenimiento `cuadre-maintenance-tick` (cada 10 minutos).
 5. Completa los valores de las variables de entorno marcadas con `sync: false`.
 
 ### Opción B: Creación Manual del Web Service
 1. En Render Dashboard: **New +** → **Web Service**.
 2. Conecta el repositorio de GitHub.
 3. Configura los parámetros:
-   - **Name:** `bills-app` (o el nombre que prefieras).
+   - **Name:** `cuadre-app` (o el nombre que prefieras).
    - **Region:** `Oregon (US West)` o la más cercana a tu base de Supabase (`aws-0-us-east-1` = Ohio o Virginia).
    - **Branch:** `master` (o `develop`).
    - **Runtime:** `Node`.
@@ -140,7 +140,7 @@ Copia y pega las siguientes variables en la pestaña **Environment** de tu servi
 
 Si usas el plan Free o deseas asegurar que la cola de Gmail nunca se congele:
 1. En Render Dashboard: **New +** → **Cron Job**.
-2. **Name:** `bills-cron-tick`
+2. **Name:** `cuadre-cron-tick`
 3. **Schedule:** `*/10 * * * *` (cada 10 minutos).
 4. **Command:**
    ```bash

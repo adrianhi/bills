@@ -31,7 +31,7 @@ export function renderWeeklyDigestHtml(input: WeeklyDigestTemplateInput): {
         : `🟠 Gastaste un ${c.changePercent}% más que la semana anterior.`
       : 'Ritmo estable comparado con la semana anterior.';
 
-  const subject = `Tu Pulso Semanal (${c.startDate} al ${c.endDate}) • bills.`;
+  const subject = `Tu Pulso Semanal (${c.startDate} al ${c.endDate}) • Cuadre`;
 
   const billsRows = input.upcomingBills.length > 0
     ? input.upcomingBills
@@ -127,7 +127,7 @@ export function renderWeeklyDigestHtml(input: WeeklyDigestTemplateInput): {
 
         <!-- CTA Button -->
         <div style="text-align: center; margin-bottom: 12px;">
-          <a href="${appUrl}" style="display: inline-block; background-color: #10b981; color: #ffffff; font-weight: 700; font-size: 14px; text-decoration: none; padding: 12px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);">Abrir bills.</a>
+          <a href="${appUrl}" style="display: inline-block; background-color: #10b981; color: #ffffff; font-weight: 700; font-size: 14px; text-decoration: none; padding: 12px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);">Abrir Cuadre</a>
         </div>
       </td>
     </tr>
@@ -135,7 +135,7 @@ export function renderWeeklyDigestHtml(input: WeeklyDigestTemplateInput): {
     <!-- Footer -->
     <tr>
       <td style="padding: 16px 24px 24px 24px; text-align: center; border-top: 1px solid #1e293b; font-size: 11px; color: #64748b;">
-        Este es tu resumen financiero automatizado generado por bills.<br>
+        Este es tu resumen financiero automatizado generado por Cuadre.<br>
         Tus datos bancarios y personales están protegidos con cifrado de extremo a extremo.
       </td>
     </tr>

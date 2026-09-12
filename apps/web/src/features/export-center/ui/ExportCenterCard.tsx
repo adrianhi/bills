@@ -47,7 +47,7 @@ export const ExportCenterCard: React.FC<ExportCenterCardProps> = ({ period, curr
         organization: filters.organization || undefined, transactionType: filters.transactionType || undefined,
         search: filters.search || undefined, includeNotes,
       });
-      const result = await shareOrDownloadFile(blob, filename, 'Informe financiero bills.');
+      const result = await shareOrDownloadFile(blob, filename, 'Informe financiero Cuadre');
       setOutcome(result === 'cancelled' ? null : result);
     } catch (cause) {
       setError(cause);
@@ -60,8 +60,8 @@ export const ExportCenterCard: React.FC<ExportCenterCardProps> = ({ period, curr
     setWorking(true); setError(null); setOutcome(null);
     try {
       const blob = await accountService.exportData();
-      const filename = `bills-cuenta-${new Date().toISOString().slice(0, 10)}.json`;
-      const result = await shareOrDownloadFile(blob, filename, 'Copia completa de mi cuenta bills.');
+      const filename = `cuadre-cuenta-${new Date().toISOString().slice(0, 10)}.json`;
+      const result = await shareOrDownloadFile(blob, filename, 'Copia completa de mi cuenta Cuadre');
       setOutcome(result === 'cancelled' ? null : result);
     } catch (cause) { setError(cause); }
     finally { setWorking(false); }

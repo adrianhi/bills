@@ -20,9 +20,9 @@ interface LegalTemplate {
 
 function provider() {
   return {
-    name: config.legalProviderName || 'Responsable de bills. (beta)',
+    name: config.legalProviderName || 'Responsable de Cuadre (beta)',
     id: config.legalProviderId || 'Identificación disponible por el canal de contacto',
-    email: config.legalContactEmail || 'privacidad@bills.do',
+    email: config.legalContactEmail || 'privacidad@cuadre.do',
     address: config.legalContactAddress || 'Santo Domingo, República Dominicana',
   };
 }
@@ -39,28 +39,28 @@ function templates(): LegalTemplate[] {
       effectiveAt: new Date('2026-08-29T00:00:00.000Z'),
       content: `# Términos y condiciones de uso
 
-Vigentes desde el 29 de agosto de 2026. bills. es operado por ${owner.name}, identificación ${owner.id}, con domicilio de contacto en ${owner.address} y correo ${owner.email}.
+Vigentes desde el 29 de agosto de 2026. Cuadre es operado por ${owner.name}, identificación ${owner.id}, con domicilio de contacto en ${owner.address} y correo ${owner.email}.
 
 ## Servicio
-bills. es una aplicación beta de organización y analítica financiera personal. Importa notificaciones autorizadas por el usuario, normaliza movimientos y presenta métricas informativas. No es un banco, entidad financiera, contador, asesor fiscal ni asesor de inversión. Los registros oficiales de la entidad bancaria prevalecen y el usuario debe verificar cualquier diferencia.
+Cuadre es una aplicación beta de organización y analítica financiera personal. Importa notificaciones autorizadas por el usuario, normaliza movimientos y presenta métricas informativas. No es un banco, entidad financiera, contador, asesor fiscal ni asesor de inversión. Los registros oficiales de la entidad bancaria prevalecen y el usuario debe verificar cualquier diferencia.
 
 ## Elegibilidad y cuenta
 El servicio está dirigido a personas de 18 años o más en República Dominicana. El usuario debe proporcionar información correcta, proteger su sesión y conectar únicamente cuentas de correo propias o que esté autorizado a gestionar.
 
 ## Uso permitido
-No se permite acceder a datos de terceros sin autorización, interferir con la seguridad, automatizar abuso, intentar eludir límites ni utilizar bills. para fraude o actividades contrarias a la ley.
+No se permite acceder a datos de terceros sin autorización, interferir con la seguridad, automatizar abuso, intentar eludir límites ni utilizar Cuadre para fraude o actividades contrarias a la ley.
 
 ## Beta, disponibilidad y cambios
 La beta puede contener errores, interrupciones o parsers incompletos. Podemos corregir, limitar o suspender funciones por seguridad, mantenimiento o incumplimiento. Los cambios materiales a estos términos serán informados y requerirán nueva aceptación; no se aplicarán de forma discriminatoria.
 
 ## Terceros
-El servicio depende de proveedores como Google, Supabase y las entidades emisoras de notificaciones. bills. no está afiliado ni respaldado por BHD, Qik, Banreservas u otro banco salvo acuerdo expreso. Cada tercero mantiene sus propios términos.
+El servicio depende de proveedores como Google, Supabase y las entidades emisoras de notificaciones. Cuadre no está afiliado ni respaldado por BHD, Qik, Banreservas u otro banco salvo acuerdo expreso. Cada tercero mantiene sus propios términos.
 
 ## Responsabilidad
-bills. aplicará cuidado razonable en la prestación del servicio. En la medida permitida por la legislación aplicable, no responde por decisiones tomadas exclusivamente a partir de métricas informativas, interrupciones de terceros o datos bancarios incorrectos. Nada en estos términos excluye derechos irrenunciables del consumidor ni responsabilidad que legalmente no pueda limitarse.
+Cuadre aplicará cuidado razonable en la prestación del servicio. En la medida permitida por la legislación aplicable, no responde por decisiones tomadas exclusivamente a partir de métricas informativas, interrupciones de terceros o datos bancarios incorrectos. Nada en estos términos excluye derechos irrenunciables del consumidor ni responsabilidad que legalmente no pueda limitarse.
 
 ## Propiedad intelectual
-El usuario recibe una licencia personal, revocable y no transferible para utilizar la aplicación. La marca, interfaz y software permanecen bajo titularidad de sus respectivos propietarios. Los datos financieros del usuario no se convierten en propiedad de bills.
+El usuario recibe una licencia personal, revocable y no transferible para utilizar la aplicación. La marca, interfaz y software permanecen bajo titularidad de sus respectivos propietarios. Los datos financieros del usuario no se convierten en propiedad de Cuadre.
 
 ## Terminación y eliminación
 El usuario puede desconectar Gmail o eliminar su cuenta. Podemos suspender acceso ante riesgo de seguridad o incumplimiento, procurando notificar cuando sea razonable. La eliminación se ejecuta conforme a la política publicada.
@@ -99,10 +99,10 @@ No vendemos datos personales o financieros ni usamos datos de Gmail para publici
 Aplicamos cifrado de secretos, HTTPS en producción, separación por workspace, control de acceso, registros minimizados, rotación de credenciales y pruebas de aislamiento. Ningún sistema es infalible; investigaremos incidentes y notificaremos cuando corresponda.
 
 ## Derechos
-El titular puede solicitar acceso, corrección, actualización, oposición o eliminación escribiendo a ${owner.email} después de verificar su identidad. bills. atenderá acceso dentro del plazo legal aplicable y las rectificaciones o supresiones procedentes dentro de un máximo operativo de 10 días hábiles, salvo obligación legal de conservación.
+El titular puede solicitar acceso, corrección, actualización, oposición o eliminación escribiendo a ${owner.email} después de verificar su identidad. Cuadre atenderá acceso dentro del plazo legal aplicable y las rectificaciones o supresiones procedentes dentro de un máximo operativo de 10 días hábiles, salvo obligación legal de conservación.
 
 ## Gmail y revocación
-Conectar Gmail es opcional y separado del inicio de sesión. El usuario puede revocar la conexión desde bills. o desde su cuenta de Google. Revocar detiene nuevas sincronizaciones sin borrar automáticamente transacciones ya importadas; la cuenta completa puede eliminarse por separado.
+Conectar Gmail es opcional y separado del inicio de sesión. El usuario puede revocar la conexión desde Cuadre o desde su cuenta de Google. Revocar detiene nuevas sincronizaciones sin borrar automáticamente transacciones ya importadas; la cuenta completa puede eliminarse por separado.
 
 ## Menores y cambios
 No está dirigido a menores de 18 años. Los cambios materiales se comunicarán y, cuando corresponda, requerirán nueva aceptación.
@@ -117,11 +117,11 @@ No está dirigido a menores de 18 años. Los cambios materiales se comunicarán 
       effectiveAt: new Date('2026-08-28T00:00:00.000Z'),
       content: `# Divulgación de acceso a Gmail
 
-Conectar Gmail es opcional. bills. solicita acceso de solo lectura para buscar correos de remitentes bancarios compatibles, extraer movimientos y evitar duplicados. No enviamos, editamos ni eliminamos correos.
+Conectar Gmail es opcional. Cuadre solicita acceso de solo lectura para buscar correos de remitentes bancarios compatibles, extraer movimientos y evitar duplicados. No enviamos, editamos ni eliminamos correos.
 
 El contenido de un mensaje procesado correctamente no se conserva. Los fallidos pueden mantenerse cifrados hasta 7 días para diagnóstico y recuperación controlada. Los datos normalizados y metadatos técnicos se usan para prestar y proteger el servicio, no para publicidad, venta de datos ni perfiles comerciales.
 
-El uso y transferencia de información recibida desde las API de Google se ajustará a la Google API Services User Data Policy, incluidos sus requisitos de Limited Use. No vendemos esta información, no la usamos para publicidad y no permitimos acceso humano salvo las excepciones expresamente permitidas por esa política. Puedes revocar el acceso en cualquier momento desde bills. o desde la configuración de seguridad de Google.
+El uso y transferencia de información recibida desde las API de Google se ajustará a la Google API Services User Data Policy, incluidos sus requisitos de Limited Use. No vendemos esta información, no la usamos para publicidad y no permitimos acceso humano salvo las excepciones expresamente permitidas por esa política. Puedes revocar el acceso en cualquier momento desde Cuadre o desde la configuración de seguridad de Google.
 `,
     },
     {

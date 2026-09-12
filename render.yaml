@@ -1,7 +1,7 @@
 services:
   # Servicio Web Unificado: Frontend SPA + API Express + Cola de Ingesta Gmail (PROCESS_ROLE=all)
   - type: web
-    name: bills-app
+    name: cuadre-app
     runtime: node
     plan: starter
     region: oregon
@@ -65,7 +65,7 @@ services:
 
   # Cron job cada 10 minutos para despertar el servicio y avanzar reconciliaciones de Gmail
   - type: cron
-    name: bills-maintenance-tick
+    name: cuadre-maintenance-tick
     runtime: node
     plan: starter
     region: oregon

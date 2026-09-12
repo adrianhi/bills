@@ -33,7 +33,7 @@ export function useReportExport(open: boolean, state: ExportFormState, period: R
           includeNotes: state.includeNotes, title: richFormat && state.title.trim() ? state.title.trim() : undefined,
           sections: richFormat ? state.sections : undefined,
         });
-      const title = state.format === 'json' ? 'Copia completa de mi cuenta bills.' : state.title.trim() || 'Informe financiero bills.';
+      const title = state.format === 'json' ? 'Copia completa de mi cuenta Cuadre' : state.title.trim() || 'Informe financiero Cuadre';
       const result = await shareOrDownloadFile(file.blob, file.filename, title);
       setOutcome(result === 'cancelled' ? null : result);
     } catch (cause) {

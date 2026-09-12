@@ -75,7 +75,7 @@ export function IncomeStreamsSettingsModal({ open, onOpenChange, currency }: Inc
             <span>Perfil de Ingresos Regulares</span>
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            Declara tu salario o ingresos recurrentes. Así bills. sabrá cuánto ganas y calculará tu ahorro real, incluso si tu banco no te alerta al cobrar.
+            Declara tu salario o ingresos recurrentes. Así Cuadre sabrá cuánto ganas y calculará tu ahorro real, incluso si tu banco no te alerta al cobrar.
           </DialogDescription>
         </DialogHeader>
 

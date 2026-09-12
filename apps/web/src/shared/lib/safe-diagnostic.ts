@@ -5,7 +5,7 @@ export const BILLS_BETA_VERSION = '2026-08-30.1';
 export function safeDiagnostic(error: unknown, area: string, extra: Record<string, string | number | null | undefined> = {}) {
   const normalized = error instanceof ApiClientError ? error : null;
   return [
-    'bills. diagnóstico seguro',
+    'Cuadre diagnóstico seguro',
     `versión=${BILLS_BETA_VERSION}`,
     `área=${area}`,
     `fecha=${new Date().toISOString()}`,

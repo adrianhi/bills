@@ -192,7 +192,7 @@ export async function renderXlsx(
   budget: ReportBudget = null,
 ) {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'bills.';
+  workbook.creator = 'Cuadre';
   workbook.created = new Date();
   const selected = new Set(presentation.sections);
 

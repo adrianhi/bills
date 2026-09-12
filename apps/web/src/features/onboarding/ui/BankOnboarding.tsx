@@ -54,7 +54,7 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
           <div className="bg-gradient-to-br from-emerald-600 to-teal-600 p-6 text-white">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"><Sparkles className="h-6 w-6" /></div>
             <h1 className="text-2xl font-bold">Conecta tu correo y listo</h1>
-            <p className="mt-2 max-w-lg text-sm text-emerald-50/90">Elige tus bancos y bills. buscará únicamente sus notificaciones compatibles.</p>
+            <p className="mt-2 max-w-lg text-sm text-emerald-50/90">Elige tus bancos y Cuadre buscará únicamente sus notificaciones compatibles.</p>
           </div>
           <CardContent className="space-y-5 p-6">
             {loading ? <div className="flex min-h-40 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-emerald-500" /></div> : activeInbox ? (

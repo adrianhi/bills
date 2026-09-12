@@ -73,7 +73,7 @@ export function AccountConnectionsSection({ model }: { model: AccountSettingsMod
           </Button>
         </div>
       )}
-      <a href="/legal/google-api-disclosure" target="_blank" className="block text-xs text-muted-foreground underline">Cómo bills. usa los datos de Google</a>
+      <a href="/legal/google-api-disclosure" target="_blank" className="block text-xs text-muted-foreground underline">Cómo Cuadre usa los datos de Google</a>
       {notice && <div className="rounded-lg bg-sky-500/10 p-2 text-xs text-sky-700 dark:text-sky-300">{notice}</div>}
     </section>
   );

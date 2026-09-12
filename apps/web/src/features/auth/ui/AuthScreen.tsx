@@ -50,13 +50,13 @@ export function AuthScreen({
       <div className="w-full max-w-sm space-y-6">
         <div className="space-y-2 text-center">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 text-white shadow-xl shadow-emerald-500/25">
-            <span className="text-2xl font-extrabold tracking-tighter">b.</span>
+            <span className="text-2xl font-extrabold tracking-tighter">c.</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
-            bills<span className="text-emerald-500">.</span>
+            cuadre<span className="text-emerald-500">.</span>
           </h1>
           <p className="text-sm text-muted-foreground">
-            Tus movimientos financieros, en un solo lugar.
+            Tus finanzas y tus bancos, siempre al día.
           </p>
         </div>
 

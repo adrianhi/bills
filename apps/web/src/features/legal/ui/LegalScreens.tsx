@@ -42,7 +42,7 @@ export function LegalDocumentPage({ path }: { path?: string }) {
     <div className="min-h-screen bg-background px-4 py-8 text-foreground sm:py-12">
       <main className="mx-auto max-w-3xl">
         <a href="/" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Volver a bills.
+          <ArrowLeft className="h-4 w-4" /> Volver a Cuadre
         </a>
         <Card className="border-border/60 shadow-xl">
           <CardContent className="p-6 sm:p-10">

@@ -32,7 +32,7 @@ function footersAndHeaders(doc: PDFKit.PDFDocument, presentation: ReportPresenta
     doc.strokeColor(THEME.line).lineWidth(0.5)
       .moveTo(PAGE.left, 792).lineTo(PAGE.right, 792).stroke();
 
-    const footerDisclaimer = 'bills. • Documento confidencial generado bajo demanda • Analítica institucional de finanzas';
+    const footerDisclaimer = 'Cuadre • Documento confidencial generado bajo demanda • Analítica institucional de finanzas';
     doc.fillColor(THEME.slate).font('Helvetica').fontSize(6.8)
       .text(footerDisclaimer, PAGE.left, 800, { width: 380, lineBreak: false });
 
@@ -54,7 +54,7 @@ export function renderPdf(
       size: 'A4',
       margin: PAGE.margin,
       bufferPages: true,
-      info: { Title: presentation.title, Author: 'bills.' },
+      info: { Title: presentation.title, Author: 'Cuadre' },
     });
 
     const chunks: Buffer[] = [];
