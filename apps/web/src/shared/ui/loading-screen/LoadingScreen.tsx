@@ -40,7 +40,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
             aria-hidden="true"
           />
           <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-2xl font-black text-white shadow-xl shadow-emerald-500/25">
-            b.
+            C.
           </div>
         </div>
 

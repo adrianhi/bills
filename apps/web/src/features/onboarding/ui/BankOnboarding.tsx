@@ -23,7 +23,7 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
         <div className="mx-auto w-full max-w-2xl space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500 text-xl font-black text-white shadow-lg shadow-emerald-500/20">b.</div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500 text-xl font-black text-white shadow-lg shadow-emerald-500/20">C.</div>
               <div><p className="font-bold">Tu punto de partida</p><p className="text-xs text-muted-foreground">Define tus ingresos y gastos fijos base.</p></div>
             </div>
             <Button variant="ghost" size="sm" className="gap-2" onClick={onLogout}><LogOut className="h-4 w-4" /> Salir</Button>
@@ -44,7 +44,7 @@ export function BankOnboarding({ authToken, onComplete, onLogout }: BankOnboardi
       <div className="mx-auto w-full max-w-2xl space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500 text-xl font-black text-white shadow-lg shadow-emerald-500/20">b.</div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500 text-xl font-black text-white shadow-lg shadow-emerald-500/20">C.</div>
             <div><p className="font-bold">Activa tus movimientos automáticos</p><p className="text-xs text-muted-foreground">Sin tocar tu banca en línea.</p></div>
           </div>
           <Button variant="ghost" size="sm" className="gap-2" onClick={onLogout}><LogOut className="h-4 w-4" /> Salir</Button>

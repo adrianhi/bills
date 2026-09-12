@@ -82,7 +82,7 @@ export function ConnectionHealthCard({
           <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold">{connection.requiresBankSelection ? 'Elige los bancos de esta conexión' : reauth ? 'Gmail necesita reconexión' : 'Sincronización parcial'}</p>
-            <p className="text-xs text-muted-foreground">{reauth ? 'Durante la beta, Google puede pedir autorización cada siete días. Tus datos importados no se pierden.' : 'Revisa la conexión para completar la importación.'}</p>
+            <p className="text-xs text-muted-foreground">{reauth ? 'Google puede pedir autorización periódica cada siete días. Tus datos importados no se pierden.' : 'Revisa la conexión para completar la importación.'}</p>
           </div>
           <Button variant="outline" className="min-h-11 shrink-0" onClick={onOpenConnections}>{reauth ? 'Reconectar' : 'Revisar'}</Button>
         </CardContent>

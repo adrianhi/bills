@@ -23,15 +23,10 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           C.
         </div>
         <div>
-          <div className="flex items-center gap-2">
-            <p className="text-xl font-black tracking-tight">
-              Cuadre<span className="text-primary">.</span>
-            </p>
-            <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">
-              Beta privada
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">Tus finanzas al día</p>
+          <p className="text-xl font-black tracking-tight">
+            Cuadre<span className="text-primary">.</span>
+          </p>
+          <p className="text-xs text-muted-foreground">Tu dinero al día</p>
         </div>
       </div>
       <nav className="flex-1 space-y-1 p-4" aria-label="Navegación principal">

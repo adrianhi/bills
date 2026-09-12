@@ -17,7 +17,7 @@ export function Navbar({ title, hideBalances, setHideBalances, onRefresh, onOpen
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-base font-black text-white shadow-sm lg:hidden">C.</div>
           <div className="min-w-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-primary sm:text-[11px]">Beta privada <span className="hidden text-muted-foreground sm:inline">· Tus cuartos al día</span></p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-primary sm:text-[11px]">Tu dinero al día</p>
             <h1 className="truncate text-lg font-bold tracking-tight sm:text-xl">{title}</h1>
           </div>
         </div>
