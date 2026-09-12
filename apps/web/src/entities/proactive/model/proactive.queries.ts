@@ -36,9 +36,26 @@ export function useCompleteWeeklyCheckin(currency: string) {
   });
 }
 
-export function useSimulateExpense() {
-  return useMutation({
-    mutationFn: proactiveService.simulateExpense,
+export function useSimulateExpense(params: {
+  amount: number;
+  categoryKey?: string;
+  currency: string;
+  enabled?: boolean;
+}) {
+  return useQuery({
+    queryKey: ['proactive', 'simulate-expense', params.currency, params.amount, params.categoryKey || ''],
+    queryFn: ({ signal }) =>
+      proactiveService.simulateExpense(
+        {
+          amount: params.amount,
+          categoryKey: params.categoryKey || undefined,
+          currency: params.currency as 'DOP' | 'USD',
+        },
+        signal
+      ),
+    enabled: Boolean(params.enabled && params.amount > 0),
+    placeholderData: (prev) => prev,
+    staleTime: 30_000,
   });
 }
 

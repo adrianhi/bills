@@ -4,12 +4,13 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  Loader2,
   Plus,
   Sparkles,
   Wallet,
 } from 'lucide-react';
-import type { SimulateExpenseResultDto } from '@bills/contracts';
 import { useSimulateExpense } from '@/entities/proactive';
+import { currentBudgetMonth, useBudgetSummary } from '@/entities/budget';
 import {
   Button,
   Dialog,
@@ -22,10 +23,7 @@ import {
 } from '@/shared/ui';
 import { formatCurrency } from '@/shared/lib';
 
-export interface ExpenseSimulatorCategory {
-  key: string;
-  label: string;
-}
+export interface ExpenseSimulatorCategory { key: string; label: string; }
 
 export interface ExpenseSimulatorDialogProps {
   open: boolean;
@@ -46,32 +44,39 @@ export function ExpenseSimulatorDialog({
 }: ExpenseSimulatorDialogProps) {
   const [amountStr, setAmountStr] = useState('1500');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const simulateMutation = useSimulateExpense();
-  const [result, setResult] = useState<SimulateExpenseResultDto | null>(null);
-
-  const numericAmount = parseFloat(amountStr) || 0;
   const activeCurrency = currency === 'USD' ? 'USD' : 'DOP';
 
+  const budgetSummary = useBudgetSummary(currentBudgetMonth(), activeCurrency);
+  const availableCategories = categories.length > 0
+    ? categories
+    : (budgetSummary.data?.categories || []).map((c) => ({
+        key: c.categoryKey || c.categoryLabel || 'categoria',
+        label: c.categoryLabel || c.categoryKey || 'Categoría',
+      }));
+
+  const numericAmount = parseFloat(amountStr) || 0;
+  const [debouncedAmount, setDebouncedAmount] = useState(numericAmount);
+
   useEffect(() => {
-    if (!open || numericAmount <= 0) return;
     const timer = setTimeout(() => {
-      simulateMutation.mutate(
-        {
-          amount: numericAmount,
-          categoryKey: selectedCategory || undefined,
-          currency: activeCurrency,
-        },
-        { onSuccess: (data) => setResult(data) }
-      );
+      setDebouncedAmount(numericAmount);
     }, 200);
     return () => clearTimeout(timer);
-  }, [numericAmount, selectedCategory, activeCurrency, open, simulateMutation]);
+  }, [numericAmount]);
 
-  const displayedResult = numericAmount > 0 ? result : null;
+  const simulation = useSimulateExpense({
+    amount: debouncedAmount,
+    categoryKey: selectedCategory || undefined,
+    currency: activeCurrency,
+    enabled: open && debouncedAmount > 0,
+  });
+
+  const displayedResult = debouncedAmount > 0 ? simulation.data : null;
 
   const handleQuickAddAmount = (add: number) => {
     const next = (parseFloat(amountStr) || 0) + add;
     setAmountStr(String(next));
+    setDebouncedAmount(next);
   };
 
   const isSafe = displayedResult?.verdict === 'SAFE';
@@ -96,7 +101,14 @@ export function ExpenseSimulatorDialog({
         <div className="space-y-4 py-2">
           {/* Monto input */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-foreground">¿Cuánto piensas gastar?</label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-foreground">¿Cuánto piensas gastar?</label>
+              {simulation.isFetching && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary animate-pulse">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Calculando...
+                </span>
+              )}
+            </div>
             <div className="relative">
               <span className="absolute left-3 top-2.5 text-sm font-bold text-muted-foreground">
                 {activeCurrency}
@@ -118,7 +130,7 @@ export function ExpenseSimulatorDialog({
                   key={amt}
                   type="button"
                   onClick={() => handleQuickAddAmount(amt)}
-                  className="inline-flex items-center gap-0.5 rounded-lg border border-border/80 bg-muted/40 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                  className="inline-flex items-center gap-0.5 rounded-lg border border-border/80 bg-muted/40 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
                 >
                   <Plus className="h-3 w-3" />
                   {formatCurrency(amt, activeCurrency)}
@@ -128,7 +140,7 @@ export function ExpenseSimulatorDialog({
           </div>
 
           {/* Categoría opcional */}
-          {categories.length > 0 && (
+          {availableCategories.length > 0 && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground">Categoría (opcional)</label>
               <select
@@ -137,7 +149,7 @@ export function ExpenseSimulatorDialog({
                 className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs font-medium text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Cualquiera / Sin categoría específica</option>
-                {categories.map((c) => (
+                {availableCategories.map((c) => (
                   <option key={c.key} value={c.key}>
                     {c.label}
                   </option>
@@ -161,17 +173,11 @@ export function ExpenseSimulatorDialog({
                 {isSafe && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />}
                 {isTight && <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />}
                 {isOverspend && <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />}
-                <span
-                  className={`text-xs font-bold ${
-                    isSafe ? 'text-emerald-500' : isTight ? 'text-amber-500' : 'text-rose-500'
-                  }`}
-                >
+                <span className={`text-xs font-bold ${isSafe ? 'text-emerald-500' : isTight ? 'text-amber-500' : 'text-rose-500'}`}>
                   {displayedResult.adviceTitle}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {displayedResult.adviceDescription}
-              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{displayedResult.adviceDescription}</p>
 
               {/* Comparativa de margen diario */}
               <div className="flex items-center justify-between rounded-lg bg-card/60 p-2.5 text-xs border border-border/50">

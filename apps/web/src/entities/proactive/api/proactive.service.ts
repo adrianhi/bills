@@ -34,8 +34,8 @@ export const proactiveService = {
     );
     return parseResponse(weeklyCheckinResponseSchema, response.data).data;
   },
-  async simulateExpense(input: SimulateExpenseInput): Promise<SimulateExpenseResultDto> {
-    const response = await httpClient.post('/proactive/simulate-expense', input);
+  async simulateExpense(input: SimulateExpenseInput, signal?: AbortSignal): Promise<SimulateExpenseResultDto> {
+    const response = await httpClient.post('/proactive/simulate-expense', input, { signal });
     return parseResponse(simulateExpenseResponseSchema, response.data).data;
   },
   async weeklyDigestPreview(currency: string, signal?: AbortSignal): Promise<WeeklyDigestPreviewDto> {
