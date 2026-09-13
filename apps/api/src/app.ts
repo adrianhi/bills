@@ -117,6 +117,7 @@ export function createApp(): Express {
       timestamp: new Date().toISOString(),
       version: '1.0.0',
       uptime: process.uptime(),
+      commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || 'local',
     });
   });
 

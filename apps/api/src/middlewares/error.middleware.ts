@@ -53,6 +53,8 @@ export function errorHandler(
       method: req.method,
       errorCode: err instanceof AppError ? err.code : 'INTERNAL_SERVER_ERROR',
       errorName: err instanceof Error ? err.name : 'UnknownError',
+      errorMessage: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
     });
   }
 
