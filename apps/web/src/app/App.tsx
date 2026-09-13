@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthScreen, useAuthSession } from '@/features/auth';
 import { BankOnboarding } from '@/features/onboarding';
 import { LegalAcceptanceScreen, LegalDocumentPage } from '@/features/legal';
+import { LandingPage } from '@/pages/landing';
 import { LoadingScreen } from '@/shared/ui';
 
 const DashboardPage = lazy(async () => {
@@ -76,10 +77,13 @@ export function App() {
 
   return (
     <Routes>
+      <Route path="/" element={<LandingPage hasSession={Boolean(authToken)} />} />
       <Route path="/legal/:slug" element={<LegalDocumentPage />} />
       <Route path="/terms" element={<LegalDocumentPage path="/legal/terms" />} />
       <Route path="/privacy" element={<LegalDocumentPage path="/legal/privacy" />} />
-      <Route path="*" element={protectedContent} />
+      <Route path="/login" element={authToken ? <Navigate to="/app" replace /> : protectedContent} />
+      <Route path="/app/*" element={protectedContent} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -20,3 +20,5 @@ dev.db-wal
 .DS_Store
 *.log
 .gemini/
+backups/
+*.dump

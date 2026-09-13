@@ -684,12 +684,30 @@ model IngestionJob {
 }
 
 model BetaInvite {
-  id        String    @id @default(uuid()) @db.Uuid
-  email     String    @unique
-  usedAt    DateTime? @map("used_at")
-  createdAt DateTime  @default(now()) @map("created_at")
+  id                String    @id @default(uuid()) @db.Uuid
+  email             String    @unique
+  code              String?   @unique
+  source            String?
+  campaignCode      String?   @map("campaign_code")
+  referrerProfileId String?   @map("referrer_profile_id") @db.Uuid
+  expiresAt         DateTime? @map("expires_at")
+  usedAt            DateTime? @map("used_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
 
   @@map("beta_invites")
+}
+
+model BetaInterest {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  source       String?  @default("LANDING_DIRECT")
+  campaignCode String?  @map("campaign_code")
+  referredBy   String?  @map("referred_by")
+  consentedAt  DateTime @default(now()) @map("consented_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("beta_interests")
 }
 
 model Transaction {

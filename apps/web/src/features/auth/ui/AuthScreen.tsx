@@ -129,6 +129,11 @@ export function AuthScreen({
             </a>
             .
           </p>
+          <div className="pt-2">
+            <a href="/" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              ← Volver a la página principal
+            </a>
+          </div>
         </div>
       </div>
     </div>

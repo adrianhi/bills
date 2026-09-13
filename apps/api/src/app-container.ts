@@ -65,6 +65,7 @@ import {
   ProactiveController, ProactiveEmailRunner, ProactiveEmailScheduler, ProactiveEmailService,
   ProactiveEngineService, WeeklyEmailBuilder,
 } from './modules/proactivity';
+import { BetaInterestController, BetaInterestService, PrismaBetaInterestRepository } from './modules/auth';
 
 const analyticsService = new AnalyticsService(new PrismaAnalyticsRepository());
 const incomeRepository = new PrismaIncomeRepository();
@@ -233,4 +234,5 @@ export const appContainer = {
   bankConnectionController: new BankConnectionController(new FinancialInstitutionService()),
   incomeController,
   incomeService,
+  betaInterestController: new BetaInterestController(new BetaInterestService(new PrismaBetaInterestRepository())),
 };
