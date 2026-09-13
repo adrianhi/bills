@@ -47,6 +47,7 @@ COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY packages/contracts/package*.json ./packages/contracts/
 COPY apps/api/prisma ./apps/api/prisma/
+COPY scripts ./scripts
 
 RUN npm install --omit=dev
 
