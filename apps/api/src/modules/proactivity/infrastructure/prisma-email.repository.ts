@@ -146,7 +146,14 @@ export class PrismaEmailRepository implements ProactiveEmailRepository {
       ? ['ACCEPTED', 'DELIVERED'] : ['ACCEPTED'];
     try {
       await prisma.$transaction(async (tx) => {
-        await tx.emailDeliveryEvent.create({ data: { deliveryId: delivery.id, ...input } });
+        await tx.emailDeliveryEvent.create({
+          data: {
+            deliveryId: delivery.id,
+            providerEventId: input.providerEventId,
+            type: input.type,
+            occurredAt: input.occurredAt,
+          },
+        });
         await tx.emailDelivery.updateMany({ where: { id: delivery.id, status: { in: allowedFrom } }, data: {
           status, ...(status === 'DELIVERED' ? { deliveredAt: input.occurredAt } : {}), processedAt: input.occurredAt,
         } });
