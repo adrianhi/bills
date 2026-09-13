@@ -10,7 +10,8 @@ export interface ProactiveEmailOptions {
   appUrl: string; apiPublicUrl: string; unsubscribeSecret: string;
 }
 
-function maskEmail(email: string) {
+function maskEmail(email?: string | null) {
+  if (!email || typeof email !== 'string' || !email.includes('@')) return '***@***';
   const [name, domain = ''] = email.split('@');
   return `${name.slice(0, 2)}${'*'.repeat(Math.max(2, name.length - 2))}@${domain}`;
 }
