@@ -95,7 +95,17 @@ async function checkDatabase() {
       FROM _prisma_migrations 
       ORDER BY finished_at DESC;
     `;
-    pass('Migraciones Prisma', `${migrations.length} migraciones registradas y aplicadas`);
+    const migrationsDir = path.join(rootDir, 'apps', 'api', 'prisma', 'migrations');
+    const localMigrations = fs.existsSync(migrationsDir)
+      ? fs.readdirSync(migrationsDir).filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory())
+      : [];
+    const appliedNames = new Set(migrations.map((m) => m.migration_name));
+    const pendingMigrations = localMigrations.filter((m) => !appliedNames.has(m));
+    if (pendingMigrations.length > 0) {
+      fail('Migraciones Prisma', `${pendingMigrations.length} migraciones pendientes en base de datos: ${pendingMigrations.join(', ')}. Ejecuta: npm run prisma:deploy`);
+    } else {
+      pass('Migraciones Prisma', `${migrations.length} migraciones registradas y aplicadas al 100%`);
+    }
 
     // 2.3 Institutions Seed
     const institutions = await prisma.financialInstitution.findMany({
